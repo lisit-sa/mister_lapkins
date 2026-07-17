@@ -3430,6 +3430,9 @@
   function beforeAuthStateChanged(auth, callback, onAbort) {
     return getModularInstance(auth).beforeAuthStateChanged(callback, onAbort);
   }
+  function onAuthStateChanged(auth, nextOrObserver, error, completed) {
+    return getModularInstance(auth).onAuthStateChanged(nextOrObserver, error, completed);
+  }
   function signOut(auth) {
     return getModularInstance(auth).signOut();
   }
@@ -31998,6 +32001,7 @@ This typically indicates that your device does not have a healthy Internet conne
       var auth = getAuth(app);
       var db = getFirestore(app);
       var currentUid = null;
+      var listeningUid = null;
       var getStateFn = null;
       var onRemoteStateFn = null;
       var onAuthChangeFn = null;
@@ -32007,7 +32011,9 @@ This typically indicates that your device does not have a healthy Internet conne
         return doc(db, "users", uid);
       }
       function startListening(uid) {
+        if (listeningUid === uid) return;
         if (unsubscribeSnapshot) unsubscribeSnapshot();
+        listeningUid = uid;
         unsubscribeSnapshot = onSnapshot(userDocRef(uid), function(snap) {
           if (snap.metadata.hasPendingWrites) return;
           if (!snap.exists()) return;
@@ -32022,34 +32028,30 @@ This typically indicates that your device does not have a healthy Internet conne
           unsubscribeSnapshot();
           unsubscribeSnapshot = null;
         }
+        listeningUid = null;
+      }
+      function loadOrSeedCloudState(uid) {
+        getDoc(userDocRef(uid)).then(function(snap) {
+          if (snap.exists() && snap.data().appState) {
+            if (onRemoteStateFn) onRemoteStateFn(snap.data().appState);
+          } else if (getStateFn) {
+            setDoc(userDocRef(uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
+          }
+          startListening(uid);
+        }).catch(function(e) {
+          console.warn("Mister Lapkins: cloud sync initial load failed", e);
+        });
       }
       FirebaseAuthentication.addListener("authStateChange", function(change) {
         var user = change.user;
         console.log("Mister Lapkins: authStateChange", user ? user.uid : null);
         currentUid = user ? user.uid : null;
-        if (user) {
-          getDoc(userDocRef(user.uid)).then(function(snap) {
-            if (snap.exists() && snap.data().appState) {
-              if (onRemoteStateFn) onRemoteStateFn(snap.data().appState);
-            } else if (getStateFn) {
-              setDoc(userDocRef(user.uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
-            }
-            startListening(user.uid);
-          }).catch(function(e) {
-            console.warn("Mister Lapkins: cloud sync initial load failed", e);
-          });
-        } else {
-          stopListening();
-        }
+        if (!user) stopListening();
         if (onAuthChangeFn) onAuthChangeFn(user);
       });
-      function flushPush() {
-        pushTimer = null;
-        if (!currentUid || !getStateFn) return;
-        setDoc(userDocRef(currentUid), { appState: getStateFn(), updatedAt: serverTimestamp() }).catch(function(e) {
-          console.warn("Mister Lapkins: cloud sync push failed", e);
-        });
-      }
+      onAuthStateChanged(auth, function(user) {
+        if (user) loadOrSeedCloudState(user.uid);
+      });
       window.CloudSync = {
         init: function(options) {
           getStateFn = options.getState;
@@ -32059,6 +32061,16 @@ This typically indicates that your device does not have a healthy Internet conne
         signIn: function() {
           FirebaseAuthentication.signInWithGoogle().then(function(result) {
             console.log("Mister Lapkins: signInWithGoogle resolved", result && result.user && result.user.uid);
+            var cred = result && result.credential;
+            if (!cred || !cred.idToken) {
+              console.warn("Mister Lapkins: no credential/idToken from native sign-in, cloud sync won't authenticate");
+              return;
+            }
+            var googleCredential = GoogleAuthProvider.credential(cred.idToken, cred.accessToken);
+            return signInWithCredential(auth, googleCredential).then(function(jsResult) {
+              console.log("Mister Lapkins: JS SDK signed in for Firestore", jsResult.user.uid);
+              loadOrSeedCloudState(jsResult.user.uid);
+            });
           }).catch(function(e) {
             console.warn("Mister Lapkins: Google sign-in failed", e);
           });
@@ -32077,6 +32089,13 @@ This typically indicates that your device does not have a healthy Internet conne
           pushTimer = setTimeout(flushPush, 1500);
         }
       };
+      function flushPush() {
+        pushTimer = null;
+        if (!currentUid || !getStateFn) return;
+        setDoc(userDocRef(currentUid), { appState: getStateFn(), updatedAt: serverTimestamp() }).catch(function(e) {
+          console.warn("Mister Lapkins: cloud sync push failed", e);
+        });
+      }
     }
   });
   require_cloud_sync();

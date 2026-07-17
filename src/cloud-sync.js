@@ -8,7 +8,7 @@
 // Talks to the rest of the (non-module, unbundled) app only through window.CloudSync, since
 // index.html's main script is a classic script and can't itself use `import`.
 import { initializeApp } from "firebase/app";
-import { getAuth, signOut as fbSignOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithCredential, onAuthStateChanged, signOut as fbSignOut } from "firebase/auth";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 
@@ -26,6 +26,7 @@ var auth = getAuth(app);
 var db = getFirestore(app);
 
 var currentUid = null;
+var listeningUid = null; // which uid startListening() is currently attached to, so we don't double-attach
 var getStateFn = null;
 var onRemoteStateFn = null;
 var onAuthChangeFn = null;
@@ -35,7 +36,9 @@ var pushTimer = null;
 function userDocRef(uid){ return doc(db, "users", uid); }
 
 function startListening(uid){
+  if(listeningUid === uid) return;
   if(unsubscribeSnapshot) unsubscribeSnapshot();
+  listeningUid = uid;
   unsubscribeSnapshot = onSnapshot(userDocRef(uid), function(snap){
     // hasPendingWrites means this snapshot is our own optimistic write echoing back, not a
     // genuine change from the server/another device — applying it again would be a no-op
@@ -49,42 +52,46 @@ function startListening(uid){
 
 function stopListening(){
   if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+  listeningUid = null;
 }
 
-// The plugin's own cross-platform event, not the raw Firebase JS SDK's onAuthStateChanged —
-// on native Android/iOS, sign-in happens through native code, and this is the listener the
-// plugin actually guarantees fires once that's done (see capawesome's own docs/examples).
-// Relying on the JS SDK's onAuthStateChanged instead was the previous bug: the console showed
-// the native Google picker completing, but nothing in the app ever reacted to it.
+// Loads (or seeds) this account's cloud document — only safe to call once the Firebase JS SDK
+// itself (not just the native plugin) actually has a signed-in user, since that's what
+// Firestore's security rules check (request.auth.uid). See the long comment on
+// ensureJsSdkSignedIn below for why that's not automatic.
+function loadOrSeedCloudState(uid){
+  getDoc(userDocRef(uid)).then(function(snap){
+    if(snap.exists() && snap.data().appState){
+      if(onRemoteStateFn) onRemoteStateFn(snap.data().appState);
+    } else if(getStateFn){
+      setDoc(userDocRef(uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
+    }
+    startListening(uid);
+  }).catch(function(e){ console.warn("Mister Lapkins: cloud sync initial load failed", e); });
+}
+
+// The plugin's own cross-platform event — fires reliably as soon as native sign-in completes,
+// so it drives the UI (avatar/name/signed-out state) immediately regardless of anything below.
 FirebaseAuthentication.addListener("authStateChange", function(change){
   var user = change.user;
   console.log("Mister Lapkins: authStateChange", user ? user.uid : null);
   currentUid = user ? user.uid : null;
-  if(user){
-    // First time this account is seen on this device: pull whatever's already in the
-    // cloud, or if there's nothing there yet, seed the cloud from this device's local
-    // (pre-sign-in) state so nothing the user already made gets lost.
-    getDoc(userDocRef(user.uid)).then(function(snap){
-      if(snap.exists() && snap.data().appState){
-        if(onRemoteStateFn) onRemoteStateFn(snap.data().appState);
-      } else if(getStateFn){
-        setDoc(userDocRef(user.uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
-      }
-      startListening(user.uid);
-    }).catch(function(e){ console.warn("Mister Lapkins: cloud sync initial load failed", e); });
-  } else {
-    stopListening();
-  }
+  if(!user) stopListening();
   if(onAuthChangeFn) onAuthChangeFn(user);
 });
 
-function flushPush(){
-  pushTimer = null;
-  if(!currentUid || !getStateFn) return;
-  setDoc(userDocRef(currentUid), { appState: getStateFn(), updatedAt: serverTimestamp() }).catch(function(e){
-    console.warn("Mister Lapkins: cloud sync push failed", e);
-  });
-}
+// Separate from authStateChange on purpose: this is the Firebase JS SDK's OWN auth state, which
+// is what Firestore actually checks against its security rules (request.auth.uid) — it is a
+// different session from the native one above, and with this plugin it is NOT reliably kept in
+// sync automatically despite `skipNativeAuth:false`. Confirmed on-device: native sign-in
+// completed (showed up in Authentication > Users) but nothing ever landed in Firestore, with no
+// visible error, because the JS SDK side never actually signed in, so every Firestore call was
+// silently rejected by the security rules as unauthenticated. signIn() below explicitly bridges
+// the two with signInWithCredential; this listener is the fallback that catches an already-
+// persisted JS SDK session on app restart.
+onAuthStateChanged(auth, function(user){
+  if(user) loadOrSeedCloudState(user.uid);
+});
 
 window.CloudSync = {
   init: function(options){
@@ -95,6 +102,16 @@ window.CloudSync = {
   signIn: function(){
     FirebaseAuthentication.signInWithGoogle().then(function(result){
       console.log("Mister Lapkins: signInWithGoogle resolved", result && result.user && result.user.uid);
+      var cred = result && result.credential;
+      if(!cred || !cred.idToken){
+        console.warn("Mister Lapkins: no credential/idToken from native sign-in, cloud sync won't authenticate");
+        return;
+      }
+      var googleCredential = GoogleAuthProvider.credential(cred.idToken, cred.accessToken);
+      return signInWithCredential(auth, googleCredential).then(function(jsResult){
+        console.log("Mister Lapkins: JS SDK signed in for Firestore", jsResult.user.uid);
+        loadOrSeedCloudState(jsResult.user.uid);
+      });
     }).catch(function(e){
       console.warn("Mister Lapkins: Google sign-in failed", e);
     });
@@ -111,3 +128,11 @@ window.CloudSync = {
     pushTimer = setTimeout(flushPush, 1500);
   }
 };
+
+function flushPush(){
+  pushTimer = null;
+  if(!currentUid || !getStateFn) return;
+  setDoc(userDocRef(currentUid), { appState: getStateFn(), updatedAt: serverTimestamp() }).catch(function(e){
+    console.warn("Mister Lapkins: cloud sync push failed", e);
+  });
+}
