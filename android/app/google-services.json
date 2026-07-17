@@ -12,7 +12,20 @@
           "package_name": "com.lisitsa.misterlapkins"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "687434243745-q89t1jgu5va56h6u8ulmbp11hq2ap4jg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lisitsa.misterlapkins",
+            "certificate_hash": "8018d3cb25d4b65eb0bdaaaa514d949fb26023d9"
+          }
+        },
+        {
+          "client_id": "687434243745-c0nef82ioav7824blm1vjojrqaudskas.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAX3LndYkfetIlFbDWMtn0mY21LGsf-VG8"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "687434243745-c0nef82ioav7824blm1vjojrqaudskas.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
