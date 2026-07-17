@@ -426,12 +426,15 @@
   /* Small inline icon that sits inside translated sentences/labels in place of an emoji —
      sized in em so it automatically scales with whatever font-size its surrounding text has. */
   .inline-icon{ width:1em; height:1em; object-fit:contain; vertical-align:-0.15em; display:inline-block; }
-  /* Paw/dog marker (see #icon-paw sprite near the top of <body>) — a plain silhouette colored
-     via currentColor, so it's always the theme's own text color (dark brown in light theme,
-     beige in dark theme) automatically. Color emoji (🐾/🐕) were tried here first, but they
-     carry fixed built-in colors that don't adapt to theme, and CSS filters meant to brighten
-     them for dark theme distorted their hue instead (came out a garish blue). */
-  .icon-glyph{ width:1em; height:1em; display:inline-block; vertical-align:-0.15em; fill:currentColor; }
+  /* Paw/dog marker — hand-drawn artwork (see the #icon-paw-dark/#icon-paw-light sprite near the
+     top of <body>, from icons/paws-dark.svg + paws-light.svg), swapped purely by theme so only
+     one of the pair ever shows at a time. Color emoji (🐾/🐕) were used here first, but they
+     carry fixed built-in colors that don't adapt to theme — a filter meant to brighten them for
+     dark theme distorted their hue instead (came out a garish blue). */
+  .icon-glyph-dark, .icon-glyph-light{ width:1em; height:1em; display:inline-block; vertical-align:-0.15em; }
+  .icon-glyph-light{ display:none; }
+  body.dark-theme .icon-glyph-dark{ display:none; }
+  body.dark-theme .icon-glyph-light{ display:inline-block; }
 
   /* Category filter dropdown — replaces the plain "Задачки" tab in #taskFilterTabs. The wrapper
      takes the flex:1 slot the old tab held; the trigger button keeps the .filter-tab look so the
@@ -1025,7 +1028,7 @@
 
   /* Kindness */
   .kindness-card{
-    background: var(--card); border:2px solid var(--text); border-radius: var(--radius-lg);
+    background: var(--card);
     padding:24px 20px; text-align:center; box-shadow: var(--shadow-soft);
   }
   .kindness-icon{ font-size:44px; margin-bottom:10px; }
@@ -1350,6 +1353,7 @@
     border-left:2px solid var(--text);
     box-shadow: -8px 0 24px rgba(var(--shadow-rgb),0.18);
     padding:20px;
+    padding-top:50px;
     overflow-y:auto;
     transform: translateX(100%);
     transition: transform .3s ease-in-out, background-color .3s ease;
@@ -1449,17 +1453,246 @@
 </style>
 </head>
 <body>
-<!-- Shared icon sprite — a plain paw silhouette, used wherever 🐾/🐕 used to sit (see
-     .icon-glyph). Colored via fill="currentColor" so it's always exactly the theme's own
-     text color (dark brown in light theme, beige in dark theme) rather than a fixed-color
-     emoji glyph that doesn't adapt to theme or take a filter cleanly. -->
+<!-- Shared icon sprite — hand-drawn two-paw artwork (icons/paws-dark.svg / paws-light.svg),
+     one per theme so the paw is always the theme's own palette instead of a fixed-color emoji
+     glyph. icon-paw-dark (dark pads) is used in light theme, icon-paw-light (cream pads) in
+     dark theme — picked purely by contrast against each theme's --bg/--card, not by name.
+     See .icon-glyph-dark/.icon-glyph-light for the theme-based show/hide. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="icon-paw" viewBox="0 0 64 64">
-    <ellipse cx="32" cy="44" rx="17" ry="14"/>
-    <ellipse cx="12" cy="27" rx="8" ry="10" transform="rotate(-18 12 27)"/>
-    <ellipse cx="27" cy="14" rx="8" ry="10.5" transform="rotate(-6 27 14)"/>
-    <ellipse cx="43" cy="14" rx="8" ry="10.5" transform="rotate(6 43 14)"/>
-    <ellipse cx="56" cy="28" rx="8" ry="10" transform="rotate(20 56 28)"/>
+    <symbol id="icon-paw-dark" viewBox="0 0 97.572731 133.80611">
+<g
+     id="pd-g2605-2"
+     transform="matrix(0.25682568,-0.05800856,0.05800856,0.25682568,-44.277086,-18.040903)">
+    <g
+       id="pd-g2603-0">
+      <path
+         style="fill:#000000;fill-opacity:0.827957;stroke:none"
+         id="pd-path1425-1"
+         d="m 324.5,282.26 c -11.49,-19.8 -36.22,-33.5 -64.9,-33.5 -28.68,0 -53.41,13.7 -64.9,33.5 -20.53,9.58 -33.5,23.62 -33.5,39.28 0,28.87 44.05,52.27 98.4,52.27 54.35,0 98.4,-23.4 98.4,-52.27 0,-15.66 -12.97,-29.7 -33.5,-39.28 z"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#000000;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.827451"
+         id="pd-ellipse1427-9"
+         transform="rotate(-76.66,295.77564,176.77123)"
+         ry="29.719999"
+         rx="38.75"
+         cy="176.77"
+         cx="295.76999"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#000000;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.827451"
+         id="pd-ellipse1429-6"
+         transform="rotate(-13.34,212.89295,176.76259)"
+         ry="38.75"
+         rx="29.719999"
+         cy="176.77"
+         cx="212.92999"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#000000;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.827451"
+         id="pd-ellipse1431-6"
+         transform="rotate(-30,148.90661,240.31941)"
+         ry="34.049999"
+         rx="26.120001"
+         cy="240.32001"
+         cx="148.91"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#000000;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.827451"
+         id="pd-ellipse1433-0"
+         transform="rotate(-60,363.09413,231.50252)"
+         ry="26.120001"
+         rx="34.049999"
+         cy="231.50999"
+         cx="363.09"
+         class="cls-1" />
+      <path
+         style="fill:#ffd6ea;fill-opacity:0.992157"
+         d="m 248.31818,346.91014 c -13.2029,2.16313 -24.10773,-8.79497 -26.00473,-20.37354 -3.84181,-23.44867 29.83065,-48.68131 30.49704,-48.79049 0.66646,-0.10869 40.63033,13.05906 44.4721,36.50774 1.89695,11.57856 -4.94087,25.44357 -18.14377,27.6067 -7.58019,1.24198 -13.15746,-1.73614 -16.5772,-4.59726 -2.3279,3.8028 -6.66322,8.40493 -14.24344,9.64685 z"
+         stroke="#000000"
+         stroke-width="0.197834"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         id="pd-path2011-9" />
+    </g>
+  </g>
+  
+<g
+     id="pd-g2605"
+     transform="matrix(0.25310364,0.07254634,-0.07254634,0.25310364,14.440809,18.554176)">
+    <g
+       id="pd-g2603">
+      <path
+         style="fill:#000000;fill-opacity:0.827957;stroke:none"
+         id="pd-path1425"
+         d="m 324.5,282.26 c -11.49,-19.8 -36.22,-33.5 -64.9,-33.5 -28.68,0 -53.41,13.7 -64.9,33.5 -20.53,9.58 -33.5,23.62 -33.5,39.28 0,28.87 44.05,52.27 98.4,52.27 54.35,0 98.4,-23.4 98.4,-52.27 0,-15.66 -12.97,-29.7 -33.5,-39.28 z"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#000000;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.827451"
+         id="pd-ellipse1427"
+         transform="rotate(-76.66,295.77564,176.77123)"
+         ry="29.719999"
+         rx="38.75"
+         cy="176.77"
+         cx="295.76999"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#000000;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.827451"
+         id="pd-ellipse1429"
+         transform="rotate(-13.34,212.89295,176.76259)"
+         ry="38.75"
+         rx="29.719999"
+         cy="176.77"
+         cx="212.92999"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#000000;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.827451"
+         id="pd-ellipse1431"
+         transform="rotate(-30,148.90661,240.31941)"
+         ry="34.049999"
+         rx="26.120001"
+         cy="240.32001"
+         cx="148.91"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#000000;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.827451"
+         id="pd-ellipse1433"
+         transform="rotate(-60,363.09413,231.50252)"
+         ry="26.120001"
+         rx="34.049999"
+         cy="231.50999"
+         cx="363.09"
+         class="cls-1" />
+      <path
+         style="fill:#ffd6ea;fill-opacity:0.992157"
+         d="m 241.28835,344.07649 c -13.27832,-1.63767 -20.66083,-15.22053 -19.22463,-26.86523 2.90852,-23.58263 42.31865,-38.32584 42.98884,-38.24318 0.67013,0.0831 35.31709,23.95967 32.40854,47.54229 -1.43625,11.64468 -11.89774,23.02675 -25.17606,21.38907 -7.6235,-0.94018 -12.13799,-5.36675 -14.61495,-9.07421 -3.30351,2.99453 -8.75823,6.19151 -16.38174,5.25126 z"
+         stroke="#000000"
+         stroke-width="0.197834"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         id="pd-path2011" />
+    </g>
+  </g>
+
+  </symbol>
+
+  <symbol id="icon-paw-light" viewBox="0 0 97.572731 133.80611">
+<g
+     id="pl-g2605-2"
+     transform="matrix(0.25682568,-0.05800856,0.05800856,0.25682568,-44.277086,-18.040903)">
+    <g
+       inkscape:label="Clip"
+       id="pl-g2603-0">
+      <path
+         style="fill:#f0e6d2;fill-opacity:0.82745099;stroke:none"
+         id="pl-path1425-1"
+         d="m 324.5,282.26 c -11.49,-19.8 -36.22,-33.5 -64.9,-33.5 -28.68,0 -53.41,13.7 -64.9,33.5 -20.53,9.58 -33.5,23.62 -33.5,39.28 0,28.87 44.05,52.27 98.4,52.27 54.35,0 98.4,-23.4 98.4,-52.27 0,-15.66 -12.97,-29.7 -33.5,-39.28 z"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#f0e6d2;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.82745099"
+         id="pl-ellipse1427-9"
+         transform="rotate(-76.66,295.77564,176.77123)"
+         ry="29.719999"
+         rx="38.75"
+         cy="176.77"
+         cx="295.76999"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#f0e6d2;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.82745099"
+         id="pl-ellipse1429-6"
+         transform="rotate(-13.34,212.89295,176.76259)"
+         ry="38.75"
+         rx="29.719999"
+         cy="176.77"
+         cx="212.92999"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#f0e6d2;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.82745099"
+         id="pl-ellipse1431-6"
+         transform="rotate(-30,148.90661,240.31941)"
+         ry="34.049999"
+         rx="26.120001"
+         cy="240.32001"
+         cx="148.91"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#f0e6d2;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.82745099"
+         id="pl-ellipse1433-0"
+         transform="rotate(-60,363.09413,231.50252)"
+         ry="26.120001"
+         rx="34.049999"
+         cy="231.50999"
+         cx="363.09"
+         class="cls-1" />
+      <path
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:none"
+         d="m 248.31818,346.91014 c -13.2029,2.16313 -24.10773,-8.79497 -26.00473,-20.37354 -3.84181,-23.44867 29.83065,-48.68131 30.49704,-48.79049 0.66646,-0.10869 40.63033,13.05906 44.4721,36.50774 1.89695,11.57856 -4.94087,25.44357 -18.14377,27.6067 -7.58019,1.24198 -13.15746,-1.73614 -16.5772,-4.59726 -2.3279,3.8028 -6.66322,8.40493 -14.24344,9.64685 z"
+         stroke="#000000"
+         stroke-width="0.197834"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         id="pl-path2011-9" />
+    </g>
+  </g>
+  
+<g
+     id="pl-g2605"
+     transform="matrix(0.25310364,0.07254634,-0.07254634,0.25310364,14.440809,18.554176)">
+    <g
+       inkscape:label="Clip"
+       id="pl-g2603">
+      <path
+         style="fill:#f0e6d2;fill-opacity:0.82745099;stroke:none"
+         id="pl-path1425"
+         d="m 324.5,282.26 c -11.49,-19.8 -36.22,-33.5 -64.9,-33.5 -28.68,0 -53.41,13.7 -64.9,33.5 -20.53,9.58 -33.5,23.62 -33.5,39.28 0,28.87 44.05,52.27 98.4,52.27 54.35,0 98.4,-23.4 98.4,-52.27 0,-15.66 -12.97,-29.7 -33.5,-39.28 z"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#f0e6d2;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.82745099"
+         id="pl-ellipse1427"
+         transform="rotate(-76.66,295.77564,176.77123)"
+         ry="29.719999"
+         rx="38.75"
+         cy="176.77"
+         cx="295.76999"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#f0e6d2;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.82745099"
+         id="pl-ellipse1429"
+         transform="rotate(-13.34,212.89295,176.76259)"
+         ry="38.75"
+         rx="29.719999"
+         cy="176.77"
+         cx="212.92999"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#f0e6d2;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.82745099"
+         id="pl-ellipse1431"
+         transform="rotate(-30,148.90661,240.31941)"
+         ry="34.049999"
+         rx="26.120001"
+         cy="240.32001"
+         cx="148.91"
+         class="cls-1" />
+      <ellipse
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:#f0e6d2;stroke-width:26.738;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:0.82745099"
+         id="pl-ellipse1433"
+         transform="rotate(-60,363.09413,231.50252)"
+         ry="26.120001"
+         rx="34.049999"
+         cy="231.50999"
+         cx="363.09"
+         class="cls-1" />
+      <path
+         style="fill:#ffd6ea;fill-opacity:0.992157;stroke:none"
+         d="m 241.28835,344.07649 c -13.27832,-1.63767 -20.66083,-15.22053 -19.22463,-26.86523 2.90852,-23.58263 42.31865,-38.32584 42.98884,-38.24318 0.67013,0.0831 35.31709,23.95967 32.40854,47.54229 -1.43625,11.64468 -11.89774,23.02675 -25.17606,21.38907 -7.6235,-0.94018 -12.13799,-5.36675 -14.61495,-9.07421 -3.30351,2.99453 -8.75823,6.19151 -16.38174,5.25126 z"
+         stroke="#000000"
+         stroke-width="0.197834"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         id="pl-path2011" />
+    </g>
+  </g>
+
   </symbol>
 </svg>
 <div class="app">
@@ -1495,7 +1728,7 @@
     <div class="header-bar" id="headerBar">
       <!-- Paw icon only now — the "Cozy Focus Cat" wordmark is gone, kept only as an aria-label
            for screen readers so the app's name is still announced. -->
-      <span class="header-title" aria-label="Cozy Focus Cat"><svg class="icon-glyph"><use href="#icon-paw"></use></svg></span>
+      <span class="header-title" aria-label="Cozy Focus Cat"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg></span>
 
       <!-- Story window: normally cycles gentle encouragement text; on task #1/#2 of the
            reward cycle it swaps to a random scene from header_cats/ for 10s (see
@@ -1640,7 +1873,10 @@
   <div class="corner-fab-row" id="cornerFabRow">
     <button type="button" class="focus-btn" id="focusBtn" aria-label="Фокус-режим" data-i18n-aria="aria_focus_btn"><img class="fab-icon" src="icons/icon_hourglass.png" alt=""></button>
     <button type="button" class="homecheck-btn" id="homeCheckBtn" aria-label="Контроль дома" data-i18n-aria="aria_home_check"><img class="fab-icon" src="icons/icon_lock.png" alt=""></button>
-    <button type="button" class="tamagotchi-btn" id="tamagotchiBtn" aria-label="Мистер Лапкинс" data-i18n-aria="aria_mood_btn">🐾</button>
+    <button type="button" class="tamagotchi-btn" id="tamagotchiBtn" aria-label="Мистер Лапкинс" data-i18n-aria="aria_mood_btn">
+      <svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg>
+      <svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg>
+    </button>
   </div>
  </div>
 
@@ -1937,7 +2173,8 @@
   </button>
 
   <button type="button" class="sidebar-nav-btn" id="sidebarKindnessBtn">
-    <span class="sidebar-nav-icon">🐾</span>
+    <svg class="sidebar-nav-icon icon-glyph-dark"><use href="#icon-paw-dark"></use></svg>
+    <svg class="sidebar-nav-icon icon-glyph-light"><use href="#icon-paw-light"></use></svg>
     <span data-i18n="sidebar_nav_kindness">Добро</span>
   </button>
 </div>
@@ -1990,19 +2227,17 @@
 <div class="modal-overlay" id="kindnessModalOverlay">
   <div class="modal-card add-task-card settings-modal-card">
     <button type="button" class="modal-close-x" id="kindnessModalCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
-    <p class="modal-title" data-i18n="sidebar_nav_kindness">Добро</p>
-
-    <div class="sidebar-section">
+    
       <div class="kindness-card">
-        <div class="kindness-icon"><svg class="icon-glyph"><use href="#icon-paw"></use></svg></div>
+        <div class="kindness-icon"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg></div>
         <h2 data-i18n="kindness_heading">Хвостики</h2>
         <p data-i18n="kindness_ad_text">Мистер Лапкинс напоминает: 5% от рекламы в будущем мы будем отдавать приютам для животных в Израиле.</p>
         <p class="kindness-sub" data-i18n="kindness_sub">А если хочешь помочь прямо сейчас — вот пара организаций:</p>
         <ul class="kindness-links">
-          <li><a href="https://www.spca.co.il" target="_blank" rel="noopener" data-i18n="kindness_link_spca"><svg class="icon-glyph"><use href="#icon-paw"></use></svg> SPCA Israel — Агудат Цаар Балей Хаим</a></li>
-          <li><a href="https://www.letlive.org.il" target="_blank" rel="noopener" data-i18n="kindness_link_letlive"><svg class="icon-glyph"><use href="#icon-paw"></use></svg> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)</a></li>
+          <li><a href="https://www.spca.co.il" target="_blank" rel="noopener" data-i18n="kindness_link_spca"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg> SPCA Israel — Агудат Цаар Балей Хаим</a></li>
+          <li><a href="https://www.letlive.org.il" target="_blank" rel="noopener" data-i18n="kindness_link_letlive"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)</a></li>
         </ul>
-      </div>
+    
     </div>
     <!-- <div class="sidebar-section">
       <p class="sidebar-placeholder-text" data-i18n="kindness_placeholder">Скоро здесь появится статистика твоей заботы о себе.</p>
@@ -2194,14 +2429,14 @@
       kindness_heading: "Хвостики",
       kindness_ad_text: "Мистер Лапкинс напоминает: 5% от рекламы в будущем мы будем отдавать приютам для животных в Израиле.",
       kindness_sub: "А если хочешь помочь прямо сейчас — вот пара организаций:",
-      kindness_link_spca: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> SPCA Israel — Агудат Цаар Балей Хаим",
-      kindness_link_letlive: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)",
+      kindness_link_spca: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> SPCA Israel — Агудат Цаар Балей Хаим",
+      kindness_link_letlive: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)",
       kindness_note: "Ссылки указаны для ориентира — перед публикацией приложения стоит проверить их актуальность.",
       kindness_placeholder: "Скоро здесь появится статистика твоей заботы о себе.",
 
       notif_title: "Мистер Лапкинс напоминает",
       notif_body_prefix: "Мой лорд, время пришло! Пора сделать: ",
-      task_carried_over_caption: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> Лапкинс перенёс напоминание на сегодня, {time}",
+      task_carried_over_caption: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> Лапкинс перенёс напоминание на сегодня, {time}",
 
       cat_low_pantry_template: "Мой лорд, кошачье чутьё подсказывает, что {item} иссякает. Сбегай купи!",
 
@@ -2381,14 +2616,14 @@
       kindness_heading: "Little Tails",
       kindness_ad_text: "Mr. Lapkins wants you to know: in the future, 5% of our ad revenue will go to animal shelters in Israel.",
       kindness_sub: "Want to help right now? Here are a couple of organizations:",
-      kindness_link_spca: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> SPCA Israel — Tza'ar Ba'alei Chaim",
-      kindness_link_letlive: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> Let the Animals Live (Tnu La'Chayot Lichyot)",
+      kindness_link_spca: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> SPCA Israel — Tza'ar Ba'alei Chaim",
+      kindness_link_letlive: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> Let the Animals Live (Tnu La'Chayot Lichyot)",
       kindness_note: "Links are for reference — please double-check they're still active before publishing the app.",
       kindness_placeholder: "Your self-care stats will show up here soon.",
 
       notif_title: "Mr. Lapkins reminds you",
       notif_body_prefix: "My lord, it's time! Time to do: ",
-      task_carried_over_caption: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> Mr. Lapkins moved the reminder to today, {time}",
+      task_carried_over_caption: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> Mr. Lapkins moved the reminder to today, {time}",
 
       cat_low_pantry_template: "My lord, my whiskers sense that {item} is running low. Better go stock up!",
 
