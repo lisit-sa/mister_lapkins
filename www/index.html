@@ -1368,6 +1368,27 @@
   .sidebar-nav-label{ flex:1; }
   .sidebar-nav-lang .lang-toggle{ flex-shrink:0; }
   .sidebar-nav-lang .lang-btn{ flex:none; padding:7px 14px; font-size:12.5px; }
+
+  .sidebar-account{ margin-bottom:14px; }
+  .account-signin-btn{
+    display:flex; align-items:center; justify-content:center; width:100%; gap:8px;
+    border:2px solid var(--text); border-radius: var(--radius-md); background: var(--accent);
+    color: var(--on-accent); font-weight:700; font-size:13.5px; padding:12px; cursor:pointer;
+    font-family:inherit; box-shadow: var(--shadow-soft);
+  }
+  .account-signin-btn:active{ transform: translateY(1px); }
+  .account-signed-in{
+    display:flex; align-items:center; gap:10px;
+    border:2px solid var(--text); border-radius: var(--radius-md); background: var(--card);
+    padding:10px 12px;
+  }
+  .account-avatar{ width:32px; height:32px; border-radius:50%; object-fit:cover; flex-shrink:0; background: var(--surface-soft); }
+  .account-name{ flex:1; min-width:0; font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .account-signout-btn{
+    flex-shrink:0; background:transparent; border:none; color: var(--text); opacity:.6;
+    font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; padding:4px 2px;
+  }
+  .account-signout-btn:active{ opacity:1; }
   /* Settings/Kindness modals reuse .modal-card/.add-task-card, just capped and scrollable —
      both can grow taller than a short phone screen once every toggle/hint/link is in view. */
   .settings-modal-card{ max-height:82vh; overflow-y:auto; }
@@ -1851,6 +1872,19 @@
     <button type="button" class="sidebar-close-x" id="sidebarCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
   </div>
 
+  <!-- Signed-out state shows just the sign-in button; signed-in state (id=accountSignedIn)
+       swaps in via .hidden toggling in updateAccountUI (see window.CloudSync.init call). -->
+  <div class="sidebar-account">
+    <button type="button" class="account-signin-btn" id="accountSignInBtn">
+      <span data-i18n="account_sign_in">Войти через Google</span>
+    </button>
+    <div class="account-signed-in hidden" id="accountSignedIn">
+      <img class="account-avatar" id="accountAvatar" src="" alt="">
+      <span class="account-name" id="accountName"></span>
+      <button type="button" class="account-signout-btn" id="accountSignOutBtn" data-i18n="account_sign_out">Выйти</button>
+    </div>
+  </div>
+
   <div class="sidebar-nav-btn sidebar-nav-lang">
     <img class="sidebar-nav-icon" src="icons/icon_languages.png" alt="">
     <span class="sidebar-nav-label" data-i18n="sidebar_section_lang">Язык / Language</span>
@@ -1955,6 +1989,109 @@
 <script src="collections/rewards-data.js"></script>
 <script src="collections/gift-box-texts.js"></script>
 <script src="collections/header-phrases.js"></script>
+
+<!-- Cloud sync (Google sign-in + Firestore) — a separate ES module so it can import the
+     Firebase SDKs straight from CDN with no build step. It only ever talks to the rest of
+     the app through window.CloudSync (see the classic <script> below, which is not a module
+     and can't itself use `import`). Firebase's own web config here is not secret — it just
+     identifies the project; real access control lives in Firestore's security rules. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut as fbSignOut } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+  import { FirebaseAuthentication } from "https://cdn.jsdelivr.net/npm/@capacitor-firebase/authentication@8.3.0/+esm";
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyAhdMBjwnI5r4gpLdzcogppHu1iCNtnUSU",
+    authDomain: "mister-lapkins.firebaseapp.com",
+    projectId: "mister-lapkins",
+    storageBucket: "mister-lapkins.firebasestorage.app",
+    messagingSenderId: "687434243745",
+    appId: "1:687434243745:web:75f645846829e11adf9ae0"
+  };
+
+  var app = initializeApp(firebaseConfig);
+  var auth = getAuth(app);
+  var db = getFirestore(app);
+
+  var currentUid = null;
+  var getStateFn = null;
+  var onRemoteStateFn = null;
+  var onAuthChangeFn = null;
+  var unsubscribeSnapshot = null;
+  var pushTimer = null;
+
+  function userDocRef(uid){ return doc(db, "users", uid); }
+
+  function startListening(uid){
+    if(unsubscribeSnapshot) unsubscribeSnapshot();
+    unsubscribeSnapshot = onSnapshot(userDocRef(uid), function(snap){
+      // hasPendingWrites means this snapshot is our own optimistic write echoing back, not a
+      // genuine change from the server/another device — applying it again would be a no-op
+      // at best and a wasted re-render at worst.
+      if(snap.metadata.hasPendingWrites) return;
+      if(!snap.exists()) return;
+      var data = snap.data();
+      if(data && data.appState && onRemoteStateFn) onRemoteStateFn(data.appState);
+    }, function(err){ console.warn("Mister Lapkins: cloud sync listener error", err); });
+  }
+
+  function stopListening(){
+    if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+  }
+
+  onAuthStateChanged(auth, function(user){
+    currentUid = user ? user.uid : null;
+    if(user){
+      // First time this account is seen on this device: pull whatever's already in the
+      // cloud, or if there's nothing there yet, seed the cloud from this device's local
+      // (pre-sign-in) state so nothing the user already made gets lost.
+      getDoc(userDocRef(user.uid)).then(function(snap){
+        if(snap.exists() && snap.data().appState){
+          if(onRemoteStateFn) onRemoteStateFn(snap.data().appState);
+        } else if(getStateFn){
+          setDoc(userDocRef(user.uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
+        }
+        startListening(user.uid);
+      });
+    } else {
+      stopListening();
+    }
+    if(onAuthChangeFn) onAuthChangeFn(user);
+  });
+
+  function flushPush(){
+    pushTimer = null;
+    if(!currentUid || !getStateFn) return;
+    setDoc(userDocRef(currentUid), { appState: getStateFn(), updatedAt: serverTimestamp() }).catch(function(e){
+      console.warn("Mister Lapkins: cloud sync push failed", e);
+    });
+  }
+
+  window.CloudSync = {
+    init: function(options){
+      getStateFn = options.getState;
+      onRemoteStateFn = options.onRemoteState;
+      onAuthChangeFn = options.onAuthChange;
+    },
+    signIn: function(){
+      FirebaseAuthentication.signInWithGoogle().catch(function(e){
+        console.warn("Mister Lapkins: Google sign-in failed", e);
+      });
+    },
+    signOut: function(){
+      FirebaseAuthentication.signOut().catch(function(){});
+      fbSignOut(auth).catch(function(){});
+    },
+    // Call after every local state mutation (see saveState) — debounced so a burst of
+    // changes (typing, ticking checkboxes) collapses into one write instead of many.
+    queuePush: function(){
+      if(!currentUid) return;
+      if(pushTimer) clearTimeout(pushTimer);
+      pushTimer = setTimeout(flushPush, 1500);
+    }
+  };
+</script>
 <script>
 (function(){
   "use strict";
@@ -2108,6 +2245,8 @@
       // this dict right after the translations object below — edit them there instead.
 
       sidebar_title: "Меню",
+      account_sign_in: "Войти через Google",
+      account_sign_out: "Выйти",
       sidebar_nav_settings: "Настройки",
       sidebar_nav_kindness: "Добро",
       sidebar_section_lang: "Язык / Language",
@@ -2293,6 +2432,8 @@
       // collections/gift-box-texts.js (GIFT_BOX_TEXTS.en) instead.
 
       sidebar_title: "Menu",
+      account_sign_in: "Sign in with Google",
+      account_sign_out: "Sign out",
       sidebar_nav_settings: "Settings",
       sidebar_nav_kindness: "Kindness",
       sidebar_section_lang: "Язык / Language",
@@ -2513,6 +2654,7 @@
   var tabButtons, tabPanels;
   var boxModalOverlay, boxModalCloseX, giftBox, boxStageBefore, boxStageAfter, rewardTitleEl, rewardIconEl, rewardLevelEl, rewardNameEl, rewardDescriptionEl, closeModalBtn;
   var settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, darkThemeToggle, catThoughtsToggle, showAllTasksToggle, gamificationToggle;
+  var accountSignInBtn, accountSignedIn, accountAvatar, accountName, accountSignOutBtn;
   var sidebarSettingsBtn, sidebarKindnessBtn, settingsModalOverlay, settingsModalCloseX, kindnessModalOverlay, kindnessModalCloseX;
   var progressWrapEl;
   var habitList, addHabitTrigger;
@@ -2958,6 +3100,34 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }catch(e){
       console.warn("Cozy Focus Cat: failed to save state", e);
+    }
+    // No-op while signed out (see window.CloudSync.queuePush) — localStorage above still
+    // covers the offline/not-signed-in case exactly as before.
+    if(window.CloudSync) window.CloudSync.queuePush();
+  }
+
+  // Applied when a signed-in account's cloud state arrives — either right after sign-in
+  // (existing account) or a change synced down from another device. Deliberately last-write-
+  // wins: whichever state the cloud has replaces this device's in full, no field-by-field merge.
+  function applyRemoteState(remoteState){
+    state = normalizeState(remoteState);
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+    applySettingsToSidebar();
+    applyDarkTheme();
+    applyGamificationVisibility();
+    applyTranslations();
+    populatePantryTemplateOptions();
+    updateCategoryFilterLabel();
+    renderCategoryFilterList();
+    renderAll();
+  }
+
+  function updateAccountUI(user){
+    accountSignInBtn.classList.toggle("hidden", !!user);
+    accountSignedIn.classList.toggle("hidden", !user);
+    if(user){
+      accountName.textContent = user.displayName || user.email || "";
+      accountAvatar.src = user.photoUrl || user.photoURL || "";
     }
   }
 
@@ -5485,6 +5655,8 @@
     });
     langRuBtn.addEventListener("click", function(){ switchLanguage("ru"); });
     langEnBtn.addEventListener("click", function(){ switchLanguage("en"); });
+    accountSignInBtn.addEventListener("click", function(){ if(window.CloudSync) window.CloudSync.signIn(); });
+    accountSignOutBtn.addEventListener("click", function(){ if(window.CloudSync) window.CloudSync.signOut(); });
     darkThemeToggle.addEventListener("change", toggleDarkTheme);
     catThoughtsToggle.addEventListener("change", toggleCatThoughts);
     showAllTasksToggle.addEventListener("change", toggleShowAllTasksImmediately);
@@ -5594,6 +5766,12 @@
     rewardDescriptionEl = document.getElementById("rewardDescription");
     closeModalBtn = document.getElementById("closeModalBtn");
 
+    accountSignInBtn = document.getElementById("accountSignInBtn");
+    accountSignedIn = document.getElementById("accountSignedIn");
+    accountAvatar = document.getElementById("accountAvatar");
+    accountName = document.getElementById("accountName");
+    accountSignOutBtn = document.getElementById("accountSignOutBtn");
+
     settingsBtn = document.getElementById("settingsBtn");
     settingsSidebar = document.getElementById("settingsSidebar");
     sidebarOverlay = document.getElementById("sidebarOverlay");
@@ -5688,6 +5866,14 @@
     setInterval(habitTick, 5000);
     schedulePetals();
     initHeaderStoryWindow();
+
+    if(window.CloudSync){
+      window.CloudSync.init({
+        getState: function(){ return state; },
+        onRemoteState: applyRemoteState,
+        onAuthChange: updateAccountUI
+      });
+    }
   }
 
   if(document.readyState === "loading"){
