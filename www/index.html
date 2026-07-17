@@ -152,6 +152,9 @@
     flex-direction:column;
     position:relative;
     box-shadow: 0 0 40px rgba(var(--shadow-rgb),0.08);
+    /* Android 15+ (edge-to-edge enforced by default) draws the WebView behind the status
+       bar — same reasoning as .tabbar's env(safe-area-inset-bottom) below, just the top edge. */
+    padding-top: env(safe-area-inset-top);
   }
 
   /* Frosted glass panel holding the cat, progress bar and task content.
@@ -1990,108 +1993,15 @@
 <script src="collections/gift-box-texts.js"></script>
 <script src="collections/header-phrases.js"></script>
 
-<!-- Cloud sync (Google sign-in + Firestore) — a separate ES module so it can import the
-     Firebase SDKs straight from CDN with no build step. It only ever talks to the rest of
-     the app through window.CloudSync (see the classic <script> below, which is not a module
-     and can't itself use `import`). Firebase's own web config here is not secret — it just
-     identifies the project; real access control lives in Firestore's security rules. -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut as fbSignOut } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
-  import { FirebaseAuthentication } from "https://cdn.jsdelivr.net/npm/@capacitor-firebase/authentication@8.3.0/+esm";
-
-  var firebaseConfig = {
-    apiKey: "AIzaSyAhdMBjwnI5r4gpLdzcogppHu1iCNtnUSU",
-    authDomain: "mister-lapkins.firebaseapp.com",
-    projectId: "mister-lapkins",
-    storageBucket: "mister-lapkins.firebasestorage.app",
-    messagingSenderId: "687434243745",
-    appId: "1:687434243745:web:75f645846829e11adf9ae0"
-  };
-
-  var app = initializeApp(firebaseConfig);
-  var auth = getAuth(app);
-  var db = getFirestore(app);
-
-  var currentUid = null;
-  var getStateFn = null;
-  var onRemoteStateFn = null;
-  var onAuthChangeFn = null;
-  var unsubscribeSnapshot = null;
-  var pushTimer = null;
-
-  function userDocRef(uid){ return doc(db, "users", uid); }
-
-  function startListening(uid){
-    if(unsubscribeSnapshot) unsubscribeSnapshot();
-    unsubscribeSnapshot = onSnapshot(userDocRef(uid), function(snap){
-      // hasPendingWrites means this snapshot is our own optimistic write echoing back, not a
-      // genuine change from the server/another device — applying it again would be a no-op
-      // at best and a wasted re-render at worst.
-      if(snap.metadata.hasPendingWrites) return;
-      if(!snap.exists()) return;
-      var data = snap.data();
-      if(data && data.appState && onRemoteStateFn) onRemoteStateFn(data.appState);
-    }, function(err){ console.warn("Mister Lapkins: cloud sync listener error", err); });
-  }
-
-  function stopListening(){
-    if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-  }
-
-  onAuthStateChanged(auth, function(user){
-    currentUid = user ? user.uid : null;
-    if(user){
-      // First time this account is seen on this device: pull whatever's already in the
-      // cloud, or if there's nothing there yet, seed the cloud from this device's local
-      // (pre-sign-in) state so nothing the user already made gets lost.
-      getDoc(userDocRef(user.uid)).then(function(snap){
-        if(snap.exists() && snap.data().appState){
-          if(onRemoteStateFn) onRemoteStateFn(snap.data().appState);
-        } else if(getStateFn){
-          setDoc(userDocRef(user.uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
-        }
-        startListening(user.uid);
-      });
-    } else {
-      stopListening();
-    }
-    if(onAuthChangeFn) onAuthChangeFn(user);
-  });
-
-  function flushPush(){
-    pushTimer = null;
-    if(!currentUid || !getStateFn) return;
-    setDoc(userDocRef(currentUid), { appState: getStateFn(), updatedAt: serverTimestamp() }).catch(function(e){
-      console.warn("Mister Lapkins: cloud sync push failed", e);
-    });
-  }
-
-  window.CloudSync = {
-    init: function(options){
-      getStateFn = options.getState;
-      onRemoteStateFn = options.onRemoteState;
-      onAuthChangeFn = options.onAuthChange;
-    },
-    signIn: function(){
-      FirebaseAuthentication.signInWithGoogle().catch(function(e){
-        console.warn("Mister Lapkins: Google sign-in failed", e);
-      });
-    },
-    signOut: function(){
-      FirebaseAuthentication.signOut().catch(function(){});
-      fbSignOut(auth).catch(function(){});
-    },
-    // Call after every local state mutation (see saveState) — debounced so a burst of
-    // changes (typing, ticking checkboxes) collapses into one write instead of many.
-    queuePush: function(){
-      if(!currentUid) return;
-      if(pushTimer) clearTimeout(pushTimer);
-      pushTimer = setTimeout(flushPush, 1500);
-    }
-  };
-</script>
+<!-- Cloud sync (Google sign-in + Firestore). Source lives in src/cloud-sync.js and is bundled
+     with esbuild into the plain script below (see package.json's "build:cloudsync") — loading
+     Firebase + @capacitor-firebase/authentication straight from a CDN as an ES module worked
+     in a desktop browser, but the plugin's browser build didn't reliably bridge to the native
+     Android side inside the actual app's WebView, so sign-in silently did nothing. Bundling is
+     how Capacitor plugins are meant to be consumed. Talks to the rest of the (unbundled) app
+     only through window.CloudSync. Run `npm run build:cloudsync` again after editing the
+     source, then `npx cap sync android`, before this takes effect on device. -->
+<script src="cloud-sync.bundle.js"></script>
 <script>
 (function(){
   "use strict";

@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync": "cap sync android",
-    "open:android": "cap open android"
+    "sync": "npm run build:cloudsync && cap sync android",
+    "open:android": "cap open android",
+    "build:cloudsync": "esbuild src/cloud-sync.js --bundle --format=iife --outfile=www/cloud-sync.bundle.js"
   },
   "repository": {
     "type": "git",
@@ -26,5 +27,8 @@
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
     "firebase": "^12.16.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
   }
 }
