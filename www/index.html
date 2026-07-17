@@ -152,18 +152,20 @@
     flex-direction:column;
     position:relative;
     box-shadow: 0 0 40px rgba(var(--shadow-rgb),0.08);
-    /* Android 15+ (edge-to-edge enforced by default) draws the WebView behind the status
-       bar — same reasoning as .tabbar's env(safe-area-inset-bottom) below, just the top edge. */
-    padding-top: env(safe-area-inset-top);
   }
 
   /* Frosted glass panel holding the cat, progress bar and task content.
      Its own background/blur only affects what's BEHIND it (the photo), not
      the decorative layer below, which paints on top of this tint at z-index:5,
-     while .content (z-index:6) keeps every real card above the decoration. */
+     while .content (z-index:6) keeps every real card above the decoration.
+     content-container itself must also be above the petals/steam (5) — it establishes its
+     own stacking context, so .content's z-index:6 inside it only ever competes with its own
+     siblings, never with .petals-layer/.steam-container out at the .app level. It was 2
+     before, which put the ENTIRE header/content/tabbar behind the petals despite their own
+     higher internal z-index values. */
   .content-container{
     position: relative;
-    z-index: 2;
+    z-index: 6;
     flex:1;
     min-height:0;
     display:flex;
@@ -267,6 +269,10 @@
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     border-bottom: 2px solid var(--text);
+    /* Android 15+ (edge-to-edge enforced by default) draws the WebView behind the status bar —
+       padding here (rather than on .app) means THIS element's own frosted background fills
+       that strip too, instead of leaving the plain background photo showing through it. */
+    padding-top: env(safe-area-inset-top);
   }
   .header-bar{
     position: relative;
@@ -420,17 +426,12 @@
   /* Small inline icon that sits inside translated sentences/labels in place of an emoji —
      sized in em so it automatically scales with whatever font-size its surrounding text has. */
   .inline-icon{ width:1em; height:1em; object-fit:contain; vertical-align:-0.15em; display:inline-block; }
-  /* Color emoji (🐾 here) carry fixed built-in colors that never adapt to theme — a warm brown
-     paw print reads fine on the light theme's cream surfaces but nearly vanishes against dark
-     theme's near-black ones. Brightening just in dark theme keeps light theme untouched. */
-  .emoji-dark-boost{ display:inline-block; }
-  /* A brightness/saturate filter was tried here first, but color emoji don't have a uniform
-     base tone — it pushed 🐾's muted shadow tones into a garish blue instead of evenly
-     brightening it. A plain light backdrop behind the glyph fixes the contrast problem
-     without touching the emoji's own colors at all. */
-  body.dark-theme .emoji-dark-boost{
-    background: rgba(255,255,255,0.2); border-radius:50%; padding:0.15em; margin:-0.15em;
-  }
+  /* Paw/dog marker (see #icon-paw sprite near the top of <body>) — a plain silhouette colored
+     via currentColor, so it's always the theme's own text color (dark brown in light theme,
+     beige in dark theme) automatically. Color emoji (🐾/🐕) were tried here first, but they
+     carry fixed built-in colors that don't adapt to theme, and CSS filters meant to brighten
+     them for dark theme distorted their hue instead (came out a garish blue). */
+  .icon-glyph{ width:1em; height:1em; display:inline-block; vertical-align:-0.15em; fill:currentColor; }
 
   /* Category filter dropdown — replaces the plain "Задачки" tab in #taskFilterTabs. The wrapper
      takes the flex:1 slot the old tab held; the trigger button keeps the .filter-tab look so the
@@ -1085,7 +1086,7 @@
   .modal-close-x:active{ opacity:1; }
   /* .5 opacity reads fine on the light theme's cream surfaces but is too faint against dark
      theme's darker card/sidebar backgrounds. */
-  body.dark-theme .modal-close-x{ opacity:.85; }
+  body.dark-theme .modal-close-x{ opacity:1; }
   /* Tabs live at the very top of the card now (see markup), right under the title — everything
      below is one of two mutually-exclusive layouts picked by applyTaskModalTypeLayout: Задачки
      gets .task-quick-input alone, Заметки gets .task-title-input + .add-task-textarea. Subtask
@@ -1364,7 +1365,7 @@
     opacity:.5; cursor:pointer; padding:6px; line-height:1;
   }
   .sidebar-close-x:active{ opacity:1; }
-  body.dark-theme .sidebar-close-x{ opacity:.85; }
+  body.dark-theme .sidebar-close-x{ opacity:1; }
   .sidebar-nav-btn{
     display:flex; align-items:center; gap:10px; width:100%; margin-bottom:18px;
     border:2px solid var(--text); border-radius: var(--radius-md); background: var(--card);
@@ -1448,6 +1449,19 @@
 </style>
 </head>
 <body>
+<!-- Shared icon sprite — a plain paw silhouette, used wherever 🐾/🐕 used to sit (see
+     .icon-glyph). Colored via fill="currentColor" so it's always exactly the theme's own
+     text color (dark brown in light theme, beige in dark theme) rather than a fixed-color
+     emoji glyph that doesn't adapt to theme or take a filter cleanly. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="icon-paw" viewBox="0 0 64 64">
+    <ellipse cx="32" cy="44" rx="17" ry="14"/>
+    <ellipse cx="12" cy="27" rx="8" ry="10" transform="rotate(-18 12 27)"/>
+    <ellipse cx="27" cy="14" rx="8" ry="10.5" transform="rotate(-6 27 14)"/>
+    <ellipse cx="43" cy="14" rx="8" ry="10.5" transform="rotate(6 43 14)"/>
+    <ellipse cx="56" cy="28" rx="8" ry="10" transform="rotate(20 56 28)"/>
+  </symbol>
+</svg>
 <div class="app">
 
  <div class="petals-layer" id="petalsLayer"></div>
@@ -1481,7 +1495,7 @@
     <div class="header-bar" id="headerBar">
       <!-- Paw icon only now — the "Cozy Focus Cat" wordmark is gone, kept only as an aria-label
            for screen readers so the app's name is still announced. -->
-      <span class="header-title" aria-label="Cozy Focus Cat"><span class="emoji-dark-boost">🐾</span></span>
+      <span class="header-title" aria-label="Cozy Focus Cat"><svg class="icon-glyph"><use href="#icon-paw"></use></svg></span>
 
       <!-- Story window: normally cycles gentle encouragement text; on task #1/#2 of the
            reward cycle it swaps to a random scene from header_cats/ for 10s (see
@@ -1980,13 +1994,13 @@
 
     <div class="sidebar-section">
       <div class="kindness-card">
-        <div class="kindness-icon"><span class="emoji-dark-boost">🐾</span></div>
+        <div class="kindness-icon"><svg class="icon-glyph"><use href="#icon-paw"></use></svg></div>
         <h2 data-i18n="kindness_heading">Хвостики</h2>
         <p data-i18n="kindness_ad_text">Мистер Лапкинс напоминает: 5% от рекламы в будущем мы будем отдавать приютам для животных в Израиле.</p>
         <p class="kindness-sub" data-i18n="kindness_sub">А если хочешь помочь прямо сейчас — вот пара организаций:</p>
         <ul class="kindness-links">
-          <li><a href="https://www.spca.co.il" target="_blank" rel="noopener" data-i18n="kindness_link_spca"><span class="emoji-dark-boost">🐕</span> SPCA Israel — Агудат Цаар Балей Хаим</a></li>
-          <li><a href="https://www.letlive.org.il" target="_blank" rel="noopener" data-i18n="kindness_link_letlive"><span class="emoji-dark-boost">🐾</span> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)</a></li>
+          <li><a href="https://www.spca.co.il" target="_blank" rel="noopener" data-i18n="kindness_link_spca"><svg class="icon-glyph"><use href="#icon-paw"></use></svg> SPCA Israel — Агудат Цаар Балей Хаим</a></li>
+          <li><a href="https://www.letlive.org.il" target="_blank" rel="noopener" data-i18n="kindness_link_letlive"><svg class="icon-glyph"><use href="#icon-paw"></use></svg> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)</a></li>
         </ul>
       </div>
     </div>
@@ -2180,14 +2194,14 @@
       kindness_heading: "Хвостики",
       kindness_ad_text: "Мистер Лапкинс напоминает: 5% от рекламы в будущем мы будем отдавать приютам для животных в Израиле.",
       kindness_sub: "А если хочешь помочь прямо сейчас — вот пара организаций:",
-      kindness_link_spca: "<span class=\"emoji-dark-boost\">🐕</span> SPCA Israel — Агудат Цаар Балей Хаим",
-      kindness_link_letlive: "<span class=\"emoji-dark-boost\">🐾</span> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)",
+      kindness_link_spca: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> SPCA Israel — Агудат Цаар Балей Хаим",
+      kindness_link_letlive: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)",
       kindness_note: "Ссылки указаны для ориентира — перед публикацией приложения стоит проверить их актуальность.",
       kindness_placeholder: "Скоро здесь появится статистика твоей заботы о себе.",
 
       notif_title: "Мистер Лапкинс напоминает",
       notif_body_prefix: "Мой лорд, время пришло! Пора сделать: ",
-      task_carried_over_caption: "<span class=\"emoji-dark-boost\">🐾</span> Лапкинс перенёс напоминание на сегодня, {time}",
+      task_carried_over_caption: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> Лапкинс перенёс напоминание на сегодня, {time}",
 
       cat_low_pantry_template: "Мой лорд, кошачье чутьё подсказывает, что {item} иссякает. Сбегай купи!",
 
@@ -2367,14 +2381,14 @@
       kindness_heading: "Little Tails",
       kindness_ad_text: "Mr. Lapkins wants you to know: in the future, 5% of our ad revenue will go to animal shelters in Israel.",
       kindness_sub: "Want to help right now? Here are a couple of organizations:",
-      kindness_link_spca: "<span class=\"emoji-dark-boost\">🐕</span> SPCA Israel — Tza'ar Ba'alei Chaim",
-      kindness_link_letlive: "<span class=\"emoji-dark-boost\">🐾</span> Let the Animals Live (Tnu La'Chayot Lichyot)",
+      kindness_link_spca: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> SPCA Israel — Tza'ar Ba'alei Chaim",
+      kindness_link_letlive: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> Let the Animals Live (Tnu La'Chayot Lichyot)",
       kindness_note: "Links are for reference — please double-check they're still active before publishing the app.",
       kindness_placeholder: "Your self-care stats will show up here soon.",
 
       notif_title: "Mr. Lapkins reminds you",
       notif_body_prefix: "My lord, it's time! Time to do: ",
-      task_carried_over_caption: "<span class=\"emoji-dark-boost\">🐾</span> Mr. Lapkins moved the reminder to today, {time}",
+      task_carried_over_caption: "<svg class=\"icon-glyph\"><use href=\"#icon-paw\"></use></svg> Mr. Lapkins moved the reminder to today, {time}",
 
       cat_low_pantry_template: "My lord, my whiskers sense that {item} is running low. Better go stock up!",
 
