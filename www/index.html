@@ -424,7 +424,13 @@
      paw print reads fine on the light theme's cream surfaces but nearly vanishes against dark
      theme's near-black ones. Brightening just in dark theme keeps light theme untouched. */
   .emoji-dark-boost{ display:inline-block; }
-  body.dark-theme .emoji-dark-boost{ filter: brightness(1.8) saturate(1.15); }
+  /* A brightness/saturate filter was tried here first, but color emoji don't have a uniform
+     base tone — it pushed 🐾's muted shadow tones into a garish blue instead of evenly
+     brightening it. A plain light backdrop behind the glyph fixes the contrast problem
+     without touching the emoji's own colors at all. */
+  body.dark-theme .emoji-dark-boost{
+    background: rgba(255,255,255,0.2); border-radius:50%; padding:0.15em; margin:-0.15em;
+  }
 
   /* Category filter dropdown — replaces the plain "Задачки" tab in #taskFilterTabs. The wrapper
      takes the flex:1 slot the old tab held; the trigger button keeps the .filter-tab look so the
@@ -1077,6 +1083,9 @@
     color: var(--text); opacity:.5; cursor:pointer; padding:6px; line-height:1;
   }
   .modal-close-x:active{ opacity:1; }
+  /* .5 opacity reads fine on the light theme's cream surfaces but is too faint against dark
+     theme's darker card/sidebar backgrounds. */
+  body.dark-theme .modal-close-x{ opacity:.85; }
   /* Tabs live at the very top of the card now (see markup), right under the title — everything
      below is one of two mutually-exclusive layouts picked by applyTaskModalTypeLayout: Задачки
      gets .task-quick-input alone, Заметки gets .task-title-input + .add-task-textarea. Subtask
@@ -1355,6 +1364,7 @@
     opacity:.5; cursor:pointer; padding:6px; line-height:1;
   }
   .sidebar-close-x:active{ opacity:1; }
+  body.dark-theme .sidebar-close-x{ opacity:.85; }
   .sidebar-nav-btn{
     display:flex; align-items:center; gap:10px; width:100%; margin-bottom:18px;
     border:2px solid var(--text); border-radius: var(--radius-md); background: var(--card);
