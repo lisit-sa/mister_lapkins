@@ -3430,9 +3430,6 @@
   function beforeAuthStateChanged(auth, callback, onAbort) {
     return getModularInstance(auth).beforeAuthStateChanged(callback, onAbort);
   }
-  function onAuthStateChanged(auth, nextOrObserver, error, completed) {
-    return getModularInstance(auth).onAuthStateChanged(nextOrObserver, error, completed);
-  }
   function signOut(auth) {
     return getModularInstance(auth).signOut();
   }
@@ -32026,7 +32023,9 @@ This typically indicates that your device does not have a healthy Internet conne
           unsubscribeSnapshot = null;
         }
       }
-      onAuthStateChanged(auth, function(user) {
+      FirebaseAuthentication.addListener("authStateChange", function(change) {
+        var user = change.user;
+        console.log("Mister Lapkins: authStateChange", user ? user.uid : null);
         currentUid = user ? user.uid : null;
         if (user) {
           getDoc(userDocRef(user.uid)).then(function(snap) {
@@ -32036,6 +32035,8 @@ This typically indicates that your device does not have a healthy Internet conne
               setDoc(userDocRef(user.uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
             }
             startListening(user.uid);
+          }).catch(function(e) {
+            console.warn("Mister Lapkins: cloud sync initial load failed", e);
           });
         } else {
           stopListening();
@@ -32056,7 +32057,9 @@ This typically indicates that your device does not have a healthy Internet conne
           onAuthChangeFn = options.onAuthChange;
         },
         signIn: function() {
-          FirebaseAuthentication.signInWithGoogle().catch(function(e) {
+          FirebaseAuthentication.signInWithGoogle().then(function(result) {
+            console.log("Mister Lapkins: signInWithGoogle resolved", result && result.user && result.user.uid);
+          }).catch(function(e) {
             console.warn("Mister Lapkins: Google sign-in failed", e);
           });
         },

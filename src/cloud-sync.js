@@ -8,7 +8,7 @@
 // Talks to the rest of the (non-module, unbundled) app only through window.CloudSync, since
 // index.html's main script is a classic script and can't itself use `import`.
 import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signOut as fbSignOut } from "firebase/auth";
+import { getAuth, signOut as fbSignOut } from "firebase/auth";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 
@@ -51,7 +51,14 @@ function stopListening(){
   if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
 }
 
-onAuthStateChanged(auth, function(user){
+// The plugin's own cross-platform event, not the raw Firebase JS SDK's onAuthStateChanged —
+// on native Android/iOS, sign-in happens through native code, and this is the listener the
+// plugin actually guarantees fires once that's done (see capawesome's own docs/examples).
+// Relying on the JS SDK's onAuthStateChanged instead was the previous bug: the console showed
+// the native Google picker completing, but nothing in the app ever reacted to it.
+FirebaseAuthentication.addListener("authStateChange", function(change){
+  var user = change.user;
+  console.log("Mister Lapkins: authStateChange", user ? user.uid : null);
   currentUid = user ? user.uid : null;
   if(user){
     // First time this account is seen on this device: pull whatever's already in the
@@ -64,7 +71,7 @@ onAuthStateChanged(auth, function(user){
         setDoc(userDocRef(user.uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
       }
       startListening(user.uid);
-    });
+    }).catch(function(e){ console.warn("Mister Lapkins: cloud sync initial load failed", e); });
   } else {
     stopListening();
   }
@@ -86,7 +93,9 @@ window.CloudSync = {
     onAuthChangeFn = options.onAuthChange;
   },
   signIn: function(){
-    FirebaseAuthentication.signInWithGoogle().catch(function(e){
+    FirebaseAuthentication.signInWithGoogle().then(function(result){
+      console.log("Mister Lapkins: signInWithGoogle resolved", result && result.user && result.user.uid);
+    }).catch(function(e){
       console.warn("Mister Lapkins: Google sign-in failed", e);
     });
   },
