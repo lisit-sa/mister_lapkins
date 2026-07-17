@@ -1,5 +1,11 @@
 {
   "appId": "com.lisitsa.misterlapkins",
   "appName": "Mr. Lapkins",
-  "webDir": "www"
+  "webDir": "www",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  }
 }
