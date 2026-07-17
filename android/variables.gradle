@@ -13,4 +13,9 @@ ext {
     androidxJunitVersion = '1.3.0'
     androidxEspressoCoreVersion = '3.7.0'
     cordovaAndroidVersion = '14.0.1'
+
+    // Required by @capacitor-firebase/authentication — without this flag, the plugin only
+    // compiles against the Google Sign-In libraries but doesn't actually package them into
+    // the app, so Google sign-in would fail at runtime even though the build succeeds.
+    rgcfaIncludeGoogle = true
 }

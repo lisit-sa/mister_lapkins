@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "687434243745",
+    "project_id": "mister-lapkins",
+    "storage_bucket": "mister-lapkins.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687434243745:android:9e45309d0789a809df9ae0",
+        "android_client_info": {
+          "package_name": "com.lisitsa.misterlapkins"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAX3LndYkfetIlFbDWMtn0mY21LGsf-VG8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
