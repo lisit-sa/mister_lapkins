@@ -1,27 +1,50 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
+    <!-- false so Android's auto-backup can't restore CapacitorUpdater's persisted "current
+         bundle" state across an uninstall — with it true, a fresh reinstall could silently come
+         back with a stale OTA-downloaded web bundle active instead of the one just built. -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
+            <!-- Join-list deep link, custom scheme (misterlapkins://join?code=XXXX). Kept
+                 alongside the verified https App Link below for any already-shared links still
+                 using it. See src/deeplink.js (@capacitor/app's appUrlOpen) for where this
+                 actually gets picked up on the web side. singleTask above means an
+                 already-running app gets this via onNewIntent, not a fresh launch —
+                 BridgeActivity handles that itself. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="misterlapkins" android:host="join" />
+            </intent-filter>
+            <!-- Verified https App Link (https://mister-lapkins.web.app/join?code=XXXX) — this is
+                 what actually shows up as a tappable link in WhatsApp/Telegram/etc, unlike the
+                 custom scheme above. autoVerify requires hosting/.well-known/assetlinks.json
+                 (declares this app's release-keystore SHA-256 fingerprint) to be live at that
+                 domain; Android checks it at install time. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="mister-lapkins.web.app" android:pathPrefix="/join" />
+            </intent-filter>
         </activity>
 
         <provider
@@ -29,13 +52,18 @@
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths"></meta-data>
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Without this, Android 12+ can delay scheduled task-reminder/Pomodoro notifications by
+         several minutes instead of firing at the exact requested time. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Needed to even ask whether the app is exempt from battery optimization and to show the
+         OS's own exemption-request dialog (see BatteryOptimizationPlugin.java) — a normal
+         permission, granted automatically at install, no runtime prompt. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 </manifest>

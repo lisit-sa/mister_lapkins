@@ -5,9 +5,20 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync": "npm run build:cloudsync && cap sync android",
+    "sync": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && cap sync android && npm run sync:sounds",
+    "sync:sounds": "node scripts/sync-sounds.js",
     "open:android": "cap open android",
-    "build:cloudsync": "esbuild src/cloud-sync.js --bundle --format=iife --outfile=www/cloud-sync.bundle.js"
+    "build:cloudsync": "esbuild src/cloud-sync.js --bundle --format=iife --outfile=www/cloud-sync.bundle.js",
+    "build:audio": "esbuild src/audioManager.js --bundle --format=iife --outfile=www/audio-manager.bundle.js",
+    "build:updater": "esbuild src/updater.js --bundle --format=iife --outfile=www/updater.bundle.js",
+    "build:haptics": "esbuild src/haptics.js --bundle --format=iife --outfile=www/haptics.bundle.js",
+    "build:notifications": "esbuild src/notifications.js --bundle --format=iife --outfile=www/notifications.bundle.js",
+    "build:battery": "esbuild src/battery.js --bundle --format=iife --outfile=www/battery.bundle.js",
+    "build:deeplink": "esbuild src/deeplink.js --bundle --format=iife --outfile=www/deeplink.bundle.js",
+    "icons:prep": "node scripts/prep-icon.js",
+    "icons": "npm run icons:prep && capacitor-assets generate --android",
+    "release": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && node scripts/release.js",
+    "deploy": "npm run release && firebase deploy --only hosting"
   },
   "repository": {
     "type": "git",
@@ -22,13 +33,22 @@
   },
   "homepage": "https://github.com/lisit-sa/mister_lapkins#readme",
   "dependencies": {
+    "@capacitor-community/native-audio": "^8.0.0",
     "@capacitor-firebase/authentication": "^8.3.0",
     "@capacitor/android": "^8.4.2",
+    "@capacitor/app": "^8.1.1",
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/local-notifications": "^8.2.1",
+    "@capgo/capacitor-updater": "^8.51.2",
     "firebase": "^12.16.0"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "@capacitor/assets": "^3.0.5",
+    "archiver": "^7.0.1",
+    "esbuild": "^0.28.1",
+    "firebase-tools": "^15.24.0",
+    "sharp": "^0.32.6"
   }
 }

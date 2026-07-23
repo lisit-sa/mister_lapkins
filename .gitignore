@@ -2,3 +2,6 @@
 Thumbs.db
 .DS_Store
 node_modules/
+node_modules_trash_*/
+.firebase/
+hosting/updates/*.zip

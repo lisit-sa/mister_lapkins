@@ -3430,9 +3430,6 @@
   function beforeAuthStateChanged(auth, callback, onAbort) {
     return getModularInstance(auth).beforeAuthStateChanged(callback, onAbort);
   }
-  function onAuthStateChanged(auth, nextOrObserver, error, completed) {
-    return getModularInstance(auth).onAuthStateChanged(nextOrObserver, error, completed);
-  }
   function signOut(auth) {
     return getModularInstance(auth).signOut();
   }
@@ -16765,6 +16762,9 @@
   function __PRIVATE_validateDocumentPath(e) {
     if (!DocumentKey.isDocumentKey(e)) throw new FirestoreError(D.INVALID_ARGUMENT, `Invalid document reference. Document references must have an even number of segments, but ${e} has ${e.length}.`);
   }
+  function __PRIVATE_validateCollectionPath(e) {
+    if (DocumentKey.isDocumentKey(e)) throw new FirestoreError(D.INVALID_ARGUMENT, `Invalid collection reference. Collection references must have an odd number of segments, but ${e} has ${e.length}.`);
+  }
   function __PRIVATE_isPlainObject(e) {
     return "object" == typeof e && null !== e && (Object.getPrototypeOf(e) === Object.prototype || null === Object.getPrototypeOf(e));
   }
@@ -18333,6 +18333,27 @@
       e._authCredentials = new __PRIVATE_EmulatorAuthCredentialsProvider(new __PRIVATE_OAuthToken(t2, n2));
     }
   }
+  function collection(e, t, ...n) {
+    if (e = getModularInstance(e), __PRIVATE_validateNonEmptyArgument("collection", "path", t), e instanceof Firestore$1) {
+      const r = ResourcePath.fromString(t, ...n);
+      return __PRIVATE_validateCollectionPath(r), new CollectionReference(
+        e,
+        /* converter= */
+        null,
+        r
+      );
+    }
+    {
+      if (!(e instanceof DocumentReference || e instanceof CollectionReference)) throw new FirestoreError(D.INVALID_ARGUMENT, "Expected first argument to collection() to be a CollectionReference, a DocumentReference or FirebaseFirestore");
+      const r = e._path.child(ResourcePath.fromString(t, ...n));
+      return __PRIVATE_validateCollectionPath(r), new CollectionReference(
+        e.firestore,
+        /* converter= */
+        null,
+        r
+      );
+    }
+  }
   function doc(e, t, ...n) {
     if (e = getModularInstance(e), // We allow omission of 'pathString' but explicitly prohibit passing in both
     // 'undefined' and 'null'.
@@ -18388,6 +18409,52 @@
       a = new FieldMask(e2), u = _.fieldTransforms.filter(((e3) => a.covers(e3.field)));
     } else a = null, u = _.fieldTransforms;
     return new ParsedSetData(new ObjectValue(o), a, u);
+  }
+  function __PRIVATE_createSentinelChildContext(e, t, n) {
+    return new ParseContextImpl({
+      dataSource: 3,
+      targetDoc: t.settings.targetDoc,
+      methodName: e._methodName,
+      arrayElement: n
+    }, t.databaseId, t.serializer, t.ignoreUndefinedProperties);
+  }
+  function __PRIVATE_parseUpdateData(e, t, n, r) {
+    const i = e.createContext(1, t, n);
+    __PRIVATE_validatePlainObject("Data must be an object, but it was:", i, r);
+    const s = [], _ = ObjectValue.empty();
+    forEach(r, ((e2, r2) => {
+      const o2 = __PRIVATE_fieldPathFromDotSeparatedString(t, e2, n);
+      r2 = getModularInstance(r2);
+      const a = i.childContextForFieldPath(o2);
+      if (r2 instanceof __PRIVATE_DeleteFieldValueImpl)
+        s.push(o2);
+      else {
+        const e3 = __PRIVATE_parseData(r2, a);
+        null != e3 && (s.push(o2), _.set(o2, e3));
+      }
+    }));
+    const o = new FieldMask(s);
+    return new ParsedUpdateData(_, o, i.fieldTransforms);
+  }
+  function __PRIVATE_parseUpdateVarargs(e, t, n, r, i, s) {
+    const _ = e.createContext(1, t, n), o = [__PRIVATE_fieldPathFromArgument(t, r, n)], a = [i];
+    if (s.length % 2 != 0) throw new FirestoreError(D.INVALID_ARGUMENT, `Function ${t}() needs to be called with an even number of arguments that alternate between field names and values.`);
+    for (let e2 = 0; e2 < s.length; e2 += 2) o.push(__PRIVATE_fieldPathFromArgument(t, s[e2])), a.push(s[e2 + 1]);
+    const u = [], c = ObjectValue.empty();
+    for (let e2 = o.length - 1; e2 >= 0; --e2) if (!__PRIVATE_fieldMaskContains(u, o[e2])) {
+      const t2 = o[e2];
+      let n2 = a[e2];
+      n2 = getModularInstance(n2);
+      const r2 = _.childContextForFieldPath(t2);
+      if (n2 instanceof __PRIVATE_DeleteFieldValueImpl)
+        u.push(t2);
+      else {
+        const e3 = __PRIVATE_parseData(n2, r2);
+        null != e3 && (u.push(t2), c.set(t2, e3));
+      }
+    }
+    const E = new FieldMask(u);
+    return new ParsedUpdateData(c, E, _.fieldTransforms);
   }
   function __PRIVATE_parseData(e, t, n) {
     if (__PRIVATE_looksLikeJsonObject(
@@ -18587,6 +18654,9 @@
   }
   function serverTimestamp() {
     return new __PRIVATE_ServerTimestampFieldValueImpl("serverTimestamp");
+  }
+  function arrayUnion(...e) {
+    return new __PRIVATE_ArrayUnionFieldValueImpl("arrayUnion", e);
   }
   function vector(e) {
     return new VectorValue(e);
@@ -20052,7 +20122,7 @@
       };
     })(e._componentsProvider));
   }
-  var User, v, S, D, FirestoreError, __PRIVATE_Deferred, __PRIVATE_OAuthToken, __PRIVATE_EmptyAuthCredentialsProvider, __PRIVATE_EmulatorAuthCredentialsProvider, __PRIVATE_FirebaseAuthCredentialsProvider, __PRIVATE_FirstPartyToken, __PRIVATE_FirstPartyAuthCredentialsProvider, AppCheckToken, __PRIVATE_FirebaseAppCheckTokenProvider, __PRIVATE_AutoId, x, C, F, BasePath, ResourcePath, O, FieldPath$1, DocumentKey, M, N, Timestamp, SnapshotVersion, L, FieldIndex, IndexOffset, B, PersistenceTransaction, PersistencePromise, __PRIVATE_ListenSequence, $, K, W, Q, z, H, ee, te, oe, ue, Ee, Ie, Ae, de, me, ge, we, De, Oe, Be, We, Ge, ze, je, He, Je, Ze, SortedMap, SortedMapIterator, LLRBNode, SortedSet, SortedSetIterator, FieldMask, __PRIVATE_Base64DecodeError, ByteString, et, tt, nt, rt, it, DatabaseInfo, st, DatabaseId, _t, ot, at, ut, ct, lt, Et, ht, Tt, ObjectValue, TransformOperation, __PRIVATE_ServerTimestampTransform, __PRIVATE_ArrayUnionTransformOperation, __PRIVATE_ArrayRemoveTransformOperation, __PRIVATE_NumericTransformOperation, __PRIVATE_NumericIncrementTransformOperation, __PRIVATE_NumericMinimumTransformOperation, __PRIVATE_NumericMaximumTransformOperation, FieldTransform, MutationResult, Precondition, Mutation, __PRIVATE_SetMutation, __PRIVATE_PatchMutation, __PRIVATE_DeleteMutation, __PRIVATE_VerifyMutation, Bound, Filter, FieldFilter, CompositeFilter, __PRIVATE_KeyFieldFilter, __PRIVATE_KeyFieldInFilter, __PRIVATE_KeyFieldNotInFilter, __PRIVATE_ArrayContainsFilter, __PRIVATE_InFilter, __PRIVATE_NotInFilter, __PRIVATE_ArrayContainsAnyFilter, OrderBy, MutableDocument, __PRIVATE_TargetImpl, __PRIVATE_QueryImpl, ExistenceFilter, Pt, Rt, ObjectMap, It, At, Vt, dt, ft, mt, pt, BloomFilter, __PRIVATE_BloomFilterError, RemoteEvent, TargetChange, __PRIVATE_DocumentWatchChange, __PRIVATE_ExistenceFilterChange, __PRIVATE_WatchTargetChange, __PRIVATE_TargetState, gt, __PRIVATE_WatchChangeAggregator, yt, wt, bt, JsonProtoSerializer, Bytes, FieldPath, FieldValue, GeoPoint, __PRIVATE_NoopConnectivityMonitor, vt, __PRIVATE_BrowserConnectivityMonitor, St, Dt, xt, __PRIVATE_RestConnection, __PRIVATE_StreamBridge, Ct, __PRIVATE_unguardedEventListen, __PRIVATE_WebChannelConnection, __PRIVATE_ExponentialBackoff, Ft, __PRIVATE_PersistentStream, __PRIVATE_PersistentListenStream, __PRIVATE_PersistentWriteStream, Datastore, __PRIVATE_DatastoreImpl, Ot, Mt, Nt, Lt, LruParams, Bt, Ut, __PRIVATE_RollingSequenceNumberBuffer, __PRIVATE_LruScheduler, __PRIVATE_LruGarbageCollectorImpl, kt, qt, FirestoreSettingsImpl, Firestore$1, Query, DocumentReference, CollectionReference, VectorValue, $t, ParsedSetData, ParseContextImpl, UserDataReader, __PRIVATE_ServerTimestampFieldValueImpl, Kt, OptionsUtil, Expression, AggregateFunction, AliasedAggregate, AliasedExpression, __PRIVATE_ListOfExprs, Field, Constant, FunctionExpression, BooleanExpression, __PRIVATE_BooleanFunctionExpression, __PRIVATE_BooleanConstant, __PRIVATE_BooleanField, Ordering, Stage, __PRIVATE_AddFields, __PRIVATE_Aggregate, __PRIVATE_Distinct, __PRIVATE_CollectionSource, __PRIVATE_CollectionGroupSource, __PRIVATE_DatabaseSource, __PRIVATE_DocumentsSource, __PRIVATE_Where, __PRIVATE_Limit, __PRIVATE_Offset, __PRIVATE_Select, __PRIVATE_Sort, __PRIVATE_Replace, CorePipeline, __PRIVATE_EvaluateResult, __PRIVATE_CoreField, __PRIVATE_CoreConstant, __PRIVATE_CoreListOfExprs, Wt, Qt, __PRIVATE_BigIntOrDoubleArithmetics, __PRIVATE_CoreAdd, __PRIVATE_CoreSubtract, __PRIVATE_CoreMultiply, __PRIVATE_CoreDivide, __PRIVATE_CoreMod, __PRIVATE_CoreAnd, __PRIVATE_CoreNot, __PRIVATE_CoreOr, __PRIVATE_CoreXor, __PRIVATE_CoreEqAny, __PRIVATE_CoreNotEqAny, __PRIVATE_CoreIsNan, __PRIVATE_CoreIsNotNan, __PRIVATE_CoreIsNull, __PRIVATE_CoreIsNotNull, __PRIVATE_CoreIsError, __PRIVATE_CoreExists, __PRIVATE_CoreCond, __PRIVATE_CoreLogicalMaximum, __PRIVATE_CoreLogicalMinimum, __PRIVATE_ComparisonBase, __PRIVATE_CoreEq, __PRIVATE_CoreNeq, __PRIVATE_CoreLt, __PRIVATE_CoreLte, __PRIVATE_CoreGt, __PRIVATE_CoreGte, __PRIVATE_CoreArrayConcat, __PRIVATE_CoreArrayReverse, __PRIVATE_CoreArrayContains, __PRIVATE_CoreArrayContainsAll, __PRIVATE_CoreArrayContainsAny, __PRIVATE_CoreArrayLength, __PRIVATE_CoreArrayElement, __PRIVATE_CoreReverse, __PRIVATE_CoreReplaceFirst, __PRIVATE_CoreReplaceAll, __PRIVATE_CoreCharLength, __PRIVATE_CoreByteLength, __PRIVATE_StringSearchFunctionBase, __PRIVATE_CoreLike, __PRIVATE_CoreRegexContains, __PRIVATE_CoreRegexMatch, __PRIVATE_CoreStrContains, __PRIVATE_CoreStartsWith, __PRIVATE_CoreEndsWith, __PRIVATE_CoreToLower, __PRIVATE_CoreToUpper, __PRIVATE_CoreTrim, __PRIVATE_CoreStrConcat, __PRIVATE_CoreMapGet, __PRIVATE_DistanceBase, __PRIVATE_CoreCosineDistance, __PRIVATE_CoreDotProduct, __PRIVATE_CoreEuclideanDistance, __PRIVATE_CoreVectorLength, Gt, zt, jt, Ht, Jt, Yt, Zt, Xt, __PRIVATE_UnixToTimestamp, __PRIVATE_CoreUnixMicrosToTimestamp, __PRIVATE_CoreUnixMillisToTimestamp, __PRIVATE_CoreUnixSecondsToTimestamp, __PRIVATE_TimestampToUnix, __PRIVATE_CoreTimestampToUnixMicros, __PRIVATE_CoreTimestampToUnixMillis, __PRIVATE_CoreTimestampToUnixSeconds, __PRIVATE_TimestampArithmetic, __PRIVATE_CoreTimestampAdd, __PRIVATE_CoreTimestampSub, MutationBatch, MutationBatchResult, Overlay, TargetData, __PRIVATE_LocalSerializer, __PRIVATE_FirestoreIndexValueWriter, __PRIVATE_MemoryIndexManager, __PRIVATE_MemoryCollectionParentIndex, nn, __PRIVATE_TargetIdGenerator, RemoteDocumentChangeBuffer, OverlayedDocument, LocalDocumentsView, __PRIVATE_MemoryBundleCache, __PRIVATE_MemoryDocumentOverlayCache, __PRIVATE_MemoryGlobalsCache, __PRIVATE_ReferenceSet, __PRIVATE_DocReference, __PRIVATE_MemoryMutationQueue, __PRIVATE_MemoryRemoteDocumentCacheImpl, __PRIVATE_MemoryRemoteDocumentChangeBuffer, __PRIVATE_MemoryTargetCache, __PRIVATE_MemoryPersistence, __PRIVATE_MemoryTransaction, __PRIVATE_MemoryEagerDelegate, __PRIVATE_MemoryLruDelegate, __PRIVATE_LocalViewChanges, QueryContext, __PRIVATE_QueryEngine, un, cn, __PRIVATE_LocalStoreImpl, __PRIVATE_LocalClientState, __PRIVATE_MemorySharedClientState, __PRIVATE_OnlineStateTracker, Rn, __PRIVATE_RemoteStoreImpl, DelayedOperation, DocumentSet, __PRIVATE_DocumentChangeSet, ViewSnapshot, __PRIVATE_QueryListenersInfo, __PRIVATE_EventManagerImpl, In, __PRIVATE_QueryListener, __PRIVATE_AddedLimboDocument, __PRIVATE_RemovedLimboDocument, __PRIVATE_View, An, __PRIVATE_QueryView, LimboResolution, __PRIVATE_SyncEngineImpl, __PRIVATE_MemoryOfflineComponentProvider, __PRIVATE_LruGcMemoryOfflineComponentProvider, OnlineComponentProvider, __PRIVATE_AsyncObserver, Vn, FirestoreClient, dn, __PRIVATE_AsyncQueueImpl, Firestore, AbstractUserDataWriter, __PRIVATE_ExpUserDataWriter;
+  var User, v, S, D, FirestoreError, __PRIVATE_Deferred, __PRIVATE_OAuthToken, __PRIVATE_EmptyAuthCredentialsProvider, __PRIVATE_EmulatorAuthCredentialsProvider, __PRIVATE_FirebaseAuthCredentialsProvider, __PRIVATE_FirstPartyToken, __PRIVATE_FirstPartyAuthCredentialsProvider, AppCheckToken, __PRIVATE_FirebaseAppCheckTokenProvider, __PRIVATE_AutoId, x, C, F, BasePath, ResourcePath, O, FieldPath$1, DocumentKey, M, N, Timestamp, SnapshotVersion, L, FieldIndex, IndexOffset, B, PersistenceTransaction, PersistencePromise, __PRIVATE_ListenSequence, $, K, W, Q, z, H, ee, te, oe, ue, Ee, Ie, Ae, de, me, ge, we, De, Oe, Be, We, Ge, ze, je, He, Je, Ze, SortedMap, SortedMapIterator, LLRBNode, SortedSet, SortedSetIterator, FieldMask, __PRIVATE_Base64DecodeError, ByteString, et, tt, nt, rt, it, DatabaseInfo, st, DatabaseId, _t, ot, at, ut, ct, lt, Et, ht, Tt, ObjectValue, TransformOperation, __PRIVATE_ServerTimestampTransform, __PRIVATE_ArrayUnionTransformOperation, __PRIVATE_ArrayRemoveTransformOperation, __PRIVATE_NumericTransformOperation, __PRIVATE_NumericIncrementTransformOperation, __PRIVATE_NumericMinimumTransformOperation, __PRIVATE_NumericMaximumTransformOperation, FieldTransform, MutationResult, Precondition, Mutation, __PRIVATE_SetMutation, __PRIVATE_PatchMutation, __PRIVATE_DeleteMutation, __PRIVATE_VerifyMutation, Bound, Filter, FieldFilter, CompositeFilter, __PRIVATE_KeyFieldFilter, __PRIVATE_KeyFieldInFilter, __PRIVATE_KeyFieldNotInFilter, __PRIVATE_ArrayContainsFilter, __PRIVATE_InFilter, __PRIVATE_NotInFilter, __PRIVATE_ArrayContainsAnyFilter, OrderBy, MutableDocument, __PRIVATE_TargetImpl, __PRIVATE_QueryImpl, ExistenceFilter, Pt, Rt, ObjectMap, It, At, Vt, dt, ft, mt, pt, BloomFilter, __PRIVATE_BloomFilterError, RemoteEvent, TargetChange, __PRIVATE_DocumentWatchChange, __PRIVATE_ExistenceFilterChange, __PRIVATE_WatchTargetChange, __PRIVATE_TargetState, gt, __PRIVATE_WatchChangeAggregator, yt, wt, bt, JsonProtoSerializer, Bytes, FieldPath, FieldValue, GeoPoint, __PRIVATE_NoopConnectivityMonitor, vt, __PRIVATE_BrowserConnectivityMonitor, St, Dt, xt, __PRIVATE_RestConnection, __PRIVATE_StreamBridge, Ct, __PRIVATE_unguardedEventListen, __PRIVATE_WebChannelConnection, __PRIVATE_ExponentialBackoff, Ft, __PRIVATE_PersistentStream, __PRIVATE_PersistentListenStream, __PRIVATE_PersistentWriteStream, Datastore, __PRIVATE_DatastoreImpl, Ot, Mt, Nt, Lt, LruParams, Bt, Ut, __PRIVATE_RollingSequenceNumberBuffer, __PRIVATE_LruScheduler, __PRIVATE_LruGarbageCollectorImpl, kt, qt, FirestoreSettingsImpl, Firestore$1, Query, DocumentReference, CollectionReference, VectorValue, $t, ParsedSetData, ParsedUpdateData, ParseContextImpl, UserDataReader, __PRIVATE_DeleteFieldValueImpl, __PRIVATE_ServerTimestampFieldValueImpl, __PRIVATE_ArrayUnionFieldValueImpl, Kt, OptionsUtil, Expression, AggregateFunction, AliasedAggregate, AliasedExpression, __PRIVATE_ListOfExprs, Field, Constant, FunctionExpression, BooleanExpression, __PRIVATE_BooleanFunctionExpression, __PRIVATE_BooleanConstant, __PRIVATE_BooleanField, Ordering, Stage, __PRIVATE_AddFields, __PRIVATE_Aggregate, __PRIVATE_Distinct, __PRIVATE_CollectionSource, __PRIVATE_CollectionGroupSource, __PRIVATE_DatabaseSource, __PRIVATE_DocumentsSource, __PRIVATE_Where, __PRIVATE_Limit, __PRIVATE_Offset, __PRIVATE_Select, __PRIVATE_Sort, __PRIVATE_Replace, CorePipeline, __PRIVATE_EvaluateResult, __PRIVATE_CoreField, __PRIVATE_CoreConstant, __PRIVATE_CoreListOfExprs, Wt, Qt, __PRIVATE_BigIntOrDoubleArithmetics, __PRIVATE_CoreAdd, __PRIVATE_CoreSubtract, __PRIVATE_CoreMultiply, __PRIVATE_CoreDivide, __PRIVATE_CoreMod, __PRIVATE_CoreAnd, __PRIVATE_CoreNot, __PRIVATE_CoreOr, __PRIVATE_CoreXor, __PRIVATE_CoreEqAny, __PRIVATE_CoreNotEqAny, __PRIVATE_CoreIsNan, __PRIVATE_CoreIsNotNan, __PRIVATE_CoreIsNull, __PRIVATE_CoreIsNotNull, __PRIVATE_CoreIsError, __PRIVATE_CoreExists, __PRIVATE_CoreCond, __PRIVATE_CoreLogicalMaximum, __PRIVATE_CoreLogicalMinimum, __PRIVATE_ComparisonBase, __PRIVATE_CoreEq, __PRIVATE_CoreNeq, __PRIVATE_CoreLt, __PRIVATE_CoreLte, __PRIVATE_CoreGt, __PRIVATE_CoreGte, __PRIVATE_CoreArrayConcat, __PRIVATE_CoreArrayReverse, __PRIVATE_CoreArrayContains, __PRIVATE_CoreArrayContainsAll, __PRIVATE_CoreArrayContainsAny, __PRIVATE_CoreArrayLength, __PRIVATE_CoreArrayElement, __PRIVATE_CoreReverse, __PRIVATE_CoreReplaceFirst, __PRIVATE_CoreReplaceAll, __PRIVATE_CoreCharLength, __PRIVATE_CoreByteLength, __PRIVATE_StringSearchFunctionBase, __PRIVATE_CoreLike, __PRIVATE_CoreRegexContains, __PRIVATE_CoreRegexMatch, __PRIVATE_CoreStrContains, __PRIVATE_CoreStartsWith, __PRIVATE_CoreEndsWith, __PRIVATE_CoreToLower, __PRIVATE_CoreToUpper, __PRIVATE_CoreTrim, __PRIVATE_CoreStrConcat, __PRIVATE_CoreMapGet, __PRIVATE_DistanceBase, __PRIVATE_CoreCosineDistance, __PRIVATE_CoreDotProduct, __PRIVATE_CoreEuclideanDistance, __PRIVATE_CoreVectorLength, Gt, zt, jt, Ht, Jt, Yt, Zt, Xt, __PRIVATE_UnixToTimestamp, __PRIVATE_CoreUnixMicrosToTimestamp, __PRIVATE_CoreUnixMillisToTimestamp, __PRIVATE_CoreUnixSecondsToTimestamp, __PRIVATE_TimestampToUnix, __PRIVATE_CoreTimestampToUnixMicros, __PRIVATE_CoreTimestampToUnixMillis, __PRIVATE_CoreTimestampToUnixSeconds, __PRIVATE_TimestampArithmetic, __PRIVATE_CoreTimestampAdd, __PRIVATE_CoreTimestampSub, MutationBatch, MutationBatchResult, Overlay, TargetData, __PRIVATE_LocalSerializer, __PRIVATE_FirestoreIndexValueWriter, __PRIVATE_MemoryIndexManager, __PRIVATE_MemoryCollectionParentIndex, nn, __PRIVATE_TargetIdGenerator, RemoteDocumentChangeBuffer, OverlayedDocument, LocalDocumentsView, __PRIVATE_MemoryBundleCache, __PRIVATE_MemoryDocumentOverlayCache, __PRIVATE_MemoryGlobalsCache, __PRIVATE_ReferenceSet, __PRIVATE_DocReference, __PRIVATE_MemoryMutationQueue, __PRIVATE_MemoryRemoteDocumentCacheImpl, __PRIVATE_MemoryRemoteDocumentChangeBuffer, __PRIVATE_MemoryTargetCache, __PRIVATE_MemoryPersistence, __PRIVATE_MemoryTransaction, __PRIVATE_MemoryEagerDelegate, __PRIVATE_MemoryLruDelegate, __PRIVATE_LocalViewChanges, QueryContext, __PRIVATE_QueryEngine, un, cn, __PRIVATE_LocalStoreImpl, __PRIVATE_LocalClientState, __PRIVATE_MemorySharedClientState, __PRIVATE_OnlineStateTracker, Rn, __PRIVATE_RemoteStoreImpl, DelayedOperation, DocumentSet, __PRIVATE_DocumentChangeSet, ViewSnapshot, __PRIVATE_QueryListenersInfo, __PRIVATE_EventManagerImpl, In, __PRIVATE_QueryListener, __PRIVATE_AddedLimboDocument, __PRIVATE_RemovedLimboDocument, __PRIVATE_View, An, __PRIVATE_QueryView, LimboResolution, __PRIVATE_SyncEngineImpl, __PRIVATE_MemoryOfflineComponentProvider, __PRIVATE_LruGcMemoryOfflineComponentProvider, OnlineComponentProvider, __PRIVATE_AsyncObserver, Vn, FirestoreClient, dn, __PRIVATE_AsyncQueueImpl, Firestore, AbstractUserDataWriter, __PRIVATE_ExpUserDataWriter;
   var init_common_456515ba_esm = __esm({
     "node_modules/@firebase/firestore/dist/common-456515ba.esm.js"() {
       init_index_esm4();
@@ -23941,6 +24011,14 @@ Total Duration: ${a - u}ms`);
           return null !== this.fieldMask ? new __PRIVATE_PatchMutation(e, this.data, this.fieldMask, t, this.fieldTransforms) : new __PRIVATE_SetMutation(e, this.data, t, this.fieldTransforms);
         }
       };
+      ParsedUpdateData = class {
+        constructor(e, t, n) {
+          this.data = e, this.fieldMask = t, this.fieldTransforms = n;
+        }
+        toMutation(e, t) {
+          return new __PRIVATE_PatchMutation(e, this.data, this.fieldMask, t, this.fieldTransforms);
+        }
+      };
       ParseContextImpl = class _ParseContextImpl {
         /**
          * Initializes a ParseContext with the given source and path.
@@ -24029,12 +24107,38 @@ Total Duration: ${a - u}ms`);
           }, this.databaseId, this.serializer, this.ignoreUndefinedProperties);
         }
       };
+      __PRIVATE_DeleteFieldValueImpl = class ___PRIVATE_DeleteFieldValueImpl extends FieldValue {
+        _toFieldTransform(e) {
+          if (2 !== e.dataSource) throw 1 === e.dataSource ? e.createError(`${this._methodName}() can only appear at the top level of your update data`) : e.createError(`${this._methodName}() cannot be used with set() unless you pass {merge:true}`);
+          return e.fieldMask.push(e.path), null;
+        }
+        isEqual(e) {
+          return e instanceof ___PRIVATE_DeleteFieldValueImpl;
+        }
+      };
       __PRIVATE_ServerTimestampFieldValueImpl = class ___PRIVATE_ServerTimestampFieldValueImpl extends FieldValue {
         _toFieldTransform(e) {
           return new FieldTransform(e.path, new __PRIVATE_ServerTimestampTransform());
         }
         isEqual(e) {
           return e instanceof ___PRIVATE_ServerTimestampFieldValueImpl;
+        }
+      };
+      __PRIVATE_ArrayUnionFieldValueImpl = class ___PRIVATE_ArrayUnionFieldValueImpl extends FieldValue {
+        constructor(e, t) {
+          super(e), this.Tr = t;
+        }
+        _toFieldTransform(e) {
+          const t = __PRIVATE_createSentinelChildContext(
+            this,
+            e,
+            /*array=*/
+            true
+          ), n = this.Tr.map(((e2) => __PRIVATE_parseData(e2, t))), r = new __PRIVATE_ArrayUnionTransformOperation(n);
+          return new FieldTransform(e.path, r);
+        }
+        isEqual(e) {
+          return e instanceof ___PRIVATE_ArrayUnionFieldValueImpl && deepEqual(this.Tr, e.Tr);
         }
       };
       Kt = new RegExp("[~\\*/\\[\\]]");
@@ -30455,6 +30559,22 @@ This typically indicates that your device does not have a healthy Internet conne
     const r = __PRIVATE_cast(t.firestore, Firestore), s = __PRIVATE_applyFirestoreDataConverter(t.converter, e, n), o = __PRIVATE_newUserDataReader(r);
     return executeWrite(r, [__PRIVATE_parseSetData(o, "setDoc", t._key, s, null !== t.converter, n).toMutation(t._key, Precondition.none())]);
   }
+  function updateDoc(t, e, n, ...r) {
+    t = __PRIVATE_cast(t, DocumentReference);
+    const s = __PRIVATE_cast(t.firestore, Firestore), o = __PRIVATE_newUserDataReader(s);
+    let i;
+    i = "string" == typeof // For Compat types, we have to "extract" the underlying types before
+    // performing validation.
+    (e = getModularInstance(e)) || e instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(o, "updateDoc", t._key, e, n, r) : __PRIVATE_parseUpdateData(o, "updateDoc", t._key, e);
+    return executeWrite(s, [i.toMutation(t._key, Precondition.exists(true))]);
+  }
+  function deleteDoc(t) {
+    return executeWrite(__PRIVATE_cast(t.firestore, Firestore), [new __PRIVATE_DeleteMutation(t._key, Precondition.none())]);
+  }
+  function addDoc(t, e) {
+    const n = __PRIVATE_cast(t.firestore, Firestore), r = doc(t), s = __PRIVATE_applyFirestoreDataConverter(t.converter, e), o = __PRIVATE_newUserDataReader(t.firestore);
+    return executeWrite(n, [__PRIVATE_parseSetData(o, "addDoc", r._key, s, null !== t.converter, {}).toMutation(r._key, Precondition.exists(false))]).then((() => r));
+  }
   function onSnapshot(t, ...e) {
     t = getModularInstance(t);
     let n = {
@@ -32005,10 +32125,18 @@ This typically indicates that your device does not have a healthy Internet conne
       var getStateFn = null;
       var onRemoteStateFn = null;
       var onAuthChangeFn = null;
+      var hasMeaningfulLocalStateFn = null;
+      var onSignInConflictFn = null;
       var unsubscribeSnapshot = null;
       var pushTimer = null;
+      var localEditCount = 0;
+      var lastPushedEditCount = 0;
+      var freshSignInUid = null;
       function userDocRef(uid) {
         return doc(db, "users", uid);
+      }
+      function sanitizeForFirestore(rawState) {
+        return JSON.parse(JSON.stringify(rawState));
       }
       function startListening(uid) {
         if (listeningUid === uid) return;
@@ -32017,6 +32145,7 @@ This typically indicates that your device does not have a healthy Internet conne
         unsubscribeSnapshot = onSnapshot(userDocRef(uid), function(snap) {
           if (snap.metadata.hasPendingWrites) return;
           if (!snap.exists()) return;
+          if (localEditCount !== lastPushedEditCount) return;
           var data = snap.data();
           if (data && data.appState && onRemoteStateFn) onRemoteStateFn(data.appState);
         }, function(err) {
@@ -32030,12 +32159,39 @@ This typically indicates that your device does not have a healthy Internet conne
         }
         listeningUid = null;
       }
-      function loadOrSeedCloudState(uid) {
+      function loadOrSeedCloudState(uid, isFreshSignIn) {
+        console.log("Mister Lapkins: loadOrSeedCloudState start", uid, "isFreshSignIn:", isFreshSignIn);
+        var editCountAtFetchStart = localEditCount;
         getDoc(userDocRef(uid)).then(function(snap) {
+          console.log("Mister Lapkins: loadOrSeedCloudState getDoc resolved, exists:", snap.exists());
+          if (!isFreshSignIn && localEditCount !== editCountAtFetchStart) {
+            startListening(uid);
+            return;
+          }
           if (snap.exists() && snap.data().appState) {
-            if (onRemoteStateFn) onRemoteStateFn(snap.data().appState);
+            var cloudState = snap.data().appState;
+            if (isFreshSignIn && onSignInConflictFn && hasMeaningfulLocalStateFn && hasMeaningfulLocalStateFn()) {
+              onSignInConflictFn(cloudState, {
+                useCloud: function() {
+                  if (onRemoteStateFn) onRemoteStateFn(cloudState);
+                  startListening(uid);
+                },
+                useLocal: function() {
+                  if (getStateFn) {
+                    setDoc(userDocRef(uid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).catch(function(e) {
+                      console.warn("Mister Lapkins: cloud sync push (keep local) failed", e);
+                    });
+                  }
+                  startListening(uid);
+                }
+              });
+              return;
+            }
+            if (onRemoteStateFn) onRemoteStateFn(cloudState);
           } else if (getStateFn) {
-            setDoc(userDocRef(uid), { appState: getStateFn(), updatedAt: serverTimestamp() });
+            setDoc(userDocRef(uid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).catch(function(e) {
+              console.warn("Mister Lapkins: cloud sync seed failed", e);
+            });
           }
           startListening(uid);
         }).catch(function(e) {
@@ -32049,14 +32205,33 @@ This typically indicates that your device does not have a healthy Internet conne
         if (!user) stopListening();
         if (onAuthChangeFn) onAuthChangeFn(user);
       });
-      onAuthStateChanged(auth, function(user) {
-        if (user) loadOrSeedCloudState(user.uid);
+      var lastHandledAuthUid = null;
+      onIdTokenChanged(auth, function(user) {
+        console.log("Mister Lapkins: onIdTokenChanged (auth) fired", user ? user.uid : null);
+        currentUid = user ? user.uid : null;
+        if (!user) {
+          lastHandledAuthUid = null;
+          stopListening();
+          if (onAuthChangeFn) onAuthChangeFn(null);
+          return;
+        }
+        if (onAuthChangeFn) onAuthChangeFn(user);
+        setDoc(userDocRef(user.uid), { lastSeenAt: serverTimestamp() }, { merge: true }).catch(function(e) {
+          console.warn("Mister Lapkins: lastSeenAt write failed", e);
+        });
+        var isFresh = freshSignInUid === user.uid;
+        freshSignInUid = null;
+        if (!isFresh && lastHandledAuthUid === user.uid) return;
+        lastHandledAuthUid = user.uid;
+        loadOrSeedCloudState(user.uid, isFresh);
       });
       window.CloudSync = {
         init: function(options) {
           getStateFn = options.getState;
           onRemoteStateFn = options.onRemoteState;
           onAuthChangeFn = options.onAuthChange;
+          hasMeaningfulLocalStateFn = options.hasMeaningfulLocalState;
+          onSignInConflictFn = options.onSignInConflict;
         },
         signIn: function() {
           FirebaseAuthentication.signInWithGoogle().then(function(result) {
@@ -32066,13 +32241,12 @@ This typically indicates that your device does not have a healthy Internet conne
               console.warn("Mister Lapkins: no credential/idToken from native sign-in, cloud sync won't authenticate");
               return;
             }
+            freshSignInUid = result.user.uid;
             var googleCredential = GoogleAuthProvider.credential(cred.idToken, cred.accessToken);
-            return signInWithCredential(auth, googleCredential).then(function(jsResult) {
-              console.log("Mister Lapkins: JS SDK signed in for Firestore", jsResult.user.uid);
-              loadOrSeedCloudState(jsResult.user.uid);
-            });
+            return signInWithCredential(auth, googleCredential);
           }).catch(function(e) {
-            console.warn("Mister Lapkins: Google sign-in failed", e);
+            console.warn("Mister Lapkins: Google sign-in failed", e && e.code, e);
+            freshSignInUid = null;
           });
         },
         signOut: function() {
@@ -32084,18 +32258,99 @@ This typically indicates that your device does not have a healthy Internet conne
         // Call after every local state mutation (see saveState) — debounced so a burst of
         // changes (typing, ticking checkboxes) collapses into one write instead of many.
         queuePush: function() {
+          localEditCount++;
           if (!currentUid) return;
           if (pushTimer) clearTimeout(pushTimer);
           pushTimer = setTimeout(flushPush, 1500);
         }
       };
+      function householdDocRef(id) {
+        return doc(db, "households", id);
+      }
+      function householdItemsRef(id) {
+        return collection(db, "households", id, "items");
+      }
+      function householdItemRef(householdId, itemId) {
+        return doc(db, "households", householdId, "items", itemId);
+      }
+      window.CloudSync.household = {
+        getUid: function() {
+          return currentUid;
+        },
+        create: function(name4) {
+          if (!currentUid) return Promise.reject(new Error("not-signed-in"));
+          var ref = doc(collection(db, "households"));
+          return setDoc(ref, { name: name4, members: [currentUid], createdAt: serverTimestamp() }).then(function() {
+            return ref.id;
+          });
+        },
+        getInfo: function(id) {
+          return getDoc(householdDocRef(id)).then(function(snap) {
+            return snap.exists() ? Object.assign({ id: snap.id }, snap.data()) : null;
+          });
+        },
+        // Resolves with the household's info either way — including when this account was already a
+        // member (rejoining via an old link shouldn't error, just confirm what's already true).
+        join: function(id) {
+          if (!currentUid) return Promise.reject(new Error("not-signed-in"));
+          return getDoc(householdDocRef(id)).then(function(snap) {
+            if (!snap.exists()) throw new Error("not-found");
+            var data = snap.data();
+            var members = data.members || [];
+            if (members.indexOf(currentUid) !== -1) return Object.assign({ id: snap.id }, data);
+            return updateDoc(householdDocRef(id), { members: arrayUnion(currentUid) }).then(function() {
+              return Object.assign({ id: snap.id }, data, { members: members.concat([currentUid]) });
+            });
+          });
+        },
+        subscribeItems: function(householdId, onItems) {
+          return onSnapshot(householdItemsRef(householdId), function(snap) {
+            onItems(snap.docs.map(function(d) {
+              return Object.assign({ id: d.id }, d.data());
+            }));
+          }, function(err) {
+            console.warn("Mister Lapkins: household items listener error", err);
+          });
+        },
+        addItem: function(householdId, item) {
+          return addDoc(householdItemsRef(householdId), Object.assign(
+            { checked: false, checkedBy: null, pantryId: null, createdAt: serverTimestamp() },
+            item
+          ));
+        },
+        toggleItem: function(householdId, itemId, checked, uid) {
+          return updateDoc(householdItemRef(householdId, itemId), { checked, checkedBy: checked ? uid : null });
+        },
+        renameItem: function(householdId, itemId, name4) {
+          return updateDoc(householdItemRef(householdId, itemId), { name: name4 });
+        },
+        // Drag-and-drop reordering (see startCardDrag/endCardDrag + the shoppingItemList pointerdown
+        // handler) — just the one field, same as toggleItem/renameItem, so two people dragging
+        // different items at once never step on each other's writes (each is its own document).
+        reorderItem: function(householdId, itemId, order) {
+          return updateDoc(householdItemRef(householdId, itemId), { order });
+        },
+        deleteItem: function(householdId, itemId) {
+          return deleteDoc(householdItemRef(householdId, itemId));
+        }
+      };
       function flushPush() {
         pushTimer = null;
         if (!currentUid || !getStateFn) return;
-        setDoc(userDocRef(currentUid), { appState: getStateFn(), updatedAt: serverTimestamp() }).catch(function(e) {
+        lastPushedEditCount = localEditCount;
+        setDoc(userDocRef(currentUid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).catch(function(e) {
           console.warn("Mister Lapkins: cloud sync push failed", e);
         });
       }
+      function flushPendingPush() {
+        if (!pushTimer) return;
+        clearTimeout(pushTimer);
+        flushPush();
+      }
+      document.addEventListener("visibilitychange", function() {
+        if (document.hidden) flushPendingPush();
+      });
+      document.addEventListener("pagehide", flushPendingPush);
     }
   });
   require_cloud_sync();

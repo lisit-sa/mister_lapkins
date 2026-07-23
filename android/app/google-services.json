@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "687434243745-vkih3g2auc2pmnkbe9ah9td4dq6fnvgh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lisitsa.misterlapkins",
+            "certificate_hash": "df1559dde36280a86dcccbe3831465ce48c7e4af"
+          }
+        },
+        {
           "client_id": "687434243745-c0nef82ioav7824blm1vjojrqaudskas.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.lisitsa.misterlapkins",
+      "sha256_cert_fingerprints": [
+        "04:8B:4B:6D:94:60:0F:89:65:84:E0:B3:86:19:2D:FD:D1:AD:B2:21:B9:55:D4:4D:84:FD:6E:32:63:B6:FD:02"
+      ]
+    }
+  }
+]
