@@ -550,7 +550,23 @@
   }
   .task-item.completed{ opacity:.55; }
   .task-item.completed .task-title{ text-decoration: line-through; }
+  /* Lifted above its siblings and slightly tilted/scaled while actively being dragged (see
+     startTaskDrag) — a plain opacity change wasn't enough to read as "picked up" once it's
+     sitting on top of other cards. transition is suppressed during the drag itself (moves need
+     to track the pointer 1:1) and only eases back in on drop — see endTaskDrag. */
+  .task-item.dragging{
+    position:relative; z-index:5; box-shadow: 0 10px 22px rgba(0,0,0,0.22);
+    transform: scale(1.02) rotate(-1deg);
+  }
   .task-main-row{ display:flex; align-items:center; gap:10px; }
+  /* Six-dot grip, own tap target separate from the checkbox/body/buttons so a drag can never be
+     mistaken for tapping into the task detail popup or toggling completion — see startTaskDrag. */
+  .task-drag-handle{
+    background:transparent; border:none; cursor:grab; padding:2px 4px; opacity:.4;
+    font-size:18px; line-height:1; color: var(--text); touch-action:none; align-self:stretch;
+    display:flex; align-items:center;
+  }
+  .task-drag-handle:active{ cursor:grabbing; opacity:.9; }
   .task-check{
     width:24px; height:24px; min-width:24px; border-radius:50%; border:2px solid var(--text);
     background:transparent; cursor:pointer; position:relative; padding:0;
@@ -787,6 +803,19 @@
     background: var(--card); border:2px solid var(--text); border-radius: var(--radius-lg);
     padding:12px 14px; box-shadow: var(--shadow-soft);
   }
+  /* Same lifted/tilted "picked up" treatment as .task-item.dragging — see startShoppingDrag. */
+  .shopping-item.dragging{
+    position:relative; z-index:5; box-shadow: 0 10px 22px rgba(0,0,0,0.22);
+    transform: scale(1.02) rotate(-1deg);
+  }
+  /* Same six-dot grip as .task-drag-handle, own tap target so a drag can never be mistaken for
+     checking the item off or opening its rename input — see startShoppingDrag. */
+  .shopping-item-drag-handle{
+    background:transparent; border:none; cursor:grab; padding:2px 4px; opacity:.4;
+    font-size:18px; line-height:1; color: var(--text); touch-action:none; flex-shrink:0;
+    display:flex; align-items:center;
+  }
+  .shopping-item-drag-handle:active{ cursor:grabbing; opacity:.9; }
   .shopping-item-checkbox{
     width:26px; height:26px; min-width:26px; border-radius:50%; border:2px solid var(--text);
     background:transparent; cursor:pointer; position:relative; padding:0; flex-shrink:0;
@@ -797,6 +826,10 @@
     color: var(--on-accent); font-size:14px; font-weight:700;
   }
   .shopping-item-name{ flex:1; min-width:0; font-size: calc(14px * var(--font-scale)); word-break:break-word; cursor:pointer; }
+  /* Checked items only ever render inside #shoppingBoughtList (see renderShoppingItems) — this
+     opacity is the "slightly shaded" look for the whole card, on top of the name's own
+     strikethrough, so a bought row reads as done at a glance even before you spot the line-through. */
+  .shopping-item.checked{ opacity:.7; }
   .shopping-item.checked .shopping-item-name{ text-decoration: line-through; opacity:.5; }
   .shopping-item-edit-input{
     flex:1; min-width:0; border:2px solid var(--accent-dark); border-radius: var(--radius-md);
@@ -807,6 +840,33 @@
   .shopping-item-save{ opacity:1; color: var(--accent-dark); font-weight:700; font-size:16px; }
   .shopping-item-delete{ background:transparent; border:none; font-size:15px; cursor:pointer; opacity:.6; padding:2px; flex-shrink:0; }
   .shopping-item-delete:active{ opacity:1; }
+
+  /* Собранные/купленные товары живут in their own collapsed-by-default zone below the active
+     list (see renderShoppingItems) — tapping a bought row still un-checks it via the same
+     .shopping-item-checkbox/.shopping-item-name click handling, moving it back up on the next
+     render, same as before the split. */
+  .shopping-bought-section{ margin-top:14px; }
+  .shopping-bought-toggle{
+    width:100%; display:flex; align-items:center; justify-content:space-between; gap:6px;
+    background:transparent; border:none; cursor:pointer; padding:6px 2px; color: var(--text-muted);
+    font-family:inherit; font-size: calc(13px * var(--font-scale)); font-weight:700;
+  }
+  .shopping-bought-chevron{ display:inline-block; transition: transform .2s ease; opacity:.7; }
+  .shopping-bought-toggle.expanded .shopping-bought-chevron{ transform: rotate(180deg); }
+  /* Sits below the (possibly collapsed) bought list itself rather than next to the header — a
+     plain centered text link, not a bordered button, so it doesn't compete visually with the
+     actual item cards above it. */
+  .shopping-bought-clear{
+    display:block; width:100%; text-align:center; margin-top:10px;
+    background:transparent; border:none; cursor:pointer; opacity:.75;
+    color: var(--text-muted); font-family:inherit; font-size: calc(12.5px * var(--font-scale)); font-weight:600;
+  }
+  .shopping-bought-clear:active{ opacity:1; }
+  /* Only makes sense alongside the actual bought cards it clears — hidden together with them,
+     not just whenever the section itself has any bought items (see renderShoppingItems). */
+  .shopping-bought-clear.collapsed{ display:none; }
+  .shopping-bought-list{ margin-top:8px; }
+  .shopping-bought-list.collapsed{ display:none; }
 
   /* Collection */
   .collection-tabs{ display:flex; gap:8px; margin-bottom:12px; }
@@ -1176,7 +1236,7 @@
   .modal-title{ font-size: calc(16px * var(--font-scale)); font-weight:700; margin:0 0 16px; }
   .add-task-card{
     position:relative; text-align:left; padding-top:22px; padding-bottom:20px;
-    height:60vh; overflow-y:auto;
+    height:90vh; overflow-y:auto;
   }
   .add-task-card .modal-title{ margin:0 0 12px; }
   .modal-close-x{
@@ -1592,7 +1652,7 @@
   .account-signout-btn:active{ opacity:1; }
   /* Settings/Kindness modals reuse .modal-card/.add-task-card, just capped and scrollable —
      both can grow taller than a short phone screen once every toggle/hint/link is in view. */
-  .settings-modal-card{ max-height:82vh; overflow-y:auto; }
+  .settings-modal-card{ max-height:90vh; overflow-y:auto; }
   .sidebar-section{ margin-bottom:24px; }
   .sidebar-section-title{
     display:flex; align-items:center; gap:6px;
@@ -2137,7 +2197,17 @@
           <button type="button" class="homecheck-add-btn" id="shoppingItemAddBtn" aria-label="Добавить продукт" data-i18n-aria="aria_add_shopping_item">+</button>
         </div>
 
-        <ul class="shopping-item-list" id="shoppingItemList"></ul>
+        <div id="shoppingListsWrap">
+          <ul class="shopping-item-list" id="shoppingItemList"></ul>
+          <div class="shopping-bought-section hidden" id="shoppingBoughtSection">
+            <button type="button" class="shopping-bought-toggle" id="shoppingBoughtToggle">
+              <span id="shoppingBoughtToggleLabel"></span>
+              <span class="shopping-bought-chevron">▾</span>
+            </button>
+            <ul class="shopping-item-list shopping-bought-list collapsed" id="shoppingBoughtList"></ul>
+            <button type="button" class="shopping-bought-clear" id="shoppingBoughtClearBtn">🗑️ <span data-i18n="aria_clear_bought">Очистить купленное</span></button>
+          </div>
+        </div>
         <p class="empty-hint hidden" id="shoppingItemEmptyHint" data-i18n="shopping_empty_hint">Список пуст — добавь первый продукт.</p>
       </div>
     </section>
@@ -2199,7 +2269,7 @@
         <button type="button" class="trash-back-btn" id="reminderSoundBackBtn" aria-label="Назад" data-i18n-aria="aria_back">←</button>
         <p class="trash-screen-title" data-i18n="settings_task_reminder_sound_label">Звук напоминания о делах</p>
       </div>
-      <p class="toggle-hint" data-i18n="task_reminder_sound_hint">Играет только для напоминаний о делах и подзадачах — привычки и запасы звучат как раньше. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.</p>
+      <p class="toggle-hint" data-i18n="task_reminder_sound_hint">Играет только для напоминаний о делах и подзадачах. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.</p>
       <div class="reminder-sound-list" id="reminderSoundList"></div>
       <!-- Purely a closure affordance — tapping a row above already saves it instantly (like
            every other setting in this app), same as reminderSoundBackBtn above. Added because
@@ -2756,7 +2826,7 @@
         <span class="sidebar-nav-btn-value" id="reminderSoundCurrentLabel"></span>
         <span class="sidebar-nav-btn-arrow" aria-hidden="true">›</span>
       </button>
-      <p class="toggle-hint" data-i18n="task_reminder_sound_hint">Играет только для напоминаний о делах и подзадачах — привычки и запасы звучат как раньше. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.</p>
+      <p class="toggle-hint" data-i18n="task_reminder_sound_hint">Играет только для напоминаний о делах и подзадачах. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.</p>
       <div class="toggle-row">
         <span class="toggle-row-text" data-i18n="settings_gender_label">Обращение</span>
         <span class="lang-toggle">
@@ -2914,6 +2984,7 @@
       aria_edit: "Редактировать",
       aria_save_edit: "Сохранить",
       aria_mark_done: "Отметить выполненным",
+      aria_reorder: "Перетащить, чтобы изменить порядок",
 
       add_task_trigger: "Записать мысль или задачу...",
       add_pantry_trigger: "Добавить продукт в кладовую...",
@@ -3021,8 +3092,10 @@
       placeholder_shopping_list_name: "Название списка",
       placeholder_shopping_item: "Молоко, хлеб...",
       shopping_empty_hint: "Список пуст — добавь первый продукт.",
+      shopping_bought_label_template: "Куплено ({n})",
       aria_add_list: "Добавить список",
       aria_add_shopping_item: "Добавить продукт",
+      aria_clear_bought: "Очистить купленное",
       aria_more_options: "Ещё",
 
       replenish_sheet_title_template: "Куда добавить «{item}»?",
@@ -3186,6 +3259,7 @@
       aria_edit: "Edit",
       aria_save_edit: "Save",
       aria_mark_done: "Mark as done",
+      aria_reorder: "Drag to reorder",
 
       add_task_trigger: "Jot down a thought or task...",
       add_pantry_trigger: "Add a product to the pantry...",
@@ -3293,8 +3367,10 @@
       placeholder_shopping_list_name: "List name",
       placeholder_shopping_item: "Milk, bread...",
       shopping_empty_hint: "Nothing here yet — add your first item.",
+      shopping_bought_label_template: "Bought ({n})",
       aria_add_list: "Add list",
       aria_add_shopping_item: "Add item",
+      aria_clear_bought: "Clear bought items",
       aria_more_options: "More",
 
       replenish_sheet_title_template: "Add \"{item}\" to which list?",
@@ -3368,7 +3444,7 @@
       task_reminder_sound_the_magic_knights: "The Magic Knights",
       task_reminder_sound_violin: "Violin",
       task_reminder_sound_violin_music: "Violin Melody",
-      task_reminder_sound_hint: "Only plays for task/subtask reminders — habits and supplies sound the same as before. Keeps ringing until you tap Snooze/Done on the notification itself.",
+      task_reminder_sound_hint: "Only plays for task/subtask reminders. Keeps ringing until you tap Snooze/Done on the notification itself.",
       aria_preview_sound: "Play preview",
       aria_stop_sound: "Stop",
       settings_gender_label: "Form of address",
@@ -3583,6 +3659,8 @@
   var TASKS_VISIBLE_LIMIT = 5;
   var tasksExpanded = false;
   var expandedSubtasksIds = {}; // session-only UI state — which tasks show their subtask cards
+  var taskDragState = null; // non-null only while a #taskList card is actively being dragged (see startTaskDrag)
+  var shoppingDragState = null; // non-null only while a #shoppingItemList row is actively being dragged (see startShoppingDrag)
   var activeTab = "tasks";
   var lastUnlockedId = null;
   var lastUnlockedCollection = null;
@@ -3624,6 +3702,8 @@
   var shoppingListPicker, shoppingListPickerTrigger, shoppingListPickerLabel, shoppingListPickerList;
   var shoppingListNewInput, shoppingListNewConfirmBtn, shoppingListRenameBtn, shoppingListShareBtn;
   var shoppingItemAddInput, shoppingItemAddBtn, shoppingItemList, shoppingItemEmptyHint;
+  var shoppingListsWrap, shoppingBoughtSection, shoppingBoughtList, shoppingBoughtToggle, shoppingBoughtToggleLabel, shoppingBoughtClearBtn;
+  var shoppingBoughtExpanded = false; // session-only UI state — collapsed by default, like expandedSubtasksIds
   var shoppingListRenameTargetId = null; // null = the picker's new-row input is for ADD; set = RENAME that list id
   var editingShoppingItemId = null;
   var shareListSheetOverlay, shareListSheetCloseX, shareListSheetTitle, shareListSheetHint, shareListSheetCode, shareListSheetCopyBtn, shareListSheetShareBtn, shareListSheetShareLabel;
@@ -3987,15 +4067,6 @@
     return String(when.getHours()).padStart(2, "0") + ":" + String(when.getMinutes()).padStart(2, "0");
   }
 
-  // Same day-only comparison approach as formatReminderLabel's diffDays, just reduced to a
-  // yes/no check — used to decide which tasks count as "due today" for renderTasks' sort order.
-  function isReminderToday(task){
-    if(!task.reminderDateTime) return false;
-    var when = parseReminderDateTime(task.reminderDateTime);
-    var now = new Date();
-    return when.getFullYear() === now.getFullYear() && when.getMonth() === now.getMonth() && when.getDate() === now.getDate();
-  }
-
   // ---------- persistence ----------
   function createDefaultCollections(){
     var collections = {};
@@ -4144,10 +4215,14 @@
         };
       }) : [];
       var category = typeof t.category === "string" && t.category.trim() ? t.category.trim() : null;
+      // Manual drag order (see renderTasks/startTaskDrag). Saves from before drag reordering
+      // existed have no order field — fall back to createdAt so the list doesn't visibly
+      // reshuffle the first time this loads, then drags take over from there.
+      var order = typeof t.order === "number" ? t.order : t.createdAt;
       return Object.assign({}, t, {
         type: type, title: title, reminderDateTime: reminderDateTime, reminderFired: !!t.reminderFired,
         reminderCarriedOver: !!t.reminderCarriedOver, subtasks: subtasks, category: category,
-        motivation: undefined,
+        motivation: undefined, order: order,
         deleted: !!t.deleted, deletedAt: typeof t.deletedAt === "number" ? t.deletedAt : null,
         archived: !!t.archived, archivedAt: typeof t.archivedAt === "number" ? t.archivedAt : null
       });
@@ -4191,8 +4266,13 @@
       var householdId = typeof l.householdId === "string" ? l.householdId : null;
       var items = householdId ? [] : (Array.isArray(l.items) ? l.items.filter(function(it){
         return it && typeof it.id === "string" && typeof it.name === "string";
-      }).map(function(it){
-        return { id: it.id, name: it.name, checked: !!it.checked, pantryId: typeof it.pantryId === "string" ? it.pantryId : null };
+      }).map(function(it, index){
+        // Manual drag order (see renderShoppingItems/startShoppingDrag). Saves from before drag
+        // reordering existed have no order field — fall back to the item's current array
+        // position (spaced out so later drags have room to slot in between) so the list doesn't
+        // visibly reshuffle the first time this loads.
+        var order = typeof it.order === "number" ? it.order : index * 1000;
+        return { id: it.id, name: it.name, checked: !!it.checked, pantryId: typeof it.pantryId === "string" ? it.pantryId : null, order: order };
       }) : []);
       return { id: l.id, isDefault: !!l.isDefault, i18nKey: l.i18nKey || null, name: l.name || null, items: items, householdId: householdId };
     }) : [];
@@ -4451,35 +4531,21 @@
     // as a wall of debt — the rest sit behind a calm, explicit "show the rest" action instead
     // of dumping everything on screen at once.
     //
-    // The visible slice is priority-ordered: reminders due today first (soonest first), then
-    // unscheduled tasks, then anything else (reminders for other days) — that last group only
-    // pads the visible slice in by date added if the first two groups don't fill it on their
-    // own. Whatever doesn't make the cut sits under "show more", listed purely by date added —
-    // no priority carried over there, just a plain complete list for whenever it's wanted.
-    var dueToday = filtered.filter(isReminderToday).sort(function(a, b){
-      return parseReminderDateTime(a.reminderDateTime) - parseReminderDateTime(b.reminderDateTime);
-    });
-    var noReminder = filtered.filter(function(task){ return !task.reminderDateTime; })
-      .sort(function(a, b){ return a.createdAt - b.createdAt; });
-    var prioritizedIds = {};
-    dueToday.concat(noReminder).forEach(function(task){ prioritizedIds[task.id] = true; });
-    var others = filtered.filter(function(task){ return !prioritizedIds[task.id]; })
-      .sort(function(a, b){ return a.createdAt - b.createdAt; });
-
-    var prioritized = dueToday.concat(noReminder, others);
+    // The visible slice is fully manual order (see task.order / startTaskDrag) — no automatic
+    // reminder/date-based reshuffling anymore, whatever the user last dragged things into is
+    // exactly what shows, due-today or not. Whatever doesn't fit in the visible slice sits
+    // under "show more", in that same manual order.
+    var ordered = filtered.slice().sort(function(a, b){ return a.order - b.order; });
     var shown;
 
     // Setting escape hatch — when the user would rather see everything up front, skip the
-    // slicing/overflow dance entirely and just render the whole (priority-ordered) list.
+    // slicing/overflow dance entirely and just render the whole (manually-ordered) list.
     if(state.settings.showAllTasksImmediately){
-      shown = prioritized;
+      shown = ordered;
       tasksOverflowEl.style.display = "none";
     } else {
-      var visible = prioritized.slice(0, TASKS_VISIBLE_LIMIT);
-      var visibleIds = {};
-      visible.forEach(function(task){ visibleIds[task.id] = true; });
-      var hidden = filtered.filter(function(task){ return !visibleIds[task.id]; })
-        .sort(function(a, b){ return a.createdAt - b.createdAt; });
+      var visible = ordered.slice(0, TASKS_VISIBLE_LIMIT);
+      var hidden = ordered.slice(TASKS_VISIBLE_LIMIT);
 
       shown = (!tasksExpanded && hidden.length > 0) ? visible : visible.concat(hidden);
 
@@ -4605,9 +4671,12 @@
       ? task.subtasks.map(function(s, i){ return renderSubtaskCard(s, task.id, i); }).join("")
       : "";
 
+    var dragHandleHtml = '<button class="task-drag-handle" aria-label="' + t("aria_reorder") + '">⠿</button>';
+
     if(task.type === "note"){
       return '<li class="task-item note-item" data-id="' + task.id + '">' +
         '<div class="task-main-row">' +
+          dragHandleHtml +
           '<div class="task-body">' + titleHtml + categoryTagHtml + '</div>' +
           '<button class="task-edit" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>' +
           '<button class="task-delete" aria-label="' + t("aria_delete") + '">🗑️</button>' +
@@ -4617,6 +4686,7 @@
 
     return '<li class="task-item ' + (task.completed ? "completed" : "") + '" data-id="' + task.id + '">' +
       '<div class="task-main-row">' +
+        dragHandleHtml +
         '<button class="task-check ' + (task.completed ? "checked" : "") + (hasSubtasks ? " derived" : "") + '" aria-label="' + t("aria_mark_done") + '"></button>' +
         '<div class="task-body">' + titleHtml + renderReminderBadgeHtml(task) + categoryTagHtml + '</div>' +
         '<button class="task-add-step" data-parent-id="' + task.id + '" aria-label="' + t("aria_add_step") + '">+</button>' +
@@ -4626,6 +4696,127 @@
       arrowHtml +
       '</li>' +
       subtaskCardsHtml;
+  }
+
+  // ---------- task/note drag reorder ----------
+  // Fully manual order (see task.order in normalizeState/addTask, and the sort in renderTasks).
+  // A drag only ever touches the ONE card being dragged — its final order is set to the
+  // midpoint between whatever ends up its new neighbors' order values, so every other task's
+  // order is left completely untouched regardless of which filter/category tab the drag
+  // happened in (see onTaskDragEnd).
+
+  // "Unit" = a top-level .task-item plus any of its expanded .subtask-card siblings that
+  // immediately follow it — renderTaskCard appends those as plain <li> siblings, not children
+  // (see subtaskCardsHtml above), so they have to move together or a task's own steps would get
+  // left behind mid-drag. Only top-level .task-item cards are draggable; subtask cards ride
+  // along with their parent instead of having their own handle.
+  function getTaskUnitsInDom(){
+    var units = [];
+    Array.prototype.forEach.call(taskList.children, function(el){
+      if(el.classList.contains("task-item")){
+        units.push({ id: el.dataset.id, elements: [el] });
+      } else if(el.classList.contains("subtask-card") && units.length){
+        units[units.length - 1].elements.push(el);
+      }
+    });
+    return units;
+  }
+
+  function startTaskDrag(handle, e){
+    var card = handle.closest(".task-item");
+    if(!card) return;
+    var units = getTaskUnitsInDom();
+    var unitIndex = units.findIndex(function(u){ return u.id === card.dataset.id; });
+    if(unitIndex === -1) return;
+
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    card.classList.add("dragging");
+    taskDragState = {
+      pointerId: e.pointerId, taskId: card.dataset.id, card: card,
+      units: units, unitIndex: unitIndex, originalUnitIndex: unitIndex,
+      pointerStartY: e.clientY, appliedTransformY: 0
+    };
+
+    document.addEventListener("pointermove", onTaskDragMove);
+    document.addEventListener("pointerup", onTaskDragEnd);
+    document.addEventListener("pointercancel", onTaskDragEnd);
+  }
+
+  // Moves the dragged unit to its new slot in both the tracked array and the live DOM, then
+  // re-baselines the transform so the card's on-screen position doesn't visibly jump even
+  // though its natural (untransformed) resting slot just changed underneath it.
+  function swapTaskUnits(fromIndex, toIndex, pointerY){
+    var rectBefore = taskDragState.card.getBoundingClientRect();
+    var moved = taskDragState.units.splice(fromIndex, 1)[0];
+    taskDragState.units.splice(toIndex, 0, moved);
+    taskDragState.unitIndex = toIndex;
+    taskDragState.units.forEach(function(u){
+      u.elements.forEach(function(el){ taskList.appendChild(el); });
+    });
+    taskDragState.card.style.transform = "";
+    var rectAfterNatural = taskDragState.card.getBoundingClientRect();
+    taskDragState.appliedTransformY = rectBefore.top - rectAfterNatural.top;
+    taskDragState.card.style.transform = "translateY(" + taskDragState.appliedTransformY + "px)";
+    taskDragState.pointerStartY = pointerY;
+  }
+
+  function onTaskDragMove(e){
+    if(!taskDragState || e.pointerId !== taskDragState.pointerId) return;
+    e.preventDefault();
+    var deltaY = e.clientY - taskDragState.pointerStartY;
+    taskDragState.card.style.transform = "translateY(" + (taskDragState.appliedTransformY + deltaY) + "px)";
+
+    var units = taskDragState.units;
+    var idx = taskDragState.unitIndex;
+    // Swap with whichever neighbor the pointer has crossed the midpoint of — one slot per
+    // crossing, same feel as most mobile reorder lists, rather than jumping straight to a rect.
+    var prev = units[idx - 1];
+    if(prev){
+      var prevRect = prev.elements[0].getBoundingClientRect();
+      if(e.clientY < prevRect.top + prevRect.height / 2){
+        swapTaskUnits(idx, idx - 1, e.clientY);
+        return;
+      }
+    }
+    var next = units[idx + 1];
+    if(next){
+      var nextEl = next.elements[next.elements.length - 1];
+      var nextRect = nextEl.getBoundingClientRect();
+      if(e.clientY > nextRect.top + nextRect.height / 2){
+        swapTaskUnits(idx, idx + 1, e.clientY);
+      }
+    }
+  }
+
+  function onTaskDragEnd(e){
+    if(!taskDragState || e.pointerId !== taskDragState.pointerId) return;
+    document.removeEventListener("pointermove", onTaskDragMove);
+    document.removeEventListener("pointerup", onTaskDragEnd);
+    document.removeEventListener("pointercancel", onTaskDragEnd);
+
+    var units = taskDragState.units;
+    var idx = taskDragState.unitIndex;
+    // Only touch state if the card actually changed slots — a plain tap of the handle (pointer
+    // down/up with no movement) must not nudge order values or trigger a cloud sync push.
+    if(idx !== taskDragState.originalUnitIndex){
+      var task = state.tasks.find(function(t){ return t.id === taskDragState.taskId; });
+      if(task){
+        var prevTask = idx > 0 ? state.tasks.find(function(t){ return t.id === units[idx - 1].id; }) : null;
+        var nextTask = idx < units.length - 1 ? state.tasks.find(function(t){ return t.id === units[idx + 1].id; }) : null;
+        if(prevTask && nextTask) task.order = (prevTask.order + nextTask.order) / 2;
+        else if(prevTask) task.order = prevTask.order + 1000;
+        else if(nextTask) task.order = nextTask.order - 1000;
+        saveState();
+      }
+    }
+
+    taskDragState.card.classList.remove("dragging");
+    taskDragState.card.style.transform = "";
+    taskDragState = null;
+    // Re-render from the now-authoritative state — clears out the hand-shuffled DOM and
+    // reapplies the normal overflow/"show more" slicing on top of the new order.
+    renderTasks();
   }
 
   function renderDeletedCard(task){
@@ -4863,6 +5054,27 @@
     return state.shoppingLists.find(function(l){ return l.id === state.activeShoppingListId; }) || state.shoppingLists[0];
   }
 
+  // Order for a freshly-added item — same "just append past whatever's currently highest"
+  // logic for both local items and shared/household ones (see shoppingItemOrderKey), so a new
+  // item always lands at the bottom of the list it's added to rather than needing its own
+  // drag before it has a sane position.
+  function nextShoppingItemOrder(items){
+    var max = -Infinity;
+    items.forEach(function(it){
+      var order = shoppingItemOrderKey(it);
+      if(order > max) max = order;
+    });
+    return (max === -Infinity ? 0 : max) + 1000;
+  }
+
+  // Shared items only get an explicit `order` once someone's dragged them (see reorderItem) —
+  // until then, fall back to Firestore's createdAt so legacy/undragged items still sort by
+  // recency instead of colliding at 0.
+  function shoppingItemOrderKey(it){
+    if(typeof it.order === "number") return it.order;
+    return (it.createdAt && it.createdAt.toMillis) ? it.createdAt.toMillis() : 0;
+  }
+
   function renderShoppingListPicker(){
     var active = getActiveShoppingList();
     shoppingListPickerLabel.textContent = active ? (active.householdId ? "🔗 " : "") + shoppingListDisplayName(active) : "";
@@ -4994,13 +5206,14 @@
     if(targetId && window.CloudSync && window.CloudSync.household){
       unsubscribeHouseholdItems = window.CloudSync.household.subscribeItems(targetId, function(items){
         if(subscribedHouseholdId !== targetId) return; // a stale listener superseded by a later switch
-        items.sort(function(a, b){
-          var at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
-          var bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
-          return at - bt;
-        });
+        items.sort(function(a, b){ return shoppingItemOrderKey(a) - shoppingItemOrderKey(b); });
         householdItemsCache = items;
-        renderShoppingItems();
+        // A snapshot can land mid-drag (another member's edit, or this device's own reorderItem
+        // write echoing back) — skip the re-render while shoppingDragState is active so it can't
+        // yank the hand-shuffled DOM out from under an in-progress drag (see startShoppingDrag).
+        // The cache above still updates so onShoppingDragEnd's final render picks up whatever
+        // arrived in the meantime.
+        if(!shoppingDragState) renderShoppingItems();
       });
     }
   }
@@ -5045,7 +5258,7 @@
       return Promise.all(itemsToMigrate.map(function(it){
         return window.CloudSync.household.addItem(householdId, {
           name: it.name, checked: !!it.checked, checkedBy: it.checked ? currentUserUid : null,
-          pantryId: it.pantryId || null, addedBy: currentUserUid
+          pantryId: it.pantryId || null, addedBy: currentUserUid, order: it.order
         });
       }));
     }).catch(function(e){
@@ -5065,11 +5278,14 @@
   // extra native plugin, handing the OS its normal share sheet (WhatsApp/Telegram/SMS/...).
   // Falls back to clipboard if it's ever unavailable (older WebView, or previewing in a desktop
   // browser) rather than doing nothing.
-  // Custom scheme rather than a verified https App Link — that needs a hosted assetlinks.json
-  // proving domain ownership, overkill here. Most messengers still linkify an arbitrary
-  // scheme://... the same as a normal URL, so this stays tappable in practice.
+  // Verified https App Link (see AndroidManifest.xml's autoVerify intent-filter and
+  // hosting/.well-known/assetlinks.json) rather than the old misterlapkins:// custom scheme —
+  // this is the shape that actually renders as a tappable link in WhatsApp/Telegram instead of
+  // sitting there as plain text. hosting/join/index.html is the fallback for anyone who taps it
+  // without the app installed. src/deeplink.js still accepts the old scheme too, for any link
+  // sent before this switch.
   function buildJoinDeepLink(code){
-    return "misterlapkins://join?code=" + encodeURIComponent(code);
+    return "https://mister-lapkins.web.app/join?code=" + encodeURIComponent(code);
   }
 
   function nativeShareListCode(){
@@ -5144,30 +5360,197 @@
     joinHouseholdByCode(code);
   }
 
+  function renderShoppingItemCard(it, showDragHandle){
+    var isEditing = editingShoppingItemId === it.id;
+    var nameHtml = isEditing
+      ? '<input type="text" class="shopping-item-edit-input" data-id="' + it.id + '" maxlength="60" value="' + escapeHtml(it.name) + '">'
+      : '<span class="shopping-item-name" data-id="' + it.id + '">' + escapeHtml(it.name) + '</span>';
+    var editBtnHtml = isEditing
+      ? '<button class="shopping-item-edit shopping-item-save" data-id="' + it.id + '" aria-label="' + t("aria_save_edit") + '">✓</button>'
+      : '<button class="shopping-item-edit" data-id="' + it.id + '" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>';
+    var handleHtml = showDragHandle ? '<button class="shopping-item-drag-handle" aria-label="' + t("aria_reorder") + '">⠿</button>' : "";
+    return '<li class="shopping-item' + (it.checked ? " checked" : "") + '" data-id="' + it.id + '">' +
+        handleHtml +
+        '<button class="shopping-item-checkbox' + (it.checked ? " checked" : "") + '" data-id="' + it.id + '" aria-label="' + t("aria_mark_done") + '"></button>' +
+        nameHtml +
+        editBtnHtml +
+        '<button class="shopping-item-delete" data-id="' + it.id + '" aria-label="' + t("aria_delete") + '">🗑️</button>' +
+      '</li>';
+  }
+
   function renderShoppingItems(){
     ensureHouseholdSubscription();
     var active = getActiveShoppingList();
-    var items = active ? (active.householdId ? householdItemsCache : active.items) : [];
-    shoppingItemEmptyHint.classList.toggle("hidden", items.length > 0);
-    shoppingItemList.innerHTML = items.map(function(it){
-      var isEditing = editingShoppingItemId === it.id;
-      var nameHtml = isEditing
-        ? '<input type="text" class="shopping-item-edit-input" data-id="' + it.id + '" maxlength="60" value="' + escapeHtml(it.name) + '">'
-        : '<span class="shopping-item-name" data-id="' + it.id + '">' + escapeHtml(it.name) + '</span>';
-      var editBtnHtml = isEditing
-        ? '<button class="shopping-item-edit shopping-item-save" data-id="' + it.id + '" aria-label="' + t("aria_save_edit") + '">✓</button>'
-        : '<button class="shopping-item-edit" data-id="' + it.id + '" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>';
-      return '<li class="shopping-item' + (it.checked ? " checked" : "") + '" data-id="' + it.id + '">' +
-          '<button class="shopping-item-checkbox' + (it.checked ? " checked" : "") + '" data-id="' + it.id + '" aria-label="' + t("aria_mark_done") + '"></button>' +
-          nameHtml +
-          editBtnHtml +
-          '<button class="shopping-item-delete" data-id="' + it.id + '" aria-label="' + t("aria_delete") + '">🗑️</button>' +
-        '</li>';
-    }).join("");
+    var all = active ? (active.householdId ? householdItemsCache : active.items) : [];
+    shoppingItemEmptyHint.classList.toggle("hidden", all.length > 0);
+
+    // Two zones (see .shopping-bought-section): active items up top with a drag handle each,
+    // checked-off ones collapsed into "Куплено (N)" below with none — dragging a bought item
+    // into some order doesn't mean anything once it's off the list you're actively shopping
+    // from. Both always sort by the same order key so an item picks up right where the active
+    // list had it if it gets unchecked back in (see toggleShoppingItem, unchanged).
+    var activeItems = all.filter(function(it){ return !it.checked; })
+      .sort(function(a, b){ return shoppingItemOrderKey(a) - shoppingItemOrderKey(b); });
+    var boughtItems = all.filter(function(it){ return it.checked; })
+      .sort(function(a, b){ return shoppingItemOrderKey(a) - shoppingItemOrderKey(b); });
+
+    shoppingItemList.innerHTML = activeItems.map(function(it){ return renderShoppingItemCard(it, true); }).join("");
+
+    shoppingBoughtSection.classList.toggle("hidden", boughtItems.length === 0);
+    shoppingBoughtToggle.classList.toggle("expanded", shoppingBoughtExpanded);
+    shoppingBoughtToggleLabel.textContent = t("shopping_bought_label_template").replace("{n}", boughtItems.length);
+    shoppingBoughtList.classList.toggle("collapsed", !shoppingBoughtExpanded);
+    shoppingBoughtList.innerHTML = boughtItems.map(function(it){ return renderShoppingItemCard(it, false); }).join("");
+    shoppingBoughtClearBtn.classList.toggle("collapsed", !shoppingBoughtExpanded);
+
     if(editingShoppingItemId){
-      var input = shoppingItemList.querySelector(".shopping-item-edit-input");
+      var input = shoppingItemList.querySelector(".shopping-item-edit-input") || shoppingBoughtList.querySelector(".shopping-item-edit-input");
       if(input){ input.focus(); input.select(); }
     }
+  }
+
+  function toggleShoppingBoughtExpanded(){
+    shoppingBoughtExpanded = !shoppingBoughtExpanded;
+    renderShoppingItems();
+  }
+
+  // Bulk "empty the Куплено shelf" once a shopping trip's actually done — same hard-delete-no-
+  // confirmation as the single-item 🗑️ (see deleteShoppingItem), just for all of them at once.
+  function clearBoughtItems(){
+    var active = getActiveShoppingList();
+    if(!active) return;
+    if(active.householdId){
+      householdItemsCache.filter(function(it){ return it.checked; }).forEach(function(it){
+        window.CloudSync.household.deleteItem(active.householdId, it.id)
+          .catch(function(e){ console.warn("Mister Lapkins: household deleteItem (clear bought) failed", e); });
+      });
+      return;
+    }
+    active.items = active.items.filter(function(it){ return !it.checked; });
+    saveState();
+    renderShoppingItems();
+  }
+
+  // ---------- shopping item drag reorder ----------
+  // Mirrors the task/note drag engine (see startTaskDrag/onTaskDragEnd) — no subtask-style
+  // grouping needed here since shopping items don't nest, so it's the plain one-item-at-a-time
+  // version. A drag only ever touches the ONE item being dragged, setting its order to the
+  // midpoint of its new neighbors — every other item (and, for a shared list, every other
+  // member's own pending writes) is left alone.
+  function getShoppingItemEls(){
+    return Array.prototype.slice.call(shoppingItemList.children);
+  }
+
+  function startShoppingDrag(handle, e){
+    var card = handle.closest(".shopping-item");
+    if(!card) return;
+    var els = getShoppingItemEls();
+    var index = els.indexOf(card);
+    if(index === -1) return;
+
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    card.classList.add("dragging");
+    shoppingDragState = {
+      pointerId: e.pointerId, itemId: card.dataset.id, card: card,
+      els: els, index: index, originalIndex: index,
+      pointerStartY: e.clientY, appliedTransformY: 0
+    };
+
+    document.addEventListener("pointermove", onShoppingDragMove);
+    document.addEventListener("pointerup", onShoppingDragEnd);
+    document.addEventListener("pointercancel", onShoppingDragEnd);
+  }
+
+  // Same re-baseline trick as swapTaskUnits — keeps the dragged card's on-screen position
+  // continuous across the swap even though its natural (untransformed) slot just changed.
+  function swapShoppingItems(fromIndex, toIndex, pointerY){
+    var rectBefore = shoppingDragState.card.getBoundingClientRect();
+    var moved = shoppingDragState.els.splice(fromIndex, 1)[0];
+    shoppingDragState.els.splice(toIndex, 0, moved);
+    shoppingDragState.index = toIndex;
+    shoppingDragState.els.forEach(function(el){ shoppingItemList.appendChild(el); });
+    shoppingDragState.card.style.transform = "";
+    var rectAfterNatural = shoppingDragState.card.getBoundingClientRect();
+    shoppingDragState.appliedTransformY = rectBefore.top - rectAfterNatural.top;
+    shoppingDragState.card.style.transform = "translateY(" + shoppingDragState.appliedTransformY + "px)";
+    shoppingDragState.pointerStartY = pointerY;
+  }
+
+  function onShoppingDragMove(e){
+    if(!shoppingDragState || e.pointerId !== shoppingDragState.pointerId) return;
+    e.preventDefault();
+    var deltaY = e.clientY - shoppingDragState.pointerStartY;
+    shoppingDragState.card.style.transform = "translateY(" + (shoppingDragState.appliedTransformY + deltaY) + "px)";
+
+    var els = shoppingDragState.els;
+    var idx = shoppingDragState.index;
+    var prev = els[idx - 1];
+    if(prev){
+      var prevRect = prev.getBoundingClientRect();
+      if(e.clientY < prevRect.top + prevRect.height / 2){
+        swapShoppingItems(idx, idx - 1, e.clientY);
+        return;
+      }
+    }
+    var next = els[idx + 1];
+    if(next){
+      var nextRect = next.getBoundingClientRect();
+      if(e.clientY > nextRect.top + nextRect.height / 2){
+        swapShoppingItems(idx, idx + 1, e.clientY);
+      }
+    }
+  }
+
+  function onShoppingDragEnd(e){
+    if(!shoppingDragState || e.pointerId !== shoppingDragState.pointerId) return;
+    document.removeEventListener("pointermove", onShoppingDragMove);
+    document.removeEventListener("pointerup", onShoppingDragEnd);
+    document.removeEventListener("pointercancel", onShoppingDragEnd);
+
+    var els = shoppingDragState.els;
+    var idx = shoppingDragState.index;
+    var itemId = shoppingDragState.itemId;
+    // Only touch anything if the item actually changed slots — a plain tap of the handle must
+    // not nudge order values or fire a Firestore write.
+    var moved = idx !== shoppingDragState.originalIndex;
+
+    shoppingDragState.card.classList.remove("dragging");
+    shoppingDragState.card.style.transform = "";
+    shoppingDragState = null;
+
+    if(moved){
+      var active = getActiveShoppingList();
+      if(active){
+        var items = active.householdId ? householdItemsCache : active.items;
+        var findById = function(id){ return items.find(function(it){ return it.id === id; }); };
+        var thisItem = findById(itemId);
+        if(thisItem){
+          var prevItem = els[idx - 1] ? findById(els[idx - 1].dataset.id) : null;
+          var nextItem = els[idx + 1] ? findById(els[idx + 1].dataset.id) : null;
+          var newOrder = shoppingItemOrderKey(thisItem);
+          if(prevItem && nextItem) newOrder = (shoppingItemOrderKey(prevItem) + shoppingItemOrderKey(nextItem)) / 2;
+          else if(prevItem) newOrder = shoppingItemOrderKey(prevItem) + 1000;
+          else if(nextItem) newOrder = shoppingItemOrderKey(nextItem) - 1000;
+
+          if(active.householdId){
+            window.CloudSync.household.reorderItem(active.householdId, itemId, newOrder)
+              .catch(function(e){ console.warn("Mister Lapkins: household reorderItem failed", e); });
+            // Reflect it in the cache right away — otherwise the render below would briefly
+            // show the pre-drag order again until this write's snapshot echoes back.
+            thisItem.order = newOrder;
+          } else {
+            thisItem.order = newOrder;
+            saveState();
+          }
+        }
+      }
+    }
+
+    // Re-render from the now-authoritative order — clears out the hand-shuffled DOM. For a
+    // shared list this also folds in whatever arrived from other members while dragging (see
+    // the shoppingDragState guard in ensureHouseholdSubscription's onItems callback).
+    renderShoppingItems();
   }
 
   function addShoppingItem(name){
@@ -5176,11 +5559,11 @@
     var active = getActiveShoppingList();
     if(!active) return;
     if(active.householdId){
-      window.CloudSync.household.addItem(active.householdId, { name: trimmed, addedBy: currentUserUid })
+      window.CloudSync.household.addItem(active.householdId, { name: trimmed, addedBy: currentUserUid, order: nextShoppingItemOrder(householdItemsCache) })
         .catch(function(e){ console.warn("Mister Lapkins: household addItem failed", e); });
       return;
     }
-    active.items.push({ id: genId(), name: trimmed, checked: false, pantryId: null });
+    active.items.push({ id: genId(), name: trimmed, checked: false, pantryId: null, order: nextShoppingItemOrder(active.items) });
     saveState();
     renderShoppingItems();
   }
@@ -6057,7 +6440,7 @@
   function addTask(title, text, type, reminderDateTime, category){
     var task = {
       id: genId(), title: (title && title.trim()) ? title.trim() : autoTitleFromText(text),
-      text: text, type: type, completed: false, createdAt: Date.now(),
+      text: text, type: type, completed: false, createdAt: Date.now(), order: Date.now(),
       deleted: false, deletedAt: null, archived: false, archivedAt: null,
       reminderDateTime: reminderDateTime || null, reminderFired: false, reminderCarriedOver: false,
       subtasks: [], category: category || null
@@ -6386,10 +6769,14 @@
     if(!item || !list) return;
     var name = pantryDisplayName(item);
     if(list.householdId){
-      window.CloudSync.household.addItem(list.householdId, { name: name, pantryId: item.id, addedBy: currentUserUid })
+      // list here isn't necessarily the currently-active/subscribed list (see
+      // ensureHouseholdSubscription), so householdItemsCache may not reflect it — Date.now() as
+      // the order sorts after any existing item regardless of which list this lands in, same as
+      // the local branch below getting a fresh id.
+      window.CloudSync.household.addItem(list.householdId, { name: name, pantryId: item.id, addedBy: currentUserUid, order: Date.now() })
         .catch(function(e){ console.warn("Mister Lapkins: household addItem (replenish) failed", e); });
     } else {
-      list.items.push({ id: genId(), name: name, checked: false, pantryId: item.id });
+      list.items.push({ id: genId(), name: name, checked: false, pantryId: item.id, order: Date.now() });
       saveState();
       if(state.activeShoppingListId === list.id) renderShoppingItems();
     }
@@ -7025,6 +7412,18 @@
     editingIdlePhraseIndex = null;
     renderIdlePhrases();
     updatePantryDaysSuffix();
+    // These all bake t() strings straight into innerHTML at render time rather than leaving a
+    // data-i18n marker behind (see applyTranslations above), so — same as everything above —
+    // each needs its own explicit re-render here or it's stuck showing whatever language was
+    // active the last time something happened to trigger it.
+    renderShoppingListPicker();
+    renderShoppingItems();
+    renderTrash();
+    renderAchievements();
+    renderHomeDevices();
+    renderFocusTimer();
+    renderCategoryPickerOptions();
+    renderTaskOptionsCategoryPickerOptions();
     if(window.AppNotifications) window.AppNotifications.registerTaskActions(t("notif_action_snooze"), t("notif_action_done"));
   }
 
@@ -7909,6 +8308,11 @@
       if(e.target.closest('[data-action="restore"]')) restoreArchivedTask(li.dataset.id);
     });
 
+    taskList.addEventListener("pointerdown", function(e){
+      var handle = e.target.closest(".task-drag-handle");
+      if(handle) startTaskDrag(handle, e);
+    });
+
     taskList.addEventListener("click", function(e){
       // Subtask cards are now standalone siblings of their parent's <li> (not nested inside
       // it), so they carry their own data-parent-id/data-subtask-id and need to be checked
@@ -8041,10 +8445,18 @@
     // The save button sits in the exact spot the pencil occupied, so a stray blur-triggered
     // re-render before the click lands would swap it for a fresh pencil and reopen editing
     // instead of closing it — mousedown preventDefault keeps focus on the input so that can't happen.
-    shoppingItemList.addEventListener("mousedown", function(e){
+    // Delegated on the wrapper (not shoppingItemList alone) so the same handling covers both
+    // the active list and #shoppingBoughtList — a bought row's checkbox/name still routes
+    // through toggleShoppingItem, which is exactly what un-checks it back to active (see
+    // renderShoppingItems), and its edit/delete work identically to an active item's.
+    shoppingListsWrap.addEventListener("mousedown", function(e){
       if(e.target.closest(".shopping-item-save")) e.preventDefault();
     });
-    shoppingItemList.addEventListener("click", function(e){
+    shoppingItemList.addEventListener("pointerdown", function(e){
+      var handle = e.target.closest(".shopping-item-drag-handle");
+      if(handle) startShoppingDrag(handle, e);
+    });
+    shoppingListsWrap.addEventListener("click", function(e){
       var checkBtn = e.target.closest(".shopping-item-checkbox");
       var nameEl = e.target.closest(".shopping-item-name");
       var saveBtn = e.target.closest(".shopping-item-save");
@@ -8058,17 +8470,19 @@
       else if(editBtn){ editingShoppingItemId = editBtn.dataset.id; renderShoppingItems(); }
       else if(delBtn) deleteShoppingItem(delBtn.dataset.id);
     });
-    shoppingItemList.addEventListener("keydown", function(e){
+    shoppingListsWrap.addEventListener("keydown", function(e){
       var input = e.target.closest(".shopping-item-edit-input");
       if(!input) return;
       if(e.key === "Enter"){ e.preventDefault(); commitEditShoppingItem(input.dataset.id, input.value); }
       else if(e.key === "Escape"){ editingShoppingItemId = null; renderShoppingItems(); }
     });
-    shoppingItemList.addEventListener("focusout", function(e){
+    shoppingListsWrap.addEventListener("focusout", function(e){
       var input = e.target.closest(".shopping-item-edit-input");
       if(!input) return;
       commitEditShoppingItem(input.dataset.id, input.value);
     });
+    shoppingBoughtToggle.addEventListener("click", toggleShoppingBoughtExpanded);
+    shoppingBoughtClearBtn.addEventListener("click", clearBoughtItems);
 
     idlePhraseAddBtn.addEventListener("click", addIdlePhrase);
     idlePhraseInput.addEventListener("keydown", function(e){
@@ -8442,6 +8856,12 @@
     shoppingItemAddBtn = document.getElementById("shoppingItemAddBtn");
     shoppingItemList = document.getElementById("shoppingItemList");
     shoppingItemEmptyHint = document.getElementById("shoppingItemEmptyHint");
+    shoppingListsWrap = document.getElementById("shoppingListsWrap");
+    shoppingBoughtSection = document.getElementById("shoppingBoughtSection");
+    shoppingBoughtList = document.getElementById("shoppingBoughtList");
+    shoppingBoughtToggle = document.getElementById("shoppingBoughtToggle");
+    shoppingBoughtToggleLabel = document.getElementById("shoppingBoughtToggleLabel");
+    shoppingBoughtClearBtn = document.getElementById("shoppingBoughtClearBtn");
     idlePhraseListEl = document.getElementById("idlePhraseList");
     idlePhraseInput = document.getElementById("idlePhraseInput");
     idlePhraseAddBtn = document.getElementById("idlePhraseAddBtn");
