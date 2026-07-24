@@ -766,7 +766,7 @@
   .replenish-btn:active{ transform: translateY(1px); }
   /* Still used by shoppingListRenameBtn (see the Покупки sub-tab markup) even though the pantry
      card itself moved to .pantry-menu-btn's popover below. */
-  .pantry-edit{ background:transparent; border:none; font-size:14px; cursor:pointer; opacity:.6; padding:2px; display:flex; align-items:center; }
+  .pantry-edit{ background:transparent; border:none; font-size:14px; cursor:pointer; opacity:1; padding:2px; display:flex; align-items:center; }
   .pantry-edit:active{ opacity:1; }
 
   /* Pantry card's "⋮" corner menu (see .pantry-menu-btn above) — one shared popover,
@@ -857,7 +857,8 @@
      plain centered text link, not a bordered button, so it doesn't compete visually with the
      actual item cards above it. */
   .shopping-bought-clear{
-    display:block; width:100%; text-align:center; margin-top:10px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    width:100%; margin-top:4px; padding:10px 6px;
     background:transparent; border:none; cursor:pointer; opacity:.75;
     color: var(--text-muted); font-family:inherit; font-size: calc(12.5px * var(--font-scale)); font-weight:600;
   }
@@ -1236,7 +1237,8 @@
   .modal-title{ font-size: calc(16px * var(--font-scale)); font-weight:700; margin:0 0 16px; }
   .add-task-card{
     position:relative; text-align:left; padding-top:22px; padding-bottom:20px;
-    height:90vh; overflow-y:auto;
+    height:fit-content;
+    max-height: 85vh; overflow-y:auto;
   }
   .add-task-card .modal-title{ margin:0 0 12px; }
   .modal-close-x{
@@ -1673,7 +1675,7 @@
   }
   .toggle-row:last-child{ margin-bottom:0; }
   .toggle-hint{
-    font-size: calc(11.5px * var(--font-scale)); color: var(--text); opacity:.6; line-height:1.4;
+    font-size: calc(11.5px * var(--font-scale)); color: var(--text); line-height:1.4;
     margin:-4px 0 10px; padding:0 2px;
   }
   .toggle-hint:last-child{ margin-bottom:0; }
@@ -2317,6 +2319,104 @@
       <p class="empty-hint hidden" id="deviceEmptyHint" data-i18n="homecheck_empty_hint">Список пуст — добавь первый прибор для проверки.</p>
     </section>
 
+    <!-- Настройки — reachable via the sidebar, not the main tabbar (same convention as
+         Корзина/Достижения/Мои фразы above). A full page reads more naturally for a long
+         scrolling list of settings than a capped, scrollable popup card. -->
+    <section class="tab-panel" id="tab-settings">
+      <div class="trash-header-row">
+        <button type="button" class="trash-back-btn" id="settingsBackBtn" aria-label="Назад" data-i18n-aria="aria_back">←</button>
+        <p class="trash-screen-title" data-i18n="sidebar_nav_settings">Настройки</p>
+      </div>
+
+      <div class="sidebar-section">
+        <p class="sidebar-section-title">
+          <img class="section-title-icon" src="icons/icon_customization.png" alt="">
+          <span data-i18n="sidebar_section_customization">Кастомизация</span>
+        </p>
+        <label class="toggle-row" for="darkThemeToggle">
+          <span class="toggle-row-text" data-i18n="toggle_dark_theme">Тёмная тема</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="darkThemeToggle">
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+        <label class="toggle-row" for="minimalThemeToggle">
+          <span class="toggle-row-text" data-i18n="toggle_minimal_theme">Минимализм (без фона)</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="minimalThemeToggle">
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+        <p class="toggle-hint" data-i18n="toggle_minimal_theme_hint">Убирает фоновую картинку — работает вместе с тёмной/светлой темой, значки остаются</p>
+        <div class="font-size-row">
+          <div class="font-size-row-header">
+            <span class="toggle-row-text" data-i18n="settings_font_size_label">Размер шрифта</span>
+            <span class="font-size-value" id="fontSizeValue">100%</span>
+          </div>
+          <input type="range" id="fontSizeSlider" class="font-size-slider" min="1" max="1.3" step="0.05" value="1" aria-label="Размер шрифта" data-i18n-aria="settings_font_size_label">
+        </div>
+        <button type="button" class="sidebar-nav-btn" id="settingsReminderSoundBtn">
+          <img class="sidebar-nav-icon" src="icons/icon_bell.png" alt="">
+          <span data-i18n="settings_task_reminder_sound_label">Звук напоминания о делах</span>
+          <span class="sidebar-nav-btn-value" id="reminderSoundCurrentLabel"></span>
+          <span class="sidebar-nav-btn-arrow" aria-hidden="true">›</span>
+        </button>
+        <p class="toggle-hint" data-i18n="task_reminder_sound_hint">Играет только для напоминаний о делах и подзадачах. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.</p>
+        <div class="toggle-row">
+          <span class="toggle-row-text" data-i18n="settings_gender_label">Обращение</span>
+          <span class="lang-toggle">
+            <button type="button" class="lang-btn active" data-gender="lord" id="genderLordBtn" data-i18n="gender_lord_btn">Лорд</button>
+            <button type="button" class="lang-btn" data-gender="lady" id="genderLadyBtn" data-i18n="gender_lady_btn">Леди</button>
+          </span>
+        </div>
+        <label class="toggle-row" for="catThoughtsToggle">
+          <span class="toggle-row-text" data-i18n="toggle_cat_thoughts">Показывать мысли котика</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="catThoughtsToggle" checked>
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+        <label class="toggle-row" for="showAllTasksToggle">
+          <span class="toggle-row-text" data-i18n="toggle_show_all_tasks">Показывать все задачи сразу</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="showAllTasksToggle">
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+        <p class="toggle-hint" data-i18n="toggle_show_all_tasks_hint">Отключает скрытие длинных списков под кнопку «Показать остальные задачи»</p>
+
+        <label class="toggle-row" for="gamificationToggle">
+          <span class="toggle-row-text" data-i18n="toggle_gamification">Игровая механика</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="gamificationToggle" checked>
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+        <p class="toggle-hint" data-i18n="toggle_gamification_hint">Отключает игровую геймификацию, награды и механику находок котика, превращая приложение в минималистичный планер.</p>
+
+        <label class="toggle-row" for="soundToggle">
+          <span class="toggle-row-text" data-i18n="toggle_sound">Звуковые эффекты</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="soundToggle" checked>
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+
+        <label class="toggle-row" for="hapticsToggle">
+          <span class="toggle-row-text" data-i18n="toggle_haptics">Вибрация</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="hapticsToggle" checked>
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+
+        <button type="button" class="sidebar-nav-btn" id="settingsIdlePhrasesBtn">
+          <img class="sidebar-nav-icon" src="icons/icon_thoughts.png" alt="">
+          <span data-i18n="sidebar_section_idle_phrases">Мои фразы</span>
+        </button>
+      </div>
+    </section>
+
   </main>
 
   <!-- Collapsible drawer for Фокус/Забота о себе — these used to float open all the time as a
@@ -2685,8 +2785,8 @@
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 <!-- Меню is now a flat, ordered list of section rows, each in the same sidebar-nav-btn look —
      no more tabs/panels living inside the drawer itself. Языки stays inline (it's a toggle, not
-     a screen); Настройки and Добро now open their own modal (see settingsModalOverlay /
-     kindnessModalOverlay below); Достижения/Корзина keep switching the main tab as before. -->
+     a screen); Добро opens its own modal (see kindnessModalOverlay below); Настройки/
+     Достижения/Корзина keep switching the main tab (see tab-settings above in <main>). -->
 <div class="sidebar" id="settingsSidebar" aria-hidden="true">
   <div class="sidebar-header">
     <p class="sidebar-title" data-i18n="sidebar_title">Меню</p>
@@ -2784,101 +2884,6 @@
     <div class="add-task-actions">
       <button type="button" class="cancel-btn" id="batteryHintSkipBtn" data-i18n="signin_suggest_skip">Не сейчас</button>
       <button type="button" class="add-btn" id="batteryHintOkBtn" data-i18n="battery_hint_allow">Разрешить</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="settingsModalOverlay">
-  <div class="modal-card add-task-card settings-modal-card">
-    <button type="button" class="modal-close-x" id="settingsModalCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
-    <p class="modal-title" data-i18n="sidebar_nav_settings">Настройки</p>
-
-    <div class="sidebar-section">
-      <p class="sidebar-section-title">
-        <img class="section-title-icon" src="icons/icon_customization.png" alt="">
-        <span data-i18n="sidebar_section_customization">Кастомизация</span>
-      </p>
-      <label class="toggle-row" for="darkThemeToggle">
-        <span class="toggle-row-text" data-i18n="toggle_dark_theme">Тёмная тема</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="darkThemeToggle">
-          <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-        </span>
-      </label>
-      <label class="toggle-row" for="minimalThemeToggle">
-        <span class="toggle-row-text" data-i18n="toggle_minimal_theme">Минимализм (без фона)</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="minimalThemeToggle">
-          <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-        </span>
-      </label>
-      <p class="toggle-hint" data-i18n="toggle_minimal_theme_hint">Убирает фоновую картинку — работает вместе с тёмной/светлой темой, значки остаются</p>
-      <div class="font-size-row">
-        <div class="font-size-row-header">
-          <span class="toggle-row-text" data-i18n="settings_font_size_label">Размер шрифта</span>
-          <span class="font-size-value" id="fontSizeValue">100%</span>
-        </div>
-        <input type="range" id="fontSizeSlider" class="font-size-slider" min="1" max="1.3" step="0.05" value="1" aria-label="Размер шрифта" data-i18n-aria="settings_font_size_label">
-      </div>
-      <button type="button" class="sidebar-nav-btn" id="settingsReminderSoundBtn">
-        <img class="sidebar-nav-icon" src="icons/icon_bell.png" alt="">
-        <span data-i18n="settings_task_reminder_sound_label">Звук напоминания о делах</span>
-        <span class="sidebar-nav-btn-value" id="reminderSoundCurrentLabel"></span>
-        <span class="sidebar-nav-btn-arrow" aria-hidden="true">›</span>
-      </button>
-      <p class="toggle-hint" data-i18n="task_reminder_sound_hint">Играет только для напоминаний о делах и подзадачах. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.</p>
-      <div class="toggle-row">
-        <span class="toggle-row-text" data-i18n="settings_gender_label">Обращение</span>
-        <span class="lang-toggle">
-          <button type="button" class="lang-btn active" data-gender="lord" id="genderLordBtn" data-i18n="gender_lord_btn">Лорд</button>
-          <button type="button" class="lang-btn" data-gender="lady" id="genderLadyBtn" data-i18n="gender_lady_btn">Леди</button>
-        </span>
-      </div>
-      <label class="toggle-row" for="catThoughtsToggle">
-        <span class="toggle-row-text" data-i18n="toggle_cat_thoughts">Показывать мысли котика</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="catThoughtsToggle" checked>
-          <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-        </span>
-      </label>
-      <label class="toggle-row" for="showAllTasksToggle">
-        <span class="toggle-row-text" data-i18n="toggle_show_all_tasks">Показывать все задачи сразу</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="showAllTasksToggle">
-          <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-        </span>
-      </label>
-      <p class="toggle-hint" data-i18n="toggle_show_all_tasks_hint">Отключает скрытие длинных списков под кнопку «Показать остальные задачи»</p>
-
-      <label class="toggle-row" for="gamificationToggle">
-        <span class="toggle-row-text" data-i18n="toggle_gamification">Игровая механика</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="gamificationToggle" checked>
-          <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-        </span>
-      </label>
-      <p class="toggle-hint" data-i18n="toggle_gamification_hint">Отключает игровую геймификацию, награды и механику находок котика, превращая приложение в минималистичный планер.</p>
-
-      <label class="toggle-row" for="soundToggle">
-        <span class="toggle-row-text" data-i18n="toggle_sound">Звуковые эффекты</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="soundToggle" checked>
-          <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-        </span>
-      </label>
-
-      <label class="toggle-row" for="hapticsToggle">
-        <span class="toggle-row-text" data-i18n="toggle_haptics">Вибрация</span>
-        <span class="toggle-switch">
-          <input type="checkbox" id="hapticsToggle" checked>
-          <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-        </span>
-      </label>
-
-      <button type="button" class="sidebar-nav-btn" id="settingsIdlePhrasesBtn">
-        <img class="sidebar-nav-icon" src="icons/icon_thoughts.png" alt="">
-        <span data-i18n="sidebar_section_idle_phrases">Мои фразы</span>
-      </button>
     </div>
   </div>
 </div>
@@ -3342,7 +3347,7 @@
       modal_title_new_note: "New note",
       modal_title_task_options: "Options",
       placeholder_task_title: "Title (optional)",
-      placeholder_task: "Add a subtask to make it easier",
+      placeholder_task: "Add the note you want to remember",
       placeholder_task_quick: "What needs to get done?",
       reminder_toggle: "Remind me",
       btn_cancel: "Cancel",
@@ -3741,7 +3746,7 @@
   var signinConflictModalOverlay, signinConflictUseLocalBtn, signinConflictUseCloudBtn;
   var signinSuggestModalOverlay, signinSuggestOkBtn, signinSuggestSkipBtn;
   var batteryHintModalOverlay, batteryHintOkBtn, batteryHintSkipBtn;
-  var sidebarSettingsBtn, sidebarKindnessBtn, settingsModalOverlay, settingsModalCloseX, kindnessModalOverlay, kindnessModalCloseX;
+  var sidebarSettingsBtn, sidebarKindnessBtn, settingsBackBtn, kindnessModalOverlay, kindnessModalCloseX;
   var progressWrapEl;
   var habitList, addHabitTrigger;
   var addHabitModalOverlay, addHabitModalTitleEl, habitIconInput, habitNameInput, habitIntervalInput, habitUnitButtons;
@@ -7357,16 +7362,9 @@
     settingsSidebar.setAttribute("aria-hidden", "true");
   }
 
-  // Настройки and Добро live in their own modals now, opened from the sidebar's flat list
-  // (see sidebarSettingsBtn/sidebarKindnessBtn) rather than as tabs inside the drawer itself.
-  function openSettingsModal(){
-    settingsModalOverlay.classList.add("show");
-  }
-
-  function closeSettingsModal(){
-    settingsModalOverlay.classList.remove("show");
-  }
-
+  // Добро lives in its own modal, opened from the sidebar's flat list (see
+  // sidebarKindnessBtn) rather than as a tab inside the drawer itself. Настройки is a regular
+  // tab-panel instead (see tab-settings, switched to via sidebarSettingsBtn below).
   function openKindnessModal(){
     kindnessModalOverlay.classList.add("show");
   }
@@ -8298,7 +8296,6 @@
     achievementsBackBtn.addEventListener("click", function(){ switchTab("tasks"); });
     idlePhrasesBackBtn.addEventListener("click", function(){ switchTab("tasks"); });
     settingsIdlePhrasesBtn.addEventListener("click", function(){
-      closeSettingsModal();
       editingIdlePhraseIndex = null;
       switchTab("idle-phrases");
     });
@@ -8675,8 +8672,9 @@
     });
     sidebarSettingsBtn.addEventListener("click", function(){
       closeSidebar();
-      openSettingsModal();
+      switchTab("settings");
     });
+    settingsBackBtn.addEventListener("click", function(){ switchTab("tasks"); });
     sidebarKindnessBtn.addEventListener("click", function(){
       closeSidebar();
       openKindnessModal();
@@ -8686,7 +8684,6 @@
     genderLordBtn.addEventListener("click", function(){ switchGender("lord"); });
     genderLadyBtn.addEventListener("click", function(){ switchGender("lady"); });
     settingsReminderSoundBtn.addEventListener("click", function(){
-      closeSettingsModal();
       switchTab("reminder-sound");
     });
     reminderSoundBackBtn.addEventListener("click", function(){ switchTab("tasks"); });
@@ -8717,10 +8714,6 @@
     soundToggle.addEventListener("change", toggleSound);
     hapticsToggle.addEventListener("change", toggleHaptics);
 
-    settingsModalCloseX.addEventListener("click", closeSettingsModal);
-    settingsModalOverlay.addEventListener("click", function(e){
-      if(e.target === settingsModalOverlay) closeSettingsModal();
-    });
     kindnessModalCloseX.addEventListener("click", closeKindnessModal);
     kindnessModalOverlay.addEventListener("click", function(e){
       if(e.target === kindnessModalOverlay) closeKindnessModal();
@@ -8931,8 +8924,7 @@
     langEnBtn = document.getElementById("langEnBtn");
     genderLordBtn = document.getElementById("genderLordBtn");
     genderLadyBtn = document.getElementById("genderLadyBtn");
-    settingsModalOverlay = document.getElementById("settingsModalOverlay");
-    settingsModalCloseX = document.getElementById("settingsModalCloseX");
+    settingsBackBtn = document.getElementById("settingsBackBtn");
     darkThemeToggle = document.getElementById("darkThemeToggle");
     minimalThemeToggle = document.getElementById("minimalThemeToggle");
     fontSizeSlider = document.getElementById("fontSizeSlider");
