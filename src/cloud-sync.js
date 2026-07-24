@@ -46,6 +46,19 @@ var freshSignInUid = null; // uid of a sign-in the user just explicitly requeste
                             // consumed by the very next onAuthStateChanged for that uid — see that
                             // listener for why loadOrSeedCloudState is only ever called from there
 
+// Guards flushPush() against writing before this session actually knows what the authoritative
+// state is. currentUid goes truthy the instant sign-in completes, but loadOrSeedCloudState's
+// getDoc() is still an in-flight network round-trip at that point — any saveState() that happens
+// to fire in that window (a 20s reminder-check tick, a habit/pantry re-render, anything) would
+// otherwise queue a push of whatever's in memory RIGHT NOW (the pre-restore/still-default local
+// state on a fresh install) and, once its 1500ms debounce elapses, silently overwrite the real
+// cloud document with it — indistinguishable from data loss with no error anywhere. Starts false
+// on every fresh loadOrSeedCloudState call (a new sign-in, or a session-restore on launch) and
+// only flips true once startListening() actually runs, which every branch (direct restore, seed,
+// and the post-conflict-resolution paths alike) does as its last step — so it also correctly
+// covers the whole time a sign-in conflict prompt sits waiting for a tap.
+var initialSyncDone = false;
+
 function userDocRef(uid){ return doc(db, "users", uid); }
 
 // Firestore's setDoc() rejects (Unsupported field value: undefined) if the object it's given
@@ -58,6 +71,29 @@ function userDocRef(uid){ return doc(db, "users", uid); }
 function sanitizeForFirestore(rawState){ return JSON.parse(JSON.stringify(rawState)); }
 
 function startListening(uid){
+  // Every loadOrSeedCloudState branch calls this as its last step once it's actually decided what
+  // this session's authoritative state is — see initialSyncDone's own comment for why flushPush()
+  // needs to wait for that.
+  initialSyncDone = true;
+  // Lets Kristina check "am I actually authenticated" straight from the Firestore console
+  // (users/{uid}.lastSeenAt), independent of anything the app's own UI claims — worth having
+  // given how unreliable that UI turned out to be during the 2026-07-22 sign-in debugging.
+  // Deliberately just a timestamp, not an isOnline boolean: Firestore (unlike Realtime Database)
+  // has no onDisconnect(), so a boolean would get stuck at "true" forever with no reliable event
+  // to flip it back on app close/kill.
+  //
+  // Fired from here — after loadOrSeedCloudState's own getDoc() has already resolved — rather
+  // than eagerly the moment sign-in completes: on a genuinely cold Firestore cache (a fresh
+  // install, never mid sign-out/sign-in on an already-warm session), submitting this merge write
+  // concurrently with that getDoc() let Firestore's local latency compensation answer the read
+  // from an optimistic view built ONLY from this pending write, before the real document had
+  // synced down — exists() came back true but appState was simply never in that partial view,
+  // which loadOrSeedCloudState reads as "no cloud state yet" and overwrites the real document
+  // with a blank one. Confirmed on-device: fromCache logged false (so this wasn't a stale-cache
+  // read), yet the very next line still hit the seed branch for an account with real data.
+  setDoc(userDocRef(uid), { lastSeenAt: serverTimestamp() }, { merge: true }).catch(function(e){
+    console.warn("Mister Lapkins: lastSeenAt write failed", e);
+  });
   if(listeningUid === uid) return;
   if(unsubscribeSnapshot) unsubscribeSnapshot();
   listeningUid = uid;
@@ -99,9 +135,14 @@ function stopListening(){
 function loadOrSeedCloudState(uid, isFreshSignIn){
   // TEMP diagnostic log — see the onIdTokenChanged listener above.
   console.log("Mister Lapkins: loadOrSeedCloudState start", uid, "isFreshSignIn:", isFreshSignIn);
+  // Blocks flushPush() from writing anything until this call's own startListening(uid) fires —
+  // see initialSyncDone's declaration for the data-loss window this closes.
+  initialSyncDone = false;
   var editCountAtFetchStart = localEditCount;
   getDoc(userDocRef(uid)).then(function(snap){
-    console.log("Mister Lapkins: loadOrSeedCloudState getDoc resolved, exists:", snap.exists());
+    // TEMP diagnostic log — fromCache matters: a cache hit here would mean this answer never
+    // actually touched the server, which changes what "exists"/appState here can be trusted to mean.
+    console.log("Mister Lapkins: loadOrSeedCloudState getDoc resolved, exists:", snap.exists(), "fromCache:", snap.metadata && snap.metadata.fromCache);
     // getDoc() is a network round-trip — on a slow connection the user can add/edit something
     // locally (queuePush() bumps localEditCount) before it resolves. Applying what we fetched
     // would silently discard that edit; queuePush() already has it scheduled, so just let that
@@ -109,11 +150,14 @@ function loadOrSeedCloudState(uid, isFreshSignIn){
     // below already routes through hasMeaningfulLocalStateFn/onSignInConflictFn, which reads
     // local state fresh at prompt time anyway.
     if(!isFreshSignIn && localEditCount !== editCountAtFetchStart){
+      console.log("Mister Lapkins: loadOrSeedCloudState bailing, local edit landed mid-fetch");
       startListening(uid);
       return;
     }
     if(snap.exists() && snap.data().appState){
       var cloudState = snap.data().appState;
+      // TEMP diagnostic log.
+      console.log("Mister Lapkins: loadOrSeedCloudState cloud tasks:", cloudState.tasks && cloudState.tasks.length, "hasMeaningfulLocal:", hasMeaningfulLocalStateFn && hasMeaningfulLocalStateFn());
       if(isFreshSignIn && onSignInConflictFn && hasMeaningfulLocalStateFn && hasMeaningfulLocalStateFn()){
         onSignInConflictFn(cloudState, {
           useCloud: function(){
@@ -130,8 +174,13 @@ function loadOrSeedCloudState(uid, isFreshSignIn){
         });
         return;
       }
+      console.log("Mister Lapkins: loadOrSeedCloudState applying cloud state directly (no conflict prompt)");
       if(onRemoteStateFn) onRemoteStateFn(cloudState);
     } else if(getStateFn){
+      // TEMP diagnostic log — this branch should only ever fire for a genuinely brand-new
+      // account/uid that has never been seen before. If this logs for an account that's been
+      // seen before, THIS is the write silently wiping real cloud data.
+      console.warn("Mister Lapkins: loadOrSeedCloudState SEEDING (doc did not exist) — this overwrites/creates users/" + uid, "local tasks:", getStateFn().tasks && getStateFn().tasks.length);
       setDoc(userDocRef(uid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() })
         .catch(function(e){ console.warn("Mister Lapkins: cloud sync seed failed", e); });
     }
@@ -216,15 +265,6 @@ onIdTokenChanged(auth, function(user){
     return;
   }
   if(onAuthChangeFn) onAuthChangeFn(user);
-  // Lets Kristina check "am I actually authenticated" straight from the Firestore console
-  // (users/{uid}.lastSeenAt), independent of anything the app's own UI claims — worth having
-  // given how unreliable that UI turned out to be during the 2026-07-22 sign-in debugging.
-  // Deliberately just a timestamp, not an isOnline boolean: Firestore (unlike Realtime Database)
-  // has no onDisconnect(), so a boolean would get stuck at "true" forever with no reliable event
-  // to flip it back on app close/kill.
-  setDoc(userDocRef(user.uid), { lastSeenAt: serverTimestamp() }, { merge: true }).catch(function(e){
-    console.warn("Mister Lapkins: lastSeenAt write failed", e);
-  });
   var isFresh = freshSignInUid === user.uid;
   freshSignInUid = null;
   if(!isFresh && lastHandledAuthUid === user.uid) return;
@@ -340,10 +380,26 @@ window.CloudSync.household = {
 };
 
 function flushPush(){
+  if(!currentUid || !getStateFn){ pushTimer = null; return; }
+  // Don't write yet if this session hasn't finished deciding what its authoritative starting
+  // state even is (see initialSyncDone) — retry shortly instead of either dropping the edit or,
+  // worse, pushing a stale/pre-restore snapshot that would clobber the real cloud document.
+  // getStateFn() is re-read once we actually do write, so whatever landed via applyRemoteState
+  // (or the user's own sign-in-conflict choice) in the meantime is what goes out, not this
+  // moment's state.
+  if(!initialSyncDone){
+    pushTimer = setTimeout(flushPush, 500);
+    return;
+  }
   pushTimer = null;
-  if(!currentUid || !getStateFn) return;
   lastPushedEditCount = localEditCount;
-  setDoc(userDocRef(currentUid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).catch(function(e){
+  // The success log matters as much as the failure one did — a push that's still in flight (this
+  // account's document is large enough, and networks flaky enough, that it can take much longer
+  // than the debounce itself) looks identical to one that silently never happened at all without
+  // it, which is exactly what made an earlier data-loss report hard to pin down.
+  setDoc(userDocRef(currentUid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).then(function(){
+    console.log("Mister Lapkins: cloud sync push succeeded");
+  }).catch(function(e){
     console.warn("Mister Lapkins: cloud sync push failed", e);
   });
 }

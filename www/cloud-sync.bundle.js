@@ -32132,6 +32132,7 @@ This typically indicates that your device does not have a healthy Internet conne
       var localEditCount = 0;
       var lastPushedEditCount = 0;
       var freshSignInUid = null;
+      var initialSyncDone = false;
       function userDocRef(uid) {
         return doc(db, "users", uid);
       }
@@ -32139,6 +32140,10 @@ This typically indicates that your device does not have a healthy Internet conne
         return JSON.parse(JSON.stringify(rawState));
       }
       function startListening(uid) {
+        initialSyncDone = true;
+        setDoc(userDocRef(uid), { lastSeenAt: serverTimestamp() }, { merge: true }).catch(function(e) {
+          console.warn("Mister Lapkins: lastSeenAt write failed", e);
+        });
         if (listeningUid === uid) return;
         if (unsubscribeSnapshot) unsubscribeSnapshot();
         listeningUid = uid;
@@ -32161,15 +32166,18 @@ This typically indicates that your device does not have a healthy Internet conne
       }
       function loadOrSeedCloudState(uid, isFreshSignIn) {
         console.log("Mister Lapkins: loadOrSeedCloudState start", uid, "isFreshSignIn:", isFreshSignIn);
+        initialSyncDone = false;
         var editCountAtFetchStart = localEditCount;
         getDoc(userDocRef(uid)).then(function(snap) {
-          console.log("Mister Lapkins: loadOrSeedCloudState getDoc resolved, exists:", snap.exists());
+          console.log("Mister Lapkins: loadOrSeedCloudState getDoc resolved, exists:", snap.exists(), "fromCache:", snap.metadata && snap.metadata.fromCache);
           if (!isFreshSignIn && localEditCount !== editCountAtFetchStart) {
+            console.log("Mister Lapkins: loadOrSeedCloudState bailing, local edit landed mid-fetch");
             startListening(uid);
             return;
           }
           if (snap.exists() && snap.data().appState) {
             var cloudState = snap.data().appState;
+            console.log("Mister Lapkins: loadOrSeedCloudState cloud tasks:", cloudState.tasks && cloudState.tasks.length, "hasMeaningfulLocal:", hasMeaningfulLocalStateFn && hasMeaningfulLocalStateFn());
             if (isFreshSignIn && onSignInConflictFn && hasMeaningfulLocalStateFn && hasMeaningfulLocalStateFn()) {
               onSignInConflictFn(cloudState, {
                 useCloud: function() {
@@ -32187,8 +32195,10 @@ This typically indicates that your device does not have a healthy Internet conne
               });
               return;
             }
+            console.log("Mister Lapkins: loadOrSeedCloudState applying cloud state directly (no conflict prompt)");
             if (onRemoteStateFn) onRemoteStateFn(cloudState);
           } else if (getStateFn) {
+            console.warn("Mister Lapkins: loadOrSeedCloudState SEEDING (doc did not exist) \u2014 this overwrites/creates users/" + uid, "local tasks:", getStateFn().tasks && getStateFn().tasks.length);
             setDoc(userDocRef(uid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).catch(function(e) {
               console.warn("Mister Lapkins: cloud sync seed failed", e);
             });
@@ -32216,9 +32226,6 @@ This typically indicates that your device does not have a healthy Internet conne
           return;
         }
         if (onAuthChangeFn) onAuthChangeFn(user);
-        setDoc(userDocRef(user.uid), { lastSeenAt: serverTimestamp() }, { merge: true }).catch(function(e) {
-          console.warn("Mister Lapkins: lastSeenAt write failed", e);
-        });
         var isFresh = freshSignInUid === user.uid;
         freshSignInUid = null;
         if (!isFresh && lastHandledAuthUid === user.uid) return;
@@ -32335,10 +32342,19 @@ This typically indicates that your device does not have a healthy Internet conne
         }
       };
       function flushPush() {
+        if (!currentUid || !getStateFn) {
+          pushTimer = null;
+          return;
+        }
+        if (!initialSyncDone) {
+          pushTimer = setTimeout(flushPush, 500);
+          return;
+        }
         pushTimer = null;
-        if (!currentUid || !getStateFn) return;
         lastPushedEditCount = localEditCount;
-        setDoc(userDocRef(currentUid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).catch(function(e) {
+        setDoc(userDocRef(currentUid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).then(function() {
+          console.log("Mister Lapkins: cloud sync push succeeded");
+        }).catch(function(e) {
           console.warn("Mister Lapkins: cloud sync push failed", e);
         });
       }
