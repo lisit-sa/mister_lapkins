@@ -1283,6 +1283,7 @@
 
   /* Share/join sheets — same reused .category-picker-trigger field look as the replenish sheet. */
   .share-list-hint{ font-size: calc(12.5px * var(--font-scale)); opacity:.7; line-height:1.4; margin:0 0 14px; }
+  .share-list-code-label{ font-size: calc(12.5px * var(--font-scale)); opacity:.7; line-height:1.4; margin:14px 0 8px; }
   .share-list-code-row{
     display:flex; align-items:center; gap:8px; border:2px solid var(--text); border-radius: var(--radius-md);
     background: var(--bg); padding:11px 14px; margin-bottom:10px;
@@ -1398,6 +1399,9 @@
   .category-picker-trigger-text{ flex:1; min-width:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .category-picker-trigger-text.placeholder{ opacity:.55; }
   .category-picker-trigger-arrow{ font-size:15px; opacity:.5; flex-shrink:0; transition: transform .2s ease; }
+  #replenishListPickerTrigger {
+    margin-bottom: 10px;
+  }
   .category-picker.open .category-picker-trigger-arrow{ transform: rotate(180deg); }
   .category-picker-list, .category-picker-new-row{
     display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:20;
@@ -1417,8 +1421,14 @@
   }
   .category-picker-row .category-picker-option{ flex:1; min-width:0; }
   .category-picker-option:hover, .category-picker-option:active{ background: rgba(var(--shadow-rgb),0.08); }
-  .category-picker-option.active{ color: var(--accent-dark); font-weight:700; }
+  .category-picker-option.active{ background: rgba(var(--accent-rgb),0.18); font-weight:700; }
   .category-picker-option.category-picker-add-option{ font-weight:700; color: var(--accent-dark); }
+  /* Groups the "+ New list"/"Join by code" actions below their own divider, so they read as
+     actions rather than more list rows sitting in the same flat stack (see renderShoppingListPicker). */
+  .category-picker-footer{
+    margin-top:6px; padding-top:8px; border-top:2px solid rgba(var(--shadow-rgb),0.15);
+    display:flex; flex-direction:column; gap:2px;
+  }
   .category-picker-delete{
     background:transparent; border:none; font-size:12px; cursor:pointer; opacity:.55;
     padding:6px 8px; flex-shrink:0; border-radius: var(--radius-md);
@@ -2655,20 +2665,23 @@
 
 <!-- Share sheet — opened from shoppingListShareBtn (see openShareListSheet). Shows the active
      list's household id as a short code, either freshly created (first share) or the existing one
-     (already shared). "Поделиться" hands it to the OS share sheet as plain text via the Web Share
-     API — no native deep-link plugin needed for that part, it works in any Capacitor WebView. -->
+     (already shared). "Поделиться" hands the OS share sheet a message containing BOTH the tappable
+     join link and the raw code (see share_list_share_text_template/nativeShareListCode) via
+     window.NativeShare (src/share.js, @capacitor/share) — the hint text above the code needs to
+     mention the link too, or it reads like this button only shares the code. -->
 <div class="modal-overlay bottom-sheet-overlay" id="shareListSheetOverlay">
   <div class="bottom-sheet-card">
     <button type="button" class="modal-close-x" id="shareListSheetCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
     <p class="modal-title" id="shareListSheetTitle"></p>
     <p class="share-list-hint" id="shareListSheetHint"></p>
+    <button type="button" class="category-picker-trigger replenish-sheet-done-field" id="shareListSheetShareBtn">
+      <span class="category-picker-trigger-text">📤 <span id="shareListSheetShareLabel"></span></span>
+    </button>
+    <p class="share-list-code-label" id="shareListSheetCodeLabel"></p>
     <div class="share-list-code-row">
       <span class="share-list-code" id="shareListSheetCode"></span>
       <button type="button" class="share-list-copy-btn" id="shareListSheetCopyBtn" aria-label="Скопировать" data-i18n-aria="aria_copy_code">📋</button>
     </div>
-    <button type="button" class="category-picker-trigger replenish-sheet-done-field" id="shareListSheetShareBtn">
-      <span class="category-picker-trigger-text">📤 <span id="shareListSheetShareLabel"></span></span>
-    </button>
   </div>
 </div>
 
@@ -2954,6 +2967,10 @@
      AndroidManifest.xml too, so `npx cap sync android` + a native rebuild — not just an OTA
      web update — before misterlapkins://join?code=... links actually open the app. -->
 <script src="deeplink.bundle.js"></script>
+<!-- Native share sheet (@capacitor/share) — see src/share.js. Talks to the rest of the
+     (unbundled) app only through window.NativeShare. Run `npm run build:share` again after
+     editing the source, then `npx cap sync android`, before this takes effect on device. -->
+<script src="share.bundle.js"></script>
 <script>
 (function(){
   "use strict";
@@ -3114,8 +3131,9 @@
       aria_copy_code: "Скопировать",
       shopping_list_join: "Присоединиться по коду",
       share_list_title_template: "Поделиться списком «{list}»",
-      share_list_hint: "Второй человек сможет ввести этот код в приложении, чтобы видеть и редактировать список вместе с тобой.",
+      share_list_hint: "Второй человек сможет открыть ссылку и сразу присоединиться к списку вместе с тобой.",
       share_list_share_btn: "Поделиться",
+      share_list_code_label: "Или отправь код:",
       share_list_share_text_template: "Присоединяйся к нашему общему списку покупок в Mister Lapkins! Открой ссылку {link} (или в приложении: «Присоединиться по коду» → {code})",
       share_list_copied_toast: "Код скопирован",
       share_list_error_toast: "Не получилось, попробуй ещё раз",
@@ -3389,8 +3407,9 @@
       aria_copy_code: "Copy",
       shopping_list_join: "Join by code",
       share_list_title_template: "Share \"{list}\"",
-      share_list_hint: "The other person can enter this code in the app to see and edit the list together with you.",
+      share_list_hint: "The other person can open the link and join the list with you right away.",
       share_list_share_btn: "Share",
+      share_list_code_label: "Or send the code:",
       share_list_share_text_template: "Join our shared shopping list in Mister Lapkins! Open the link {link} (or in the app: \"Join by code\" → {code})",
       share_list_copied_toast: "Code copied",
       share_list_error_toast: "Something went wrong, try again",
@@ -3711,7 +3730,7 @@
   var shoppingBoughtExpanded = false; // session-only UI state — collapsed by default, like expandedSubtasksIds
   var shoppingListRenameTargetId = null; // null = the picker's new-row input is for ADD; set = RENAME that list id
   var editingShoppingItemId = null;
-  var shareListSheetOverlay, shareListSheetCloseX, shareListSheetTitle, shareListSheetHint, shareListSheetCode, shareListSheetCopyBtn, shareListSheetShareBtn, shareListSheetShareLabel;
+  var shareListSheetOverlay, shareListSheetCloseX, shareListSheetTitle, shareListSheetHint, shareListSheetCodeLabel, shareListSheetCode, shareListSheetCopyBtn, shareListSheetShareBtn, shareListSheetShareLabel;
   var joinListSheetOverlay, joinListSheetCloseX, joinListSheetTitle, joinListSheetInput, joinListSheetSubmitBtn, joinListSheetSubmitLabel;
   // Live cache of the active list's items when it's shared (see ensureHouseholdSubscription) —
   // a shared list's real items/checkmarks live in Firestore (households/{id}/items), never in
@@ -5090,8 +5109,10 @@
         '<button type="button" class="category-picker-delete" data-id="' + l.id + '" aria-label="' + t("aria_delete") + '">🗑️</button>' +
       '</div>';
     }).join("");
-    html += '<button type="button" class="category-picker-option category-picker-add-option" data-action="add-new">' + t("shopping_list_add_new") + '</button>';
-    html += '<button type="button" class="category-picker-option category-picker-add-option" data-action="join-list">🔗 ' + t("shopping_list_join") + '</button>';
+    html += '<div class="category-picker-footer">' +
+      '<button type="button" class="category-picker-option category-picker-add-option" data-action="add-new">' + t("shopping_list_add_new") + '</button>' +
+      '<button type="button" class="category-picker-option category-picker-add-option" data-action="join-list">🔗 ' + t("shopping_list_join") + '</button>' +
+    '</div>';
     shoppingListPickerList.innerHTML = html;
   }
 
@@ -5230,6 +5251,7 @@
   function showShareListSheetForHousehold(householdId, listName){
     shareListSheetTitle.textContent = t("share_list_title_template").replace("{list}", listName);
     shareListSheetHint.textContent = t("share_list_hint");
+    shareListSheetCodeLabel.textContent = t("share_list_code_label");
     shareListSheetCode.textContent = householdId;
     shareListSheetShareLabel.textContent = t("share_list_share_btn");
     shareListSheetOverlay.classList.add("show");
@@ -5250,6 +5272,7 @@
     var itemsToMigrate = active.items.slice();
     shareListSheetTitle.textContent = t("share_list_title_template").replace("{list}", listName);
     shareListSheetHint.textContent = t("share_list_hint");
+    shareListSheetCodeLabel.textContent = t("share_list_code_label");
     shareListSheetCode.textContent = "…";
     shareListSheetShareLabel.textContent = t("share_list_share_btn");
     shareListSheetOverlay.classList.add("show");
@@ -5279,10 +5302,6 @@
     navigator.clipboard.writeText(code).then(function(){ showToast(t("share_list_copied_toast")); }).catch(function(){});
   }
 
-  // navigator.share is the Web Share API — works inside a Capacitor Android WebView without any
-  // extra native plugin, handing the OS its normal share sheet (WhatsApp/Telegram/SMS/...).
-  // Falls back to clipboard if it's ever unavailable (older WebView, or previewing in a desktop
-  // browser) rather than doing nothing.
   // Verified https App Link (see AndroidManifest.xml's autoVerify intent-filter and
   // hosting/.well-known/assetlinks.json) rather than the old misterlapkins:// custom scheme —
   // this is the shape that actually renders as a tappable link in WhatsApp/Telegram instead of
@@ -5293,12 +5312,17 @@
     return "https://mister-lapkins.web.app/join?code=" + encodeURIComponent(code);
   }
 
+  // window.NativeShare (src/share.js, @capacitor/share) rather than the bare Web Share API —
+  // navigator.share is missing entirely in some Android WebView builds (confirmed on a
+  // MIUI/Xiaomi device: it silently fell back to clipboard-copy with no share sheet at all,
+  // even though navigator.clipboard on that same WebView worked fine), so the plugin goes
+  // through Android's native ACTION_SEND intent chooser directly instead.
   function nativeShareListCode(){
     var code = shareListSheetCode.textContent;
     if(!code || code === "…") return;
     var text = t("share_list_share_text_template").replace("{link}", buildJoinDeepLink(code)).replace("{code}", code);
-    if(navigator.share){
-      navigator.share({ text: text }).catch(function(){});
+    if(window.NativeShare){
+      window.NativeShare.share(text);
     } else if(navigator.clipboard){
       navigator.clipboard.writeText(text).then(function(){ showToast(t("share_list_copied_toast")); }).catch(function(){});
     }
@@ -8835,6 +8859,7 @@
     shareListSheetCloseX = document.getElementById("shareListSheetCloseX");
     shareListSheetTitle = document.getElementById("shareListSheetTitle");
     shareListSheetHint = document.getElementById("shareListSheetHint");
+    shareListSheetCodeLabel = document.getElementById("shareListSheetCodeLabel");
     shareListSheetCode = document.getElementById("shareListSheetCode");
     shareListSheetCopyBtn = document.getElementById("shareListSheetCopyBtn");
     shareListSheetShareBtn = document.getElementById("shareListSheetShareBtn");

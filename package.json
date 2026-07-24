@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && cap sync android && npm run sync:sounds",
+    "sync": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && cap sync android && npm run sync:sounds",
     "sync:sounds": "node scripts/sync-sounds.js",
     "open:android": "cap open android",
     "build:cloudsync": "esbuild src/cloud-sync.js --bundle --format=iife --outfile=www/cloud-sync.bundle.js",
@@ -15,9 +15,10 @@
     "build:notifications": "esbuild src/notifications.js --bundle --format=iife --outfile=www/notifications.bundle.js",
     "build:battery": "esbuild src/battery.js --bundle --format=iife --outfile=www/battery.bundle.js",
     "build:deeplink": "esbuild src/deeplink.js --bundle --format=iife --outfile=www/deeplink.bundle.js",
+    "build:share": "esbuild src/share.js --bundle --format=iife --outfile=www/share.bundle.js",
     "icons:prep": "node scripts/prep-icon.js",
     "icons": "npm run icons:prep && capacitor-assets generate --android",
-    "release": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && node scripts/release.js",
+    "release": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && node scripts/release.js",
     "deploy": "npm run release && firebase deploy --only hosting"
   },
   "repository": {
@@ -41,6 +42,7 @@
     "@capacitor/core": "^8.4.2",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/local-notifications": "^8.2.1",
+    "@capacitor/share": "^8.0.1",
     "@capgo/capacitor-updater": "^8.51.2",
     "firebase": "^12.16.0"
   },
