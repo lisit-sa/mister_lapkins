@@ -1572,6 +1572,13 @@
      to a dark glyph — invisible on the dark theme's dark input background. color-scheme tells
      the browser to draw its own native chrome (this icon included) in a dark-appropriate style. */
   body.dark-theme .reminder-input{ color-scheme: dark; }
+  /* Повтор — reuses .category-picker's dropdown chrome (see #recurPicker markup in both the
+     add-task and task-options modals) rather than .reminder-fields' own max-height/overflow:hidden
+     collapse animation, since that overflow:hidden would clip this picker's absolutely-positioned
+     option list the moment it opens. Plain hidden/shown instead. */
+  .recur-row{ margin-top:10px; }
+  .recur-row.hidden{ display:none; }
+  .recur-custom-row{ margin:10px 0 0; }
 
   .gift-box{ font-size:70px; cursor:pointer; user-select:none; }
   .gift-box-icon{ width:70px; height:70px; object-fit:contain; display:block; pointer-events:none; margin: 0 auto;}
@@ -2368,18 +2375,6 @@
         <p class="trash-screen-title" data-i18n="sidebar_nav_settings">Настройки</p>
       </div>
 
-      <!-- Persistent status card, own home for the battery-optimization nudge once the one-time
-           popup (see batteryHintModalOverlay) has already been shown/dismissed once — repeating a
-           popup every launch for someone who swiped it away instead of tapping through reads as
-           nagging, but silently letting reminders stay unreliable forever isn't better. Checked/
-           shown by refreshBatteryStatusBanner, called whenever Настройки opens (see switchTab's
-           "settings" branch) — never assumed to be a one-time check like the popup is. -->
-      <div class="battery-status-banner hidden" id="batteryStatusBanner">
-        <span class="battery-status-banner-icon" aria-hidden="true">⚠️</span>
-        <span class="battery-status-banner-text" data-i18n="battery_status_banner_text">Работа в фоне ограничена. Напоминания могут приходить с задержкой.</span>
-        <button type="button" class="battery-status-banner-btn" id="batteryStatusFixBtn" data-i18n="battery_status_banner_fix">Исправить</button>
-      </div>
-
       <div class="sidebar-section">
         <p class="sidebar-section-title">
           <img class="section-title-icon" src="icons/icon_customization.png" alt="">
@@ -2504,7 +2499,7 @@
         <span data-i18n="label_task">Задачки</span>
       </button>
       <button type="button" class="type-btn" data-type="note">
-        <img class="btn-icon" src="icons/icon_quests.png" alt="">
+        <img class="btn-icon" src="icons/icon_notes.png" alt="">
         <span data-i18n="label_note">Заметки</span>
       </button>
     </div>
@@ -2555,6 +2550,21 @@
           <input type="date" id="reminderDateInput" class="reminder-input">
           <input type="time" id="reminderTimeInput" class="reminder-input">
         </div>
+        <!-- Повтор — only meaningful once a reminder is actually set (see reminderToggle's
+             change handler), so it lives right under the date/time fields rather than as its own
+             top-level toggle. Same category-picker dropdown pattern as categoryPicker above,
+             reused rather than reinvented (see recurPickerTrigger/-List wiring). -->
+        <div class="recur-row category-picker hidden" id="recurPicker">
+          <button type="button" class="category-picker-trigger" id="recurPickerTrigger" aria-haspopup="listbox">
+            <span class="category-picker-trigger-text placeholder" id="recurPickerLabel">Не повторяется</span>
+            <span class="category-picker-trigger-arrow">▾</span>
+          </button>
+          <div class="category-picker-list" id="recurPickerList" role="listbox"></div>
+          <div class="pantry-days-row recur-custom-row hidden" id="recurCustomRow">
+            <input type="number" id="recurCustomDaysInput" class="pantry-days-input" min="1" max="90" value="3" inputmode="numeric" autocomplete="off">
+            <span class="pantry-days-suffix" id="recurCustomDaysSuffix">дня</span>
+          </div>
+        </div>
       </div>
     </div>
     <div class="add-task-actions">
@@ -2589,7 +2599,7 @@
         <span data-i18n="label_task">Задачки</span>
       </button>
       <button type="button" class="type-btn" data-type="note">
-        <img class="btn-icon" src="icons/icon_quests.png" alt="">
+        <img class="btn-icon" src="icons/icon_notes.png" alt="">
         <span data-i18n="label_note">Заметки</span>
       </button>
     </div>
@@ -2620,7 +2630,22 @@
           <input type="date" id="taskOptionsReminderDateInput" class="reminder-input">
           <input type="time" id="taskOptionsReminderTimeInput" class="reminder-input">
         </div>
+        <div class="recur-row category-picker hidden" id="taskOptionsRecurPicker">
+          <button type="button" class="category-picker-trigger" id="taskOptionsRecurPickerTrigger" aria-haspopup="listbox">
+            <span class="category-picker-trigger-text placeholder" id="taskOptionsRecurPickerLabel">Не повторяется</span>
+            <span class="category-picker-trigger-arrow">▾</span>
+          </button>
+          <div class="category-picker-list" id="taskOptionsRecurPickerList" role="listbox"></div>
+          <div class="pantry-days-row recur-custom-row hidden" id="taskOptionsRecurCustomRow">
+            <input type="number" id="taskOptionsRecurCustomDaysInput" class="pantry-days-input" min="1" max="90" value="3" inputmode="numeric" autocomplete="off">
+            <span class="pantry-days-suffix" id="taskOptionsRecurCustomDaysSuffix">дня</span>
+          </div>
+        </div>
       </div>
+    </div>
+    <div class="add-task-actions">
+      <button type="button" class="cancel-btn" id="taskOptionsCancelBtn" data-i18n="btn_cancel">Отмена</button>
+      <button type="button" class="add-btn" id="taskOptionsSaveBtn" data-i18n="btn_save">Сохранить</button>
     </div>
   </div>
 </div>
@@ -2866,6 +2891,19 @@
        the NEXT relaunch, not immediately, so it's not otherwise obvious whether a given test was
        run against old or new code. Safe to remove once that investigation is closed. -->
   <div id="debugVersionLabel" style="font-size: calc(10px * var(--font-scale)); opacity:.45; text-align:center; padding:2px 0 6px;"></div>
+
+  <!-- Persistent status card, own home for the battery-optimization nudge once the one-time
+       popup (see batteryHintModalOverlay) has already been shown/dismissed once — repeating a
+       popup every launch for someone who swiped it away instead of tapping through reads as
+       nagging, but silently letting reminders stay unreliable forever isn't better. Lives in the
+       menu itself (rather than the Настройки tab-panel) so it's visible without an extra tap.
+       Checked/shown by refreshBatteryStatusBanner, called whenever the menu opens (see
+       openSidebar) — never assumed to be a one-time check like the popup is. -->
+  <div class="battery-status-banner hidden" id="batteryStatusBanner">
+    <span class="battery-status-banner-icon" aria-hidden="true">⚠️</span>
+    <span class="battery-status-banner-text" data-i18n="battery_status_banner_text">Работа в фоне ограничена. Напоминания могут приходить с задержкой.</span>
+    <button type="button" class="battery-status-banner-btn" id="batteryStatusFixBtn" data-i18n="battery_status_banner_fix">Исправить</button>
+  </div>
 
   <div class="sidebar-nav-btn sidebar-nav-lang">
     <img class="sidebar-nav-icon" src="icons/icon_languages.png" alt="">
@@ -3135,6 +3173,11 @@
       placeholder_task: "Что у тебя на уме?",
       placeholder_task_quick: "Что нужно сделать?",
       reminder_toggle: "Напомнить мне",
+      recur_none: "Не повторяется",
+      recur_daily: "Каждый день",
+      recur_weekly: "Каждую неделю",
+      recur_custom_option: "Каждые N дней",
+      recur_custom_prefix: "Каждые",
       btn_cancel: "Отмена",
       btn_add: "Добавить",
       btn_save: "Сохранить",
@@ -3413,6 +3456,11 @@
       placeholder_task: "Add the note you want to remember",
       placeholder_task_quick: "What needs to get done?",
       reminder_toggle: "Remind me",
+      recur_none: "Doesn't repeat",
+      recur_daily: "Every day",
+      recur_weekly: "Every week",
+      recur_custom_option: "Every N days",
+      recur_custom_prefix: "Every",
       btn_cancel: "Cancel",
       btn_add: "Add",
       btn_save: "Save",
@@ -3723,9 +3771,11 @@
   var currentCategoryFilter = null; // null = "Все задачки"; set to a category name to filter by it
   var currentNoteCategoryFilter = null; // same idea as currentCategoryFilter, independent selection for the Заметки dropdown
   var modalTaskCategory = null; // category picked in the add/edit task modal, mirrors modalTaskType
+  var modalTaskRecurrence = null; // { type: "daily"|"weekly"|"custom", days? } or null — see recurrenceLabel
   var taskDetailEditingId = null; // task/note currently open in the full-text detail popup
   var taskOptionsEditingId = null; // task/note currently open in the settings popup
   var taskOptionsCategory = null; // category picked in the settings popup, mirrors modalTaskCategory
+  var taskOptionsRecurrence = null; // mirrors modalTaskRecurrence, for the settings popup's own picker
   var taskOptionsType = "task"; // type picked in the settings popup, mirrors modalTaskType
   var TASKS_VISIBLE_LIMIT = 5;
   var tasksExpanded = false;
@@ -3762,11 +3812,13 @@
   var categoryPicker, categoryPickerTrigger, categoryPickerLabel, categoryPickerList, categoryNewRow, categoryNewInput, categoryNewConfirmBtn;
   var taskSettingsZone;
   var reminderToggle, reminderFields, reminderDateInput, reminderTimeInput;
+  var recurPicker, recurPickerTrigger, recurPickerLabel, recurPickerList, recurCustomRow, recurCustomDaysInput, recurCustomDaysSuffix;
   var taskDetailModalOverlay, taskDetailCloseX, taskDetailTitleInput, taskDetailTextarea, taskDetailSaveBtn;
-  var taskOptionsModalOverlay, taskOptionsCloseX, taskOptionsTypeButtons;
+  var taskOptionsModalOverlay, taskOptionsCloseX, taskOptionsTypeButtons, taskOptionsCancelBtn, taskOptionsSaveBtn;
   var taskOptionsCategoryPicker, taskOptionsCategoryPickerTrigger, taskOptionsCategoryPickerLabel, taskOptionsCategoryPickerList;
   var taskOptionsCategoryNewRow, taskOptionsCategoryNewInput, taskOptionsCategoryNewConfirmBtn;
   var taskOptionsReminderBlock, taskOptionsReminderToggle, taskOptionsReminderFields, taskOptionsReminderDateInput, taskOptionsReminderTimeInput;
+  var taskOptionsRecurPicker, taskOptionsRecurPickerTrigger, taskOptionsRecurPickerLabel, taskOptionsRecurPickerList, taskOptionsRecurCustomRow, taskOptionsRecurCustomDaysInput, taskOptionsRecurCustomDaysSuffix;
   var pantryList, collectionGrid, collectionTabButtons, collectionProgressEl;
   var pantryMenuPopover, pantryMenuTargetId = null;
   var productsSubtabButtons, productsSubtabPantryEl, productsSubtabShoppingEl;
@@ -4290,13 +4342,23 @@
         };
       }) : [];
       var category = typeof t.category === "string" && t.category.trim() ? t.category.trim() : null;
+      // Only meaningful alongside an actual reminder (see the Повтор picker) — a corrupted/
+      // stray value, or one left over from a reminder that got cleared, falls back to null
+      // rather than resurrecting a recurrence with nothing to advance.
+      var recurrence = null;
+      if(reminderDateTime && t.recurrence && typeof t.recurrence === "object"){
+        if(t.recurrence.type === "daily" || t.recurrence.type === "weekly") recurrence = { type: t.recurrence.type };
+        else if(t.recurrence.type === "custom" && typeof t.recurrence.days === "number" && t.recurrence.days >= 1){
+          recurrence = { type: "custom", days: Math.min(Math.round(t.recurrence.days), 90) };
+        }
+      }
       // Manual drag order (see renderTasks/startTaskDrag). Saves from before drag reordering
       // existed have no order field — fall back to createdAt so the list doesn't visibly
       // reshuffle the first time this loads, then drags take over from there.
       var order = typeof t.order === "number" ? t.order : t.createdAt;
       return Object.assign({}, t, {
         type: type, title: title, reminderDateTime: reminderDateTime, reminderFired: !!t.reminderFired,
-        reminderCarriedOver: !!t.reminderCarriedOver, subtasks: subtasks, category: category,
+        reminderCarriedOver: !!t.reminderCarriedOver, subtasks: subtasks, category: category, recurrence: recurrence,
         motivation: undefined, order: order,
         deleted: !!t.deleted, deletedAt: typeof t.deletedAt === "number" ? t.deletedAt : null,
         archived: !!t.archived, archivedAt: typeof t.archivedAt === "number" ? t.archivedAt : null
@@ -4580,11 +4642,11 @@
     if(window.AppBattery) window.AppBattery.requestIgnoreOptimizations();
   }
 
-  // Standing status card at the top of Настройки (see tab-settings) rather than a repeat popup —
-  // the one-time modal above already asked once; someone who swiped it away without tapping
-  // through shouldn't get nagged with it again every launch, but silently leaving reminders
-  // unreliable forever isn't better either. Re-checked every time Настройки opens (see switchTab's
-  // "settings" branch), not just once, since the user can also flip this back off later in
+  // Standing status card at the top of the slide-out menu (see settingsSidebar) rather than a
+  // repeat popup — the one-time modal above already asked once; someone who swiped it away
+  // without tapping through shouldn't get nagged with it again every launch, but silently
+  // leaving reminders unreliable forever isn't better either. Re-checked every time the menu
+  // opens (see openSidebar), not just once, since the user can also flip this back off later in
   // Android's own settings after fixing it here.
   function refreshBatteryStatusBanner(){
     if(!window.AppBattery){ batteryStatusBanner.classList.add("hidden"); return; }
@@ -4715,15 +4777,24 @@
 
   // Shared by both a main task and a subtask row — same badge either way, just gating between
   // the normal bell-icon "<when>" label and the gentle carried-over caption (see checkReminders).
+  // obj.recurrence only ever exists on a top-level task (see addTask/applyTaskOptionsModal) —
+  // subtasks simply never have the field, so this reads as a plain no-op suffix for them.
+  // A plain inline SVG rather than the 🔁 emoji — emoji glyphs render with their own fixed
+  // full-color art regardless of CSS, so on a dark background the default 🔁 stayed a barely-
+  // visible dark grey/black. fill="currentColor" instead picks up .task-reminder-badge's own
+  // color (var(--olive), already themed for both light/dark — see :root/.dark-theme) for free.
+  var RECUR_ICON_SVG = '<svg class="inline-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>';
+
   function renderReminderBadgeHtml(obj){
     // Once done, the reminder no longer applies — hide the badge (including any lingering
     // "carried over" caption) instead of leaving a stale note on a finished item.
     if(!obj.reminderDateTime || obj.completed) return "";
+    var recurSuffix = obj.recurrence ? " · " + RECUR_ICON_SVG + " " + recurrenceLabel(obj.recurrence) : "";
     if(obj.reminderCarriedOver){
       var caption = t("task_carried_over_caption").replace("{time}", formatTimeOnly(obj.reminderDateTime));
-      return '<span class="task-reminder-badge task-carried-over">' + caption + '</span>';
+      return '<span class="task-reminder-badge task-carried-over">' + caption + recurSuffix + '</span>';
     }
-    return '<span class="task-reminder-badge"><img class="inline-icon" src="icons/icon_bell.png" alt=""> ' + formatReminderLabel(obj.reminderDateTime) + '</span>';
+    return '<span class="task-reminder-badge"><img class="inline-icon" src="icons/icon_bell.png" alt=""> ' + formatReminderLabel(obj.reminderDateTime) + recurSuffix + '</span>';
   }
 
   // Subtasks are now standalone sibling <li> cards (see renderTaskCard) instead of rows nested
@@ -6534,13 +6605,13 @@
   }
 
   // ---------- mutations ----------
-  function addTask(title, text, type, reminderDateTime, category){
+  function addTask(title, text, type, reminderDateTime, category, recurrence){
     var task = {
       id: genId(), title: (title && title.trim()) ? title.trim() : autoTitleFromText(text),
       text: text, type: type, completed: false, createdAt: Date.now(), order: Date.now(),
       deleted: false, deletedAt: null, archived: false, archivedAt: null,
       reminderDateTime: reminderDateTime || null, reminderFired: false, reminderCarriedOver: false,
-      subtasks: [], category: category || null
+      subtasks: [], category: category || null, recurrence: (reminderDateTime && recurrence) || null
     };
     state.tasks.push(task);
     scheduleTaskReminderNotification(task);
@@ -6673,6 +6744,35 @@
     }, ARCHIVE_DELAY_MS);
   }
 
+  // Same day-arithmetic idiom as processReminderLifecycle's own tomorrow-rollover above, just
+  // advancing by the task's own recurrence interval instead of a fixed one day.
+  function advanceReminderByRecurrence(reminderDateTime, recurrence){
+    var when = parseReminderDateTime(reminderDateTime);
+    var days = recurrence.type === "weekly" ? 7 : recurrence.type === "custom" ? (recurrence.days || 1) : 1;
+    var next = new Date(when.getFullYear(), when.getMonth(), when.getDate() + days, when.getHours(), when.getMinutes());
+    var dateStr = next.getFullYear() + "-" + String(next.getMonth() + 1).padStart(2, "0") + "-" + String(next.getDate()).padStart(2, "0");
+    var timeStr = String(next.getHours()).padStart(2, "0") + ":" + String(next.getMinutes()).padStart(2, "0");
+    return buildReminderDateTime(dateStr, timeStr);
+  }
+
+  // A recurring task (see the Повтор picker in the add-task/settings modals) never actually
+  // archives — completing one instance just rolls its reminder forward to the next occurrence and
+  // un-checks it, same brief see-the-checkmark delay and same quick-undo respect as
+  // scheduleArchiveIfCompleted above, just a different outcome once the delay elapses.
+  function scheduleRecurrenceAdvanceIfCompleted(taskId){
+    setTimeout(function(){
+      var task = state.tasks.find(function(t){ return t.id === taskId; });
+      if(!task || !task.completed || task.archived) return;
+      task.reminderDateTime = advanceReminderByRecurrence(task.reminderDateTime, task.recurrence);
+      task.completed = false;
+      task.reminderFired = false;
+      task.reminderCarriedOver = false;
+      scheduleTaskReminderNotification(task);
+      saveState();
+      renderTasks();
+    }, ARCHIVE_DELAY_MS);
+  }
+
   function toggleTask(id){
     var task = state.tasks.find(function(t){ return t.id === id; });
     if(!task) return;
@@ -6689,7 +6789,8 @@
     saveState();
     if(task.completed){
       addProgress(1);
-      scheduleArchiveIfCompleted(id);
+      if(task.recurrence && task.reminderDateTime) scheduleRecurrenceAdvanceIfCompleted(id);
+      else scheduleArchiveIfCompleted(id);
     } else {
       addProgress(-1);
     }
@@ -7446,6 +7547,7 @@
     settingsSidebar.classList.add("open");
     sidebarOverlay.classList.add("open");
     settingsSidebar.setAttribute("aria-hidden", "false");
+    refreshBatteryStatusBanner();
   }
 
   function closeSidebar(){
@@ -7652,7 +7754,6 @@
     if(tab === "homecheck"){ if(homeCheckLoaded) renderHomeDevices(); else loadHomeDevices(); }
     if(tab === "idle-phrases") renderIdlePhrases();
     if(tab === "reminder-sound") renderReminderSoundList();
-    if(tab === "settings") refreshBatteryStatusBanner();
   }
 
   // ---------- add-task modal ----------
@@ -7768,6 +7869,71 @@
     reminderDateInput.value = todayISO();
     var plusHour = new Date(Date.now() + 60 * 60 * 1000);
     reminderTimeInput.value = String(plusHour.getHours()).padStart(2, "0") + ":" + String(plusHour.getMinutes()).padStart(2, "0");
+    recurPicker.classList.add("hidden");
+    setRecurPickerValue(null);
+  }
+
+  // ---------- Повтор (recurring tasks) ----------
+  // Only meaningful once a reminder is set — a recurring task with no specific time doesn't fit
+  // this app's model, so the picker's visibility always mirrors its reminder-fields sibling's
+  // rather than having a toggle of its own (see every reminderToggle/taskOptionsReminderToggle
+  // change handler in attachEventListeners). Reuses pantryDaysWord for the same "3 дня"-style
+  // pluralized day count the pantry "Хватает на" field already needed.
+  function recurrenceLabel(recurrence){
+    if(!recurrence) return t("recur_none");
+    if(recurrence.type === "daily") return t("recur_daily");
+    if(recurrence.type === "weekly") return t("recur_weekly");
+    if(recurrence.type === "custom"){
+      var n = recurrence.days || 1;
+      return t("recur_custom_prefix") + " " + n + " " + pantryDaysWord(n);
+    }
+    return t("recur_none");
+  }
+
+  function renderRecurPickerOptions(listEl, current){
+    var type = current ? current.type : "";
+    var options = [
+      { value: "", label: t("recur_none") },
+      { value: "daily", label: t("recur_daily") },
+      { value: "weekly", label: t("recur_weekly") },
+      { value: "custom", label: t("recur_custom_option") }
+    ];
+    listEl.innerHTML = options.map(function(o){
+      return '<button type="button" class="category-picker-option' + (type === o.value ? " active" : "") + '" data-recur="' + o.value + '">' + o.label + '</button>';
+    }).join("");
+  }
+
+  function updateRecurCustomSuffix(inputEl, suffixEl){
+    var n = parseInt(inputEl.value, 10);
+    suffixEl.textContent = pantryDaysWord(isNaN(n) || n < 1 ? 1 : n);
+  }
+
+  function setRecurPickerValue(recurrence){
+    modalTaskRecurrence = recurrence;
+    recurPickerLabel.textContent = recurrenceLabel(recurrence);
+    recurPickerLabel.classList.toggle("placeholder", !recurrence);
+    recurCustomRow.classList.toggle("hidden", !recurrence || recurrence.type !== "custom");
+    if(recurrence && recurrence.type === "custom"){
+      recurCustomDaysInput.value = recurrence.days;
+      updateRecurCustomSuffix(recurCustomDaysInput, recurCustomDaysSuffix);
+    }
+    renderRecurPickerOptions(recurPickerList, recurrence);
+    recurPicker.classList.remove("open");
+  }
+
+  // Mirrors setRecurPickerValue for the settings popup's own independent instance (see
+  // prefillReminderFieldsInto's comment above for the same generalized-instance reasoning).
+  function setTaskOptionsRecurPickerValue(recurrence){
+    taskOptionsRecurrence = recurrence;
+    taskOptionsRecurPickerLabel.textContent = recurrenceLabel(recurrence);
+    taskOptionsRecurPickerLabel.classList.toggle("placeholder", !recurrence);
+    taskOptionsRecurCustomRow.classList.toggle("hidden", !recurrence || recurrence.type !== "custom");
+    if(recurrence && recurrence.type === "custom"){
+      taskOptionsRecurCustomDaysInput.value = recurrence.days;
+      updateRecurCustomSuffix(taskOptionsRecurCustomDaysInput, taskOptionsRecurCustomDaysSuffix);
+    }
+    renderRecurPickerOptions(taskOptionsRecurPickerList, recurrence);
+    taskOptionsRecurPicker.classList.remove("open");
   }
 
   function prefillReminderFields(reminderDateTime){
@@ -7866,6 +8032,11 @@
     addTaskTextarea.value = subtask.text;
     autosizeTextarea(addTaskTextarea);
     prefillReminderFields(subtask.reminderDateTime);
+    // Recurrence is a top-level-task-only concept — prefillReminderFields (unlike
+    // resetReminderFieldsToDefault) doesn't touch the recur picker on its own, so a subtask with
+    // a reminder would otherwise leave whatever recur-row state a previous task edit left behind.
+    recurPicker.classList.add("hidden");
+    setRecurPickerValue(null);
 
     addTaskModalOverlay.classList.add("show");
     setTimeout(function(){ addTaskTextarea.focus(); }, 260);
@@ -7880,6 +8051,17 @@
   // Existing tasks/notes are no longer edited through this modal (see openTaskDetailModal for
   // text, openTaskOptionsModal for category/reminder/type) — it now only ever creates new
   // top-level tasks/notes or adds/edits a subtask.
+  // Reads the custom-days input live rather than trusting modalTaskRecurrence/taskOptionsRecurrence's
+  // own .days — the user can type a new number without re-clicking "Каждые N дней" in the list
+  // (that only fires on first selecting the custom option), so the stored value would otherwise
+  // go stale the moment they edit the field.
+  function finalizeRecurrence(recurrence, customDaysInputEl){
+    if(!recurrence) return null;
+    if(recurrence.type !== "custom") return recurrence;
+    var n = parseInt(customDaysInputEl.value, 10);
+    return { type: "custom", days: isNaN(n) || n < 1 ? 1 : Math.min(n, 90) };
+  }
+
   function submitAddTaskModal(){
     var isSubtask = !!editingSubtaskParentId;
     var val = (isSubtask || modalTaskType === "note") ? addTaskTextarea.value.trim() : taskQuickInput.value.trim();
@@ -7891,7 +8073,8 @@
     } else if(editingSubtaskParentId){
       addSubtask(editingSubtaskParentId, val, reminderDateTime);
     } else {
-      addTask(titleVal, val, modalTaskType, reminderDateTime, modalTaskCategory);
+      var recurrence = reminderDateTime ? finalizeRecurrence(modalTaskRecurrence, recurCustomDaysInput) : null;
+      addTask(titleVal, val, modalTaskType, reminderDateTime, modalTaskCategory, recurrence);
     }
     closeAddTaskModal();
   }
@@ -7992,38 +8175,55 @@
     if(task.type === "task"){
       taskOptionsReminderBlock.classList.remove("hidden");
       prefillReminderFieldsInto(taskOptionsReminderToggle, taskOptionsReminderFields, taskOptionsReminderDateInput, taskOptionsReminderTimeInput, task.reminderDateTime);
+      taskOptionsRecurPicker.classList.toggle("hidden", !task.reminderDateTime);
+      setTaskOptionsRecurPickerValue(task.recurrence || null);
     } else {
       taskOptionsReminderBlock.classList.add("hidden");
       taskOptionsReminderToggle.checked = false;
       taskOptionsReminderFields.classList.remove("open");
+      taskOptionsRecurPicker.classList.add("hidden");
+      setTaskOptionsRecurPickerValue(null);
     }
     taskOptionsModalOverlay.classList.add("show");
   }
 
-  function closeTaskOptionsModal(){
-    if(taskOptionsEditingId){
-      var task = state.tasks.find(function(t){ return t.id === taskOptionsEditingId; });
-      if(task){
-        var newType = taskOptionsType;
-        if(newType === "note" && task.subtasks.length > 0) newType = "task"; // guard — see applyTaskOptionsTypeAvailability
-        task.type = newType;
-        task.category = taskOptionsCategory || null;
-        var reminderDateTime = (newType === "task" && taskOptionsReminderToggle.checked)
-          ? buildReminderDateTime(taskOptionsReminderDateInput.value, taskOptionsReminderTimeInput.value)
-          : null;
-        if(reminderDateTime !== task.reminderDateTime){
-          task.reminderFired = false;
-          task.reminderCarriedOver = false;
-        }
-        task.reminderDateTime = reminderDateTime;
-        if(reminderDateTime) scheduleTaskReminderNotification(task);
-        else cancelTaskReminderNotification(task.id);
-        saveState();
-        renderTasks();
-      }
+  // Applies whatever's currently in the popup's fields to the task being edited — split out of
+  // the old closeTaskOptionsModal (which used to run this on every close, X button included) so
+  // Сохранить/Отмена can actually mean something different: only Сохранить (and its Enter-key
+  // equivalent, if any) calls this, X and Отмена just discard via closeTaskOptionsModal.
+  function applyTaskOptionsModal(){
+    if(!taskOptionsEditingId) return;
+    var task = state.tasks.find(function(t){ return t.id === taskOptionsEditingId; });
+    if(!task) return;
+    var newType = taskOptionsType;
+    if(newType === "note" && task.subtasks.length > 0) newType = "task"; // guard — see applyTaskOptionsTypeAvailability
+    task.type = newType;
+    task.category = taskOptionsCategory || null;
+    var reminderDateTime = (newType === "task" && taskOptionsReminderToggle.checked)
+      ? buildReminderDateTime(taskOptionsReminderDateInput.value, taskOptionsReminderTimeInput.value)
+      : null;
+    if(reminderDateTime !== task.reminderDateTime){
+      task.reminderFired = false;
+      task.reminderCarriedOver = false;
     }
+    task.reminderDateTime = reminderDateTime;
+    task.recurrence = reminderDateTime ? finalizeRecurrence(taskOptionsRecurrence, taskOptionsRecurCustomDaysInput) : null;
+    if(reminderDateTime) scheduleTaskReminderNotification(task);
+    else cancelTaskReminderNotification(task.id);
+    saveState();
+    renderTasks();
+  }
+
+  // Plain close, no save — same convention as closeFocusSettings/saveFocusSettings above:
+  // X and Отмена both call this directly, Сохранить applies first then calls it too.
+  function closeTaskOptionsModal(){
     taskOptionsEditingId = null;
     taskOptionsModalOverlay.classList.remove("show");
+  }
+
+  function saveTaskOptionsModal(){
+    applyTaskOptionsModal();
+    closeTaskOptionsModal();
   }
 
   // ---------- add-pantry modal ----------
@@ -8252,9 +8452,30 @@
     reminderToggle.addEventListener("change", function(){
       if(reminderToggle.checked){
         reminderFields.classList.add("open");
+        // Повтор is a top-level-task-only concept — never reveal it while this same shared
+        // modal instance is adding/editing a subtask (see editingSubtaskParentId).
+        if(!editingSubtaskParentId) recurPicker.classList.remove("hidden");
       } else {
         reminderFields.classList.remove("open");
+        recurPicker.classList.add("hidden");
       }
+    });
+
+    recurPickerTrigger.addEventListener("click", function(){
+      recurPicker.classList.toggle("open");
+    });
+    recurPickerList.addEventListener("click", function(e){
+      var row = e.target.closest(".category-picker-option");
+      if(!row) return;
+      var value = row.dataset.recur;
+      setRecurPickerValue(value ? { type: value, days: value === "custom" ? parseInt(recurCustomDaysInput.value, 10) || 3 : undefined } : null);
+    });
+    recurCustomDaysInput.addEventListener("input", function(){
+      updateRecurCustomSuffix(recurCustomDaysInput, recurCustomDaysSuffix);
+    });
+    document.addEventListener("click", function(e){
+      if(!recurPicker.classList.contains("open")) return;
+      if(!e.target.closest("#recurPicker")) recurPicker.classList.remove("open");
     });
 
     modalTypeButtons.forEach(function(btn){
@@ -8341,6 +8562,8 @@
     taskDetailTextarea.addEventListener("input", function(){ autosizeTextarea(taskDetailTextarea); });
 
     taskOptionsCloseX.addEventListener("click", closeTaskOptionsModal);
+    taskOptionsCancelBtn.addEventListener("click", closeTaskOptionsModal);
+    taskOptionsSaveBtn.addEventListener("click", saveTaskOptionsModal);
     taskOptionsTypeButtons.forEach(function(btn){
       btn.addEventListener("click", function(){
         if(btn.classList.contains("disabled")) return; // see applyTaskOptionsTypeAvailability
@@ -8356,9 +8579,28 @@
     taskOptionsReminderToggle.addEventListener("change", function(){
       if(taskOptionsReminderToggle.checked){
         taskOptionsReminderFields.classList.add("open");
+        taskOptionsRecurPicker.classList.remove("hidden");
       } else {
         taskOptionsReminderFields.classList.remove("open");
+        taskOptionsRecurPicker.classList.add("hidden");
       }
+    });
+
+    taskOptionsRecurPickerTrigger.addEventListener("click", function(){
+      taskOptionsRecurPicker.classList.toggle("open");
+    });
+    taskOptionsRecurPickerList.addEventListener("click", function(e){
+      var row = e.target.closest(".category-picker-option");
+      if(!row) return;
+      var value = row.dataset.recur;
+      setTaskOptionsRecurPickerValue(value ? { type: value, days: value === "custom" ? parseInt(taskOptionsRecurCustomDaysInput.value, 10) || 3 : undefined } : null);
+    });
+    taskOptionsRecurCustomDaysInput.addEventListener("input", function(){
+      updateRecurCustomSuffix(taskOptionsRecurCustomDaysInput, taskOptionsRecurCustomDaysSuffix);
+    });
+    document.addEventListener("click", function(e){
+      if(!taskOptionsRecurPicker.classList.contains("open")) return;
+      if(!e.target.closest("#taskOptionsRecurPicker")) taskOptionsRecurPicker.classList.remove("open");
     });
     taskOptionsCategoryPickerTrigger.addEventListener("click", function(){
       taskOptionsCategoryPicker.classList.remove("adding-category");
@@ -8706,7 +8948,7 @@
     batteryHintSkipBtn.addEventListener("click", closeBatteryHint);
     // Doesn't hide the banner itself on tap — requestIgnoreOptimizations() opens Android's own
     // settings screen and there's no reliable callback for what the user actually chose there, so
-    // refreshBatteryStatusBanner() (re-run every time Настройки opens) is what keeps this honest.
+    // refreshBatteryStatusBanner() (re-run every time the menu opens) is what keeps this honest.
     batteryStatusFixBtn.addEventListener("click", function(){
       if(window.AppBattery) window.AppBattery.requestIgnoreOptimizations();
     });
@@ -8883,6 +9125,13 @@
     reminderFields = document.getElementById("reminderFields");
     reminderDateInput = document.getElementById("reminderDateInput");
     reminderTimeInput = document.getElementById("reminderTimeInput");
+    recurPicker = document.getElementById("recurPicker");
+    recurPickerTrigger = document.getElementById("recurPickerTrigger");
+    recurPickerLabel = document.getElementById("recurPickerLabel");
+    recurPickerList = document.getElementById("recurPickerList");
+    recurCustomRow = document.getElementById("recurCustomRow");
+    recurCustomDaysInput = document.getElementById("recurCustomDaysInput");
+    recurCustomDaysSuffix = document.getElementById("recurCustomDaysSuffix");
     categoryPicker = document.getElementById("categoryPicker");
     categoryPickerTrigger = document.getElementById("categoryPickerTrigger");
     categoryPickerLabel = document.getElementById("categoryPickerLabel");
@@ -8900,6 +9149,8 @@
 
     taskOptionsModalOverlay = document.getElementById("taskOptionsModalOverlay");
     taskOptionsCloseX = document.getElementById("taskOptionsCloseX");
+    taskOptionsCancelBtn = document.getElementById("taskOptionsCancelBtn");
+    taskOptionsSaveBtn = document.getElementById("taskOptionsSaveBtn");
     taskOptionsTypeButtons = Array.prototype.slice.call(taskOptionsModalOverlay.querySelectorAll(".type-btn"));
     taskOptionsCategoryPicker = document.getElementById("taskOptionsCategoryPicker");
     taskOptionsCategoryPickerTrigger = document.getElementById("taskOptionsCategoryPickerTrigger");
@@ -8913,6 +9164,13 @@
     taskOptionsReminderFields = document.getElementById("taskOptionsReminderFields");
     taskOptionsReminderDateInput = document.getElementById("taskOptionsReminderDateInput");
     taskOptionsReminderTimeInput = document.getElementById("taskOptionsReminderTimeInput");
+    taskOptionsRecurPicker = document.getElementById("taskOptionsRecurPicker");
+    taskOptionsRecurPickerTrigger = document.getElementById("taskOptionsRecurPickerTrigger");
+    taskOptionsRecurPickerLabel = document.getElementById("taskOptionsRecurPickerLabel");
+    taskOptionsRecurPickerList = document.getElementById("taskOptionsRecurPickerList");
+    taskOptionsRecurCustomRow = document.getElementById("taskOptionsRecurCustomRow");
+    taskOptionsRecurCustomDaysInput = document.getElementById("taskOptionsRecurCustomDaysInput");
+    taskOptionsRecurCustomDaysSuffix = document.getElementById("taskOptionsRecurCustomDaysSuffix");
 
     addPantryTrigger = document.getElementById("addPantryTrigger");
     pantryList = document.getElementById("pantryList");

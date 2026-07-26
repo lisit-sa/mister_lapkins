@@ -10,6 +10,7 @@
 // newer than what's currently running, downloads the zip and queues it via next() — applied the
 // next time the app backgrounds or restarts, so it never interrupts whatever the user is doing.
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
+import { App } from "@capacitor/app";
 
 var MANIFEST_URL = "https://mister-lapkins.web.app/updates/version.json";
 
@@ -31,6 +32,15 @@ var MANIFEST_URL = "https://mister-lapkins.web.app/updates/version.json";
 // matches. Switched to `background` alone (2 minutes) — comfortably longer than a camera capture
 // ever takes (what this delay exists to protect against, see above), but short enough that just
 // leaving the app alone for a bit gets it updated, without depending on kill detection at all.
+//
+// Re-armed on every foreground resume (see the appStateChange listener below), not just once at
+// startup: on-device logs 2026-07-26 showed the plugin only honors this delay condition for the
+// FIRST background/foreground cycle after it's set — the very next backgrounding after that
+// (e.g. the *second* device-check photo in one session) logs "All delays canceled from
+// checkCancelDelay" immediately on backgrounding and applies the queued bundle right away,
+// mid-camera-capture, exactly the state-loss bug this delay exists to prevent. Calling this again
+// every time the app comes back to the foreground keeps a fresh delay condition armed for
+// whatever backgrounds it next.
 async function deferUpdatesUntilKill(){
   try{
     await CapacitorUpdater.setMultiDelay({ delayConditions: [{ kind: "background", value: "120000" }] });
@@ -38,6 +48,10 @@ async function deferUpdatesUntilKill(){
     console.error("AppUpdater: setMultiDelay failed", e);
   }
 }
+
+App.addListener("appStateChange", function(state){
+  if(state.isActive) deferUpdatesUntilKill();
+});
 
 async function checkForUpdate(){
   await deferUpdatesUntilKill();
