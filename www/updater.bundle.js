@@ -1088,81 +1088,10 @@
     }
   });
 
-  // node_modules/@capacitor/app/dist/esm/definitions.js
-  var init_definitions2 = __esm({
-    "node_modules/@capacitor/app/dist/esm/definitions.js"() {
-    }
-  });
-
-  // node_modules/@capacitor/app/dist/esm/web.js
-  var web_exports2 = {};
-  __export(web_exports2, {
-    AppWeb: () => AppWeb
-  });
-  var AppWeb;
-  var init_web2 = __esm({
-    "node_modules/@capacitor/app/dist/esm/web.js"() {
-      init_dist();
-      AppWeb = class extends WebPlugin {
-        constructor() {
-          super();
-          this.handleVisibilityChange = () => {
-            const data = {
-              isActive: document.hidden !== true
-            };
-            this.notifyListeners("appStateChange", data);
-            if (document.hidden) {
-              this.notifyListeners("pause", null);
-            } else {
-              this.notifyListeners("resume", null);
-            }
-          };
-          document.addEventListener("visibilitychange", this.handleVisibilityChange, false);
-        }
-        exitApp() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async getInfo() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async getLaunchUrl() {
-          return { url: "" };
-        }
-        async getState() {
-          return { isActive: document.hidden !== true };
-        }
-        async minimizeApp() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async toggleBackButtonHandler() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async getAppLanguage() {
-          return {
-            value: navigator.language.split("-")[0].toLowerCase()
-          };
-        }
-      };
-    }
-  });
-
-  // node_modules/@capacitor/app/dist/esm/index.js
-  var App;
-  var init_esm2 = __esm({
-    "node_modules/@capacitor/app/dist/esm/index.js"() {
-      init_dist();
-      init_definitions2();
-      App = registerPlugin("App", {
-        web: () => Promise.resolve().then(() => (init_web2(), web_exports2)).then((m) => new m.AppWeb())
-      });
-    }
-  });
-
   // src/updater.js
   var require_updater = __commonJS({
     "src/updater.js"() {
       init_esm();
-      init_esm2();
       var MANIFEST_URL = "https://mister-lapkins.web.app/updates/version.json";
       async function deferUpdatesUntilKill() {
         try {
@@ -1171,9 +1100,6 @@
           console.error("AppUpdater: setMultiDelay failed", e);
         }
       }
-      App.addListener("appStateChange", function(state) {
-        if (state.isActive) deferUpdatesUntilKill();
-      });
       async function checkForUpdate() {
         await deferUpdatesUntilKill();
         try {
@@ -1209,6 +1135,10 @@
         },
         // Call once the rest of startup is done — fire-and-forget, nothing in the app waits on it.
         checkForUpdate,
+        // Call right before deliberately backgrounding the app for a native intent that must survive
+        // (currently just openCameraForDevice) — see the long comment above deferUpdatesUntilKill for
+        // why this can't just run once at startup or on every foreground instead.
+        deferForCameraCapture: deferUpdatesUntilKill,
         // Temporary debug aid (see debugVersionLabel in index.html) — reports which bundle is actually
         // running, since an update queued via next() only takes effect on the relaunch after this one.
         getCurrentVersion: function() {

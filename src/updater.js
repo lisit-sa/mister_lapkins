@@ -10,7 +10,6 @@
 // newer than what's currently running, downloads the zip and queues it via next() — applied the
 // next time the app backgrounds or restarts, so it never interrupts whatever the user is doing.
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
-import { App } from "@capacitor/app";
 
 var MANIFEST_URL = "https://mister-lapkins.web.app/updates/version.json";
 
@@ -22,25 +21,35 @@ var MANIFEST_URL = "https://mister-lapkins.web.app/updates/version.json";
 // photo was pending, which tab was open) gone, the photo lost, and the next launch's
 // NativeAudio.preload() throwing "Audio Asset already exists" — the native plugin registry
 // survives a WebView-only reload even though the JS side starts completely over. setMultiDelay
-// defers that. Called unconditionally on every startup (not only right after queuing a fresh
-// download) so it also covers a bundle a previous session already queued but never got to apply.
+// defers that.
 //
 // Originally just `{ kind: "kill" }` (wait for an actual process kill + relaunch) — on-device
 // testing 2026-07-22 showed that's not a reliable trigger at all here: a queued update sat
 // undelivered through many close/reopen cycles AND a full phone restart, never once applying.
 // The plugin's own docs flag "kill" detection as currently unreliable/being reworked, which
-// matches. Switched to `background` alone (2 minutes) — comfortably longer than a camera capture
-// ever takes (what this delay exists to protect against, see above), but short enough that just
-// leaving the app alone for a bit gets it updated, without depending on kill detection at all.
+// matches. Switched to `background` (2 minutes) instead.
 //
-// Re-armed on every foreground resume (see the appStateChange listener below), not just once at
-// startup: on-device logs 2026-07-26 showed the plugin only honors this delay condition for the
-// FIRST background/foreground cycle after it's set — the very next backgrounding after that
-// (e.g. the *second* device-check photo in one session) logs "All delays canceled from
-// checkCancelDelay" immediately on backgrounding and applies the queued bundle right away,
-// mid-camera-capture, exactly the state-loss bug this delay exists to prevent. Calling this again
-// every time the app comes back to the foreground keeps a fresh delay condition armed for
-// whatever backgrounds it next.
+// IMPORTANT, found the hard way twice now: a setMultiDelay condition only ever protects the ONE
+// background dip that happens after it's set. The very next time the app returns to the
+// foreground — regardless of whether the delay actually elapsed — the plugin logs "All delays
+// canceled from checkCancelDelay" and drops the condition entirely; per the plugin's own
+// cancelDelay() docs, that means the pending update "will be applied on the next app background
+// or restart", unconditionally, no matter how brief. So:
+// - Calling this ONCE at startup (in checkForUpdate below) only protects the very first bg/fg
+//   dip of the session — a *second* photo taken later in the same session sailed straight
+//   through with no protection at all, which is the original bug this file was written to fix.
+// - The "obvious" fix — re-arming this on every single foreground resume via
+//   App.addListener("appStateChange", ...) — was tried 2026-07-26 and made things *worse* in the
+//   opposite direction: since checkCancelDelay clears the condition on literally every
+//   foreground regardless of elapsed time, re-arming a fresh one immediately after just means
+//   there's *always* an unexpired condition in place by the time the next backgrounding is
+//   checked — the update can then never apply at all, not even after the app sits genuinely idle
+//   in the background for hours (confirmed on-device: 10+ launches over 20 hours, all stuck on
+//   the native "1.0" bundle).
+// The actual fix: only re-arm right before the ONE specific native-intent action known to risk
+// this (opening the camera — see openCameraForDevice's call to AppUpdater.deferForCameraCapture),
+// not on every foreground. Everything else goes through the plugin's normal default behavior
+// (apply on next background) once whatever delay was last armed has been cleared.
 async function deferUpdatesUntilKill(){
   try{
     await CapacitorUpdater.setMultiDelay({ delayConditions: [{ kind: "background", value: "120000" }] });
@@ -48,10 +57,6 @@ async function deferUpdatesUntilKill(){
     console.error("AppUpdater: setMultiDelay failed", e);
   }
 }
-
-App.addListener("appStateChange", function(state){
-  if(state.isActive) deferUpdatesUntilKill();
-});
 
 async function checkForUpdate(){
   await deferUpdatesUntilKill();
@@ -83,6 +88,10 @@ window.AppUpdater = {
   },
   // Call once the rest of startup is done — fire-and-forget, nothing in the app waits on it.
   checkForUpdate: checkForUpdate,
+  // Call right before deliberately backgrounding the app for a native intent that must survive
+  // (currently just openCameraForDevice) — see the long comment above deferUpdatesUntilKill for
+  // why this can't just run once at startup or on every foreground instead.
+  deferForCameraCapture: deferUpdatesUntilKill,
   // Temporary debug aid (see debugVersionLabel in index.html) — reports which bundle is actually
   // running, since an update queued via next() only takes effect on the relaunch after this one.
   getCurrentVersion: function(){ return CapacitorUpdater.current(); }

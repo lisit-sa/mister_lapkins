@@ -6123,6 +6123,10 @@
   // combined with deleteDevicePhoto, as "retake" — delete the bad shot, then add a fresh one.
   function openCameraForDevice(id){
     pendingCameraDeviceId = id;
+    // Arms a fresh OTA background-delay right before the camera backgrounds the app — see
+    // AppUpdater.deferForCameraCapture's own comment (src/updater.js) for why this has to happen
+    // right here rather than once at startup or on every foreground.
+    if(window.AppUpdater) window.AppUpdater.deferForCameraCapture();
     deviceCameraInput.value = ""; // guarantees a change event even when retaking the same shot
     deviceCameraInput.click();
   }
