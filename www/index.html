@@ -6579,11 +6579,13 @@
 
   // Pantry ("Запасы") had the same gap — pantryPercent/renderPantry only ever compute "running
   // low" for whoever happens to have the app open at the time. due date = lastBoughtDate (a plain
-  // date, no time-of-day) + daysDuration days; 10:00 local is an arbitrary but reasonable time of
-  // day to land a "go restock" nudge rather than firing at midnight.
+  // date, no time-of-day) + daysDuration days, minus one — a nudge to restock the day it *runs
+  // out* arrives too late to actually do anything about it, so this lands the day before instead
+  // (for a 1-day item, that's the same day it was bought, which is correct: it runs out tomorrow).
+  // 10:00 local is an arbitrary but reasonable time of day to land it, rather than at midnight.
   function pantryDueDate(item){
     var due = parseISO(item.lastBoughtDate);
-    due.setDate(due.getDate() + item.daysDuration);
+    due.setDate(due.getDate() + item.daysDuration - 1);
     due.setHours(10, 0, 0, 0);
     return due;
   }
