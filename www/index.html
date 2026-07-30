@@ -376,6 +376,14 @@
     filter: drop-shadow(0 0 4px rgba(var(--cat-glow-rgb),0.9)) drop-shadow(0 0 11px rgba(var(--cat-glow-rgb),0.5));
   }
 
+  /* Jump stage: a light bouncy hop — the highest-energy stage, so a snappier bounce-style curve
+     (short pause, quick hop up, quick settle) rather than sleep's slow ease-in-out breathing. */
+  .header-story-img.stage-jump{ animation: moodHop 1.3s ease-in-out infinite; }
+  @keyframes moodHop{
+    0%, 20%, 50%, 80%, 100%{ transform: translateY(0); }
+    40%{ transform: translateY(-10px); }
+  }
+
   /* Calm stage: a little heart bobbing above the cat's head, only shown for this one. */
   .header-mood-heart{
     position: absolute; top: 6px; left: 14px; width: 22px; height: 22px; object-fit: contain;
@@ -1498,6 +1506,13 @@
   .pantry-name-input{
     flex:1; min-width:0; border:2px solid var(--text); border-radius: var(--radius-md);
     background: var(--bg); color: var(--text); font-family:inherit; font-size: calc(14px * var(--font-scale)); padding:10px 12px; outline:none;
+  }
+  /* "Or add your own" — sits between the template dropdown and the icon/name fields, which are
+     always visible and already usable directly (see openAddPantryModal); the dropdown's own
+     "Custom" row was dropped as redundant with that, this just signposts the same path in text. */
+  .pantry-or-custom-hint{
+    font-size: calc(11.5px * var(--font-scale)); font-weight:600; color: var(--text); opacity:.55;
+    text-align:center; margin:10px 0 14px;
   }
   .pantry-days-label{
     display:block; font-size: calc(12.5px * var(--font-scale)); font-weight:700; color: var(--text);
@@ -2662,6 +2677,7 @@
       </button>
       <div class="pantry-template-list" id="pantryTemplateList" role="listbox"></div>
     </div>
+    <p class="pantry-or-custom-hint" data-i18n="pantry_or_custom_hint">Или добавь свой</p>
     <div class="pantry-form-row">
       <div class="icon-input-field">
         <input type="text" id="pantryIconInput" class="pantry-icon-input" maxlength="4" placeholder="🥛" autocomplete="off">
@@ -3190,6 +3206,7 @@
       btn_add_pantry: "Добавить в кладовую",
       pantry_select_placeholder: "Выбери из списка...",
       pantry_custom_option: "Свой вариант",
+      pantry_or_custom_hint: "Или добавь свой",
       btn_replenish: "Пополнить запасы",
       pantry_days_left_template: "осталось {n} дн.",
 
@@ -3473,6 +3490,7 @@
       btn_add_pantry: "Add to pantry",
       pantry_select_placeholder: "Choose from the list...",
       pantry_custom_option: "Custom",
+      pantry_or_custom_hint: "Or add your own",
       btn_replenish: "Restock",
       pantry_days_left_template: "{n} days left",
 
@@ -4229,6 +4247,11 @@
       collections: createDefaultCollections(),
       activeCollection: COLLECTION_KEYS[0],
       points: 0,
+      // See addProgress's fail-roll comment: firstBoxAwarded forces a fresh account's very first
+      // box to always be a real gift, lastBoxWasFail forces a gift right after any fail so two
+      // never land back to back.
+      firstBoxAwarded: false,
+      lastBoxWasFail: false,
       habits: createDefaultHabits(),
       categories: DEFAULT_CATEGORIES.slice(),
       noteCategories: DEFAULT_CATEGORIES.slice(),
@@ -4365,6 +4388,8 @@
       });
     }) : [];
     var points = typeof parsed.points === "number" ? clamp(parsed.points, 0, 2) : 0;
+    var firstBoxAwarded = !!parsed.firstBoxAwarded;
+    var lastBoxWasFail = !!parsed.lastBoxWasFail;
     var habits = normalizeHabits(parsed);
     var categories = Array.isArray(parsed.categories)
       ? parsed.categories.filter(function(c){ return typeof c === "string" && c.trim(); }).map(function(c){ return c.trim(); })
@@ -4431,7 +4456,7 @@
       taskReminderSound: TASK_REMINDER_SOUND_KEYS.indexOf(parsedSettings.taskReminderSound) !== -1 ? parsedSettings.taskReminderSound : TASK_REMINDER_SOUND_KEYS[0]
     };
     var homeDeviceRoster = normalizeHomeDevices(parsed);
-    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, habits: habits, categories: categories, noteCategories: noteCategories, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
+    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, habits: habits, categories: categories, noteCategories: noteCategories, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
   }
 
   function loadState(){
@@ -6201,15 +6226,21 @@
   }
 
   // ---------- Mr. Lapkins' mood: what he's up to based on today's habits ----------
-  // Four discrete stages instead of a raw percentage — computeCatMood() still returns the same
+  // Five discrete stages instead of a raw percentage — computeCatMood() still returns the same
   // 0-100 "how on-track are today's habits" number under the hood, it just now buckets into a
   // stage (with its own picture and a few random flavor lines) shown in the header via
   // triggerHeaderMoodImage rather than as a number.
+  //
+  // "jump" added 2026-07-29 as the new top stage, past "happy" — thresholds evened out from four
+  // 25-point bands to five 20-point ones (below) at the same time, since users specifically
+  // complained the wait between stage changes felt too long; splitting the same 0-100 range across
+  // one more stage means each one now takes less daily habit-progress to reach.
   var MOOD_STAGES = [
     { key: "sleep",  min: 0,  image: "cat_conditon/sleep_cat.png" },
-    { key: "waking", min: 25, image: "cat_conditon/waked_up_cat.png" },
-    { key: "calm",   min: 50, image: "cat_conditon/calm_cat.png" },
-    { key: "happy",  min: 75, image: "cat_conditon/happy_cat.png" }
+    { key: "waking", min: 20, image: "cat_conditon/waked_up_cat.png" },
+    { key: "calm",   min: 40, image: "cat_conditon/calm_cat.png" },
+    { key: "happy",  min: 60, image: "cat_conditon/happy_cat.png" },
+    { key: "jump",   min: 80, image: "cat_conditon/jump_cat.png" }
   ];
 
   function moodStageForPercent(mood){
@@ -6264,14 +6295,26 @@
       happy: [
         "Сегодня мурлыканье слышно на весь дом!",
         "Я очень долго думал... и решил, что ты молодец. Даже если сегодня так не кажется.",
-        "Кажется, счастье у него сегодня зашкаливает.",
-        "Дарит тебе тёплые лапки поддержки.",
+        "Кажется, счастье у меня сегодня зашкаливает.",
+        "Дарю тебе тёплые лапки поддержки.",
         "Готов обниматься целый день.",
-        "Сегодня он сияет ярче солнышка.",
+        "Сегодня сияю ярче солнышка.",
         "Кажется, пора гоняться за клубком!",
-        "Счастливо мурлычет рядом с тобой.",
-        "Осторожно гладит тебя лапкой по голове.",
+        "Счастливо мурлычу рядом с тобой.",
+        "Осторожно глажу тебя лапкой по голове.",
         "Кажется, сегодня один из тех самых хороших дней."
+      ],
+      jump: [
+        "Прыг! Прыг! Что это, мой хвост?",
+        "Устроил забег из комнаты в кухню. Есть добыча!",
+        "Ой! Кажется, я случайно скинул что-то со стола...",
+        "Сделал вид, что испугался огурца. Для драматического эффекта.",
+        "Запрыгнул на шкаф. Сам не понял зачем.",
+        "Устроим тыгыдык вместе?",
+        "Лучики поддержки? Держи целое солнышко!",
+        "Прыг! Прыг! Прыг! Кажется, я забыл зачем прыгал...",
+        "Ты сегодня отлично заботишься о себе",
+        "Мурлычу, прыгаю и вообще радуюсь жизни."
       ]
     },
     en: {
@@ -6316,14 +6359,26 @@
       happy: [
         "Purring can be heard all over the house today!",
         "I thought about it for a long time... and decided you're doing great. Even if it doesn't feel that way today.",
-        "His happiness seems to be off the charts today.",
-        "Gives you warm little paws of support.",
+        "My happiness seems to be off the charts today.",
+        "I'm giving you warm little paws of support.",
         "Ready to cuddle all day.",
-        "Today he shines brighter than the sun.",
+        "Today I shine brighter than the sun.",
         "Looks like it's time to chase the yarn ball!",
         "Purring happily next to you.",
-        "Gently pats your head with his paw.",
+        "I gently pat your head with my paw.",
         "Seems like today's one of those really good days."
+      ],
+      jump: [
+        "Jump! Jump! What's this, my tail?",
+        "Sprinted from the room to the kitchen. Got my prey!",
+        "Oops! I think I accidentally knocked something off the table...",
+        "Pretended to be scared of a cucumber. For dramatic effect.",
+        "Jumped onto the wardrobe. Not even sure why.",
+        "Want to do the zoomies together?",
+        "Little rays of support? Here, have a whole sun!",
+        "Jump! Jump! Jump! I think I forgot why I was jumping...",
+        "You're taking great care of yourself today",
+        "Purring, jumping, and just enjoying life."
       ]
     }
   };
@@ -7034,10 +7089,15 @@
       state.points = 0;
       openBox = true;
       // Rolled once right here, on the 3/3 cycle itself — not later when the box is clicked —
-      // per spec ("когда пользователь закрывает 3-ю задачу, запускай функцию рандома").
-      pendingBoxFailIndex = Math.random() < BOX_FAIL_CHANCE
-        ? 1 + Math.floor(Math.random() * 5)
-        : null;
+      // per spec ("когда пользователь закрывает 3-ю задачу, запускай функцию рандома"). A brand
+      // new account's very first box is always a real gift (nothing to be disappointed by before
+      // they've even seen one), and a fail is never allowed to follow another fail — otherwise
+      // still fully random, so two (or more) gifts in a row is completely normal.
+      var forcedGift = !state.firstBoxAwarded || state.lastBoxWasFail;
+      var isFail = !forcedGift && Math.random() < BOX_FAIL_CHANCE;
+      pendingBoxFailIndex = isFail ? 1 + Math.floor(Math.random() * 5) : null;
+      state.firstBoxAwarded = true;
+      state.lastBoxWasFail = isFail;
     }
     renderProgress();
     saveState();
@@ -7475,6 +7535,7 @@
       headerStory.imgEl.classList.toggle("mood-mode", !!moodStageKey);
       headerStory.imgEl.classList.toggle("stage-sleep", moodStageKey === "sleep");
       headerStory.imgEl.classList.toggle("stage-happy", moodStageKey === "happy");
+      headerStory.imgEl.classList.toggle("stage-jump", moodStageKey === "jump");
       headerMoodHeartEl.classList.toggle("show", moodStageKey === "calm");
       headerStory.imgEl.classList.add("show");
       if(phrase) showFloatingThoughtWithText(phrase);
@@ -8239,18 +8300,18 @@
   // icon used everywhere else in the app for a manual/edit action, not a duplicated emoji.
   var PANTRY_CUSTOM_ICON_HTML = '<img class="pantry-icon-img" src="icons/icon_pencil.png" alt="">';
 
+  // The list itself no longer offers a "Custom" row — the icon/name fields below it are already
+  // visible and usable directly without picking anything here (see openAddPantryModal), so the
+  // row was just a redundant extra tap; .pantry-or-custom-hint signposts that path in text
+  // instead. PANTRY_CUSTOM_ICON_HTML/"custom" index handling in selectPantryTemplate stay, since
+  // openAddPantryModal's own default state is equivalent to having picked it.
   function populatePantryTemplateOptions(){
-    var html = PANTRY_TEMPLATES.map(function(tpl, i){
+    pantryTemplateList.innerHTML = PANTRY_TEMPLATES.map(function(tpl, i){
       return '<button type="button" class="pantry-template-row" role="option" data-index="' + i + '">' +
         '<span class="pantry-template-row-icon">' + renderPantryIconHtml(tpl.icon) + '</span>' +
         '<span class="pantry-template-row-name">' + escapeHtml(t(tpl.nameKey)) + '</span>' +
         '</button>';
     }).join("");
-    html += '<button type="button" class="pantry-template-row" role="option" data-index="custom">' +
-      '<span class="pantry-template-row-icon">' + PANTRY_CUSTOM_ICON_HTML + '</span>' +
-      '<span class="pantry-template-row-name">' + t("pantry_custom_option") + '</span>' +
-      '</button>';
-    pantryTemplateList.innerHTML = html;
   }
 
   function resetPantryTemplatePicker(){
