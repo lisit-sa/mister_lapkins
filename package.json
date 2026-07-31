@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && cap sync android && npm run sync:sounds",
+    "sync": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && npm run build:voice && cap sync android && npm run sync:sounds",
     "sync:sounds": "node scripts/sync-sounds.js",
     "open:android": "cap open android",
     "build:cloudsync": "esbuild src/cloud-sync.js --bundle --format=iife --outfile=www/cloud-sync.bundle.js",
@@ -16,9 +16,10 @@
     "build:battery": "esbuild src/battery.js --bundle --format=iife --outfile=www/battery.bundle.js",
     "build:deeplink": "esbuild src/deeplink.js --bundle --format=iife --outfile=www/deeplink.bundle.js",
     "build:share": "esbuild src/share.js --bundle --format=iife --outfile=www/share.bundle.js",
+    "build:voice": "esbuild src/voice.js --bundle --format=iife --outfile=www/voice.bundle.js",
     "icons:prep": "node scripts/prep-icon.js",
     "icons": "npm run icons:prep && capacitor-assets generate --android",
-    "release": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && node scripts/release.js",
+    "release": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && npm run build:voice && node scripts/release.js",
     "deploy": "npm run release && firebase deploy --only hosting"
   },
   "repository": {
@@ -35,6 +36,7 @@
   "homepage": "https://github.com/lisit-sa/mister_lapkins#readme",
   "dependencies": {
     "@capacitor-community/native-audio": "^8.0.0",
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor-firebase/authentication": "^8.3.0",
     "@capacitor/android": "^8.4.2",
     "@capacitor/app": "^8.1.1",

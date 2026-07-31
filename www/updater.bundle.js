@@ -1119,7 +1119,8 @@
           console.log("AppUpdater: new version available", currentVersion, "->", manifest.version);
           var bundle = await CapacitorUpdater.download({ version: manifest.version, url: manifest.url });
           await CapacitorUpdater.next({ id: bundle.id });
-          console.log("AppUpdater: downloaded and queued", manifest.version, "\u2014 applies next relaunch/background");
+          console.log("AppUpdater: downloaded and queued", manifest.version, "\u2014 reloading now to apply it");
+          await CapacitorUpdater.reload();
         } catch (e) {
           console.error("AppUpdater: update check failed", e);
         }

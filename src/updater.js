@@ -73,7 +73,16 @@ async function checkForUpdate(){
     console.log("AppUpdater: new version available", currentVersion, "->", manifest.version);
     var bundle = await CapacitorUpdater.download({ version: manifest.version, url: manifest.url });
     await CapacitorUpdater.next({ id: bundle.id });
-    console.log("AppUpdater: downloaded and queued", manifest.version, "— applies next relaunch/background");
+    console.log("AppUpdater: downloaded and queued", manifest.version, "— reloading now to apply it");
+    // On-device testing 2026-07-31 found the plugin's own "apply on background" trigger never
+    // actually fires here — a queued bundle sat undelivered through repeated background/foreground
+    // cycles (well past the 120s delay) and just kept getting re-downloaded and re-queued forever,
+    // never once installed. reload() applies a next()-queued bundle immediately instead of waiting
+    // on that broken trigger. This does mean a brief reload right after launch on the one session
+    // that first sees a new version — deliberately traded for updates actually arriving at all.
+    // Never resolves if it succeeds (the WebView tears down mid-promise), so nothing after this
+    // matters within checkForUpdate.
+    await CapacitorUpdater.reload();
   }catch(e){
     console.error("AppUpdater: update check failed", e);
   }
