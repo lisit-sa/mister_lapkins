@@ -1,10 +1,10 @@
-/* Reward data for the two treasure collections shown in the "Сокровища" tab.
+/* Reward data for the treasure collections shown in the "Сокровища" tab.
    This file only describes WHAT each reward is — id, source image filename, title and
    description. It knows nothing about file paths or how it's rendered; index.html turns
    `filename` into a real <img src> by joining it with "collections/<collectionKey>/".
 
-   filename must exactly match a real file inside collections/items/ or collections/food/ —
-   these are pulled straight from the actual folders, not invented names.
+   filename must exactly match a real file inside collections/items/, collections/food/ or
+   collections/summer/ — these are pulled straight from the actual folders, not invented names.
 
    title/description are { ru, en } pairs — index.html picks the right one for the active
    language at render time (see localizedField in renderCollection). Both must stay filled in;
@@ -176,5 +176,37 @@ var REWARDS_DATA = {
     { id: "food-27", filename: "1 (27).png",
       title: { ru: "Мышка", en: "Mouse" },
       description: { ru: "В смысле 'я не ем мышей'?", en: "What do you mean, 'I don't eat mice'?" } }
+  ],
+  summer: [
+    { id: "summer-1",  filename: "1 (3).png",     title: { ru: "Немного моря в стакане", en: "A Bit of Sea in a Glass" }, description: { ru: "Осторожно, внутри может быть крошечная рыбка", en: "Careful, there might be a tiny fish inside." } },
+    { id: "summer-2",  filename: "1.png",         title: { ru: "Карманное облако", en: "Pocket Cloud" }, description: { ru: "Инструкция: привяжи над головой, чтобы охладиться", en: "Instructions: tie it above your head to cool off." } },
+    { id: "summer-3",  filename: "122 (1).png",   title: { ru: "Нетающее мороженое", en: "Ice Cream That Never Melts" }, description: { ru: "Можно есть очень медленно. Оно никуда не торопится", en: "You can eat it very slowly. It's in no hurry." } },
+    { id: "summer-4",  filename: "122 (2).png",   title: { ru: "Пляжный шезлонг", en: "Beach Lounge Chair" }, description: { ru: "С полочкой для котика, ты же не собираешься меня тут бросить?", en: "With a little shelf for the cat — you're not planning to leave me here, are you?" } },
+    { id: "summer-5",  filename: "122 (3).png",   title: { ru: "Колбасный коктейль", en: "Sausage Cocktail" }, description: { ru: "Исключительно кошачий напиток, чей-то мяу-бармен перестарался", en: "A strictly feline drink — some meow-tender clearly got carried away." } },
+    { id: "summer-6",  filename: "122 (4).png",   title: { ru: "Шорты с пальмами", en: "Palm-Tree Shorts" }, description: { ru: "Рыба в кармане - самый надежный способ завести друзей среди местных котов на пляже", en: "A fish in the pocket is the surest way to make friends with the local beach cats." } },
+    { id: "summer-7",  filename: "122 (5).png",   title: { ru: "Чемодан-самокат", en: "Suitcase Scooter" }, description: { ru: "Эти ваши странные изобретения, все из-за того что у вас всего две лапки", en: "These strange inventions of yours — all because you've only got two paws." } },
+    { id: "summer-8",  filename: "2 (1).png",     title: { ru: "Идеальный камешек", en: "The Perfect Pebble" }, description: { ru: "Я гладил его полчаса. Очень рекомендую", en: "I petted it for half an hour. Highly recommend." } },
+    { id: "summer-9",  filename: "2 (2).png",     title: { ru: "Корзинка для пикника", en: "Picnic Basket" }, description: { ru: "В ней было много еды. Кажется. Ну... теперь уже не очень много", en: "There used to be a lot of food in it. I think. Well... not so much anymore." } },
+    { id: "summer-10", filename: "2 (3).png",     title: { ru: "Ракушка - рог единорога", en: "Unicorn-Horn Seashell" }, description: { ru: "Я примерил ее на голову, очень стильно", en: "Tried it on my head — very stylish." } },
+    { id: "summer-11", filename: "2 (4).png",     title: { ru: "Календарь", en: "Calendar" }, description: { ru: "На нем все лето - каникулы, как ты и мечтаешь", en: "Every day on it is summer vacation, just like you dream of." } },
+    { id: "summer-12", filename: "232 (1).png",   title: { ru: "Охлаждающая простыня", en: "Cooling Sheet" }, description: { ru: "Почувствуй себя шаурмой - завернись и охладись", en: "Feel like a shawarma — wrap yourself up and chill out." } },
+    { id: "summer-13", filename: "232 (2).png",   title: { ru: "Крошки от печенья", en: "Cookie Crumbs" }, description: { ru: "Целый мешок для постройки песочного замка", en: "A whole bag for building a sandcastle." } },
+    { id: "summer-14", filename: "232 (3).png",   title: { ru: "Спрей от насекомых", en: "Bug Spray" }, description: { ru: "Пшик — и комары делают вид, что им вообще в другую сторону", en: "One spritz — and the mosquitoes suddenly act like they were headed somewhere else anyway." } },
+    { id: "summer-15", filename: "232 (4).png",   title: { ru: "Очки от солнца", en: "Sunglasses" }, description: { ru: "Ну конечно с оправой в виде кошачьей мордочки", en: "With a cat-face frame, obviously." } },
+    { id: "summer-16", filename: "232 (5).png",   title: { ru: "Шахматы", en: "Chess Set" }, description: { ru: "Я их немного погрыз и несколько раз уронил, ведь в них так играют?", en: "I chewed on them a bit and knocked a few pieces off the table — that's how you play, right?" } },
+    { id: "summer-17", filename: "232 (6).png",   title: { ru: "Пальма в горшке", en: "Potted Palm Tree" }, description: { ru: "Насыпь под нее песочка и включи лампочку, я туда ляяяягу. Ты тоже можешь", en: "Pour some sand under it and turn on a lamp — I'll go lie riiight down there. You can too." } },
+    { id: "summer-18", filename: "232 (7).png",   title: { ru: "Картонное солнце", en: "Cardboard Sun" }, description: { ru: "Клеил всю ночь. Поможешь оттереть лапки от клея?", en: "Spent all night gluing it together. Help me scrub the glue off my paws?" } },
+    { id: "summer-19", filename: "3 (1).png",     title: { ru: "Холодильник с веслом", en: "Cooler with a Paddle" }, description: { ru: "Я не утверждаю, что это лучше, чем лодка. Но попробовать можно", en: "I'm not saying it's better than a boat. But it's worth a try." } },
+    { id: "summer-20", filename: "3 (2).png",     title: { ru: "Веер с котиком", en: "Cat Fan" }, description: { ru: "Работает лучше,если делать загадочное лицо", en: "Works better if you make a mysterious face while using it." } },
+    { id: "summer-21", filename: "3 (3).png",     title: { ru: "Краб с дипломом спасателя", en: "Crab with a Lifeguard Diploma" }, description: { ru: "Патрулирует пляж с важным видом, но пока спас только одну сухую ветку", en: "Patrols the beach looking very important, but so far has only rescued one dry twig." } },
+    { id: "summer-22", filename: "3.png",         title: { ru: "Письмо от июля", en: "A Letter from July" }, description: { ru: "Извини, что закончился так быстро", en: "Sorry for ending so fast." } },
+    { id: "summer-23", filename: "4 (2).png",     title: { ru: "Шляпа из ковра-самолета", en: "Magic-Carpet Hat" }, description: { ru: "Защищает от солнца и может летать, так что хорошенько держи ее", en: "Blocks the sun and can fly, so hold onto it tight." } },
+    { id: "summer-24", filename: "4.png",         title: { ru: "Кокос с дверной ручкой", en: "Coconut with a Doorknob" }, description: { ru: "Попробуешь открыть? Или загляни сначала в замочную скважину", en: "Want to try opening it? Or peek through the keyhole first." } },
+    { id: "summer-25", filename: "5 (1).png",     title: { ru: "Надувной круг из кукурузы", en: "Corn-on-the-Cob Pool Float" }, description: { ru: "Горячий и соленый, перед заплывом смажь сливочным маслом", en: "Hot and salty — butter it up before you go for a swim." } },
+    { id: "summer-26", filename: "5 (2).png",     title: { ru: "Турботапочки", en: "Turbo Slippers" }, description: { ru: "Помогают быстрее всех добежать до мороженщика", en: "Help you outrun everyone to the ice cream truck." } },
+    { id: "summer-27", filename: "5.png",         title: { ru: "Чайка на батарейках", en: "Battery-Powered Seagull" }, description: { ru: "Настоящая слишком громкая", en: "The real ones are too loud." } },
+    { id: "summer-28", filename: "6 (1).png",     title: { ru: "Водяной пистолет", en: "Water Gun" }, description: { ru: "Ты знаешь, что делать. Ой, ну не в меня же!", en: "You know what to do. Oh, come on, not at me!" } },
+    { id: "summer-29", filename: "6.png",         title: { ru: "Арбузный будильник", en: "Watermelon Alarm Clock" }, description: { ru: "Каждые два часа напоминает, что пора есть арбуз", en: "Every two hours, it reminds you it's time for watermelon." } },
+    { id: "summer-30", filename: "7.png",         title: { ru: "Мыльный пузырь", en: "Soap Bubble" }, description: { ru: "Самый красивый пузырь, который я когда-либо видел. До сих пор любуюсь", en: "The most beautiful bubble I've ever seen. Still admiring it." } }
   ]
 };

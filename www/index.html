@@ -883,9 +883,19 @@
   .shopping-bought-list.collapsed{ display:none; }
 
   /* Collection */
-  .collection-tabs{ display:flex; gap:8px; margin-bottom:12px; }
+  /* A horizontally-dragged strip, not equal-width flex tabs — with 3+ collections (Предметы/Еда/
+     Лето/…) squeezing them all into one row got illegible, and more get added over time. Tabs
+     size to their own text (flex:0 0 auto) instead of stretching, so once they overflow the row,
+     the next one sits half-cut-off at the edge as a "there's more, drag me" hint rather than
+     disappearing outright. No arrows — plain touch/scroll drag, same as the rest of the app's
+     native-feeling interactions. */
+  .collection-tabs{
+    display:flex; gap:8px; margin-bottom:12px;
+    overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  }
+  .collection-tabs::-webkit-scrollbar{ display:none; }
   .collection-tab{
-    flex:1; padding:9px 6px; border-radius:999px; border:2px solid var(--text);
+    flex:0 0 auto; white-space:nowrap; padding:9px 16px; border-radius:999px; border:2px solid var(--text);
     background: var(--surface-soft); color: var(--text-muted); font-size: calc(12px * var(--font-scale)); font-weight:700; cursor:pointer;
     transition: background .2s, color .2s; text-align:center;
   }
@@ -2323,6 +2333,7 @@
       <div class="collection-tabs" id="collectionTabs">
         <button type="button" class="collection-tab active" data-collection="items" data-i18n="collection_tab_items">Предметы</button>
         <button type="button" class="collection-tab" data-collection="food" data-i18n="collection_tab_food">Еда</button>
+        <button type="button" class="collection-tab" data-collection="summer" data-i18n="collection_tab_summer">Лето</button>
       </div>
       <p class="collection-progress" id="collectionProgress">Собрано предметов: 0 / 27</p>
       <div class="collection-grid" id="collectionGrid"></div>
@@ -3194,6 +3205,7 @@
 
       collection_tab_items: "Предметы",
       collection_tab_food: "Еда",
+      collection_tab_summer: "Лето",
       collection_progress_template: "Собрано предметов: {count} / {total}",
 
       tab_tasks: "Дела",
@@ -3478,6 +3490,7 @@
 
       collection_tab_items: "Items",
       collection_tab_food: "Food",
+      collection_tab_summer: "Summer",
       collection_progress_template: "Collected: {count} / {total}",
 
       tab_tasks: "Tasks",
@@ -3737,7 +3750,7 @@
   // collections/rewards-data.js file loaded above. This just turns each entry's bare
   // filename into a real image path — the data file itself doesn't need to know how
   // (or where) its images get served from.
-  var COLLECTION_KEYS = ["items", "food"];
+  var COLLECTION_KEYS = ["items", "food", "summer"];
   var ITEMS_DATABASE = {};
   COLLECTION_KEYS.forEach(function(key){
     ITEMS_DATABASE[key] = REWARDS_DATA[key].map(function(entry){
@@ -4402,6 +4415,11 @@
       // hide their checkbox.
       var type = (t.type === "task" || t.type === "note") ? t.type : "task";
       var title = typeof t.title === "string" && t.title.trim() ? t.title.trim() : autoTitleFromText(t.text);
+      // Whether title is the user's own vs auto-derived from text (see closeTaskDetailModal) —
+      // saves from before this field existed default to true (treated as custom/frozen) so
+      // already-saved tasks don't suddenly start re-deriving titles on their next text edit,
+      // a surprise change in behavior for data that predates it.
+      var titleIsCustom = typeof t.titleIsCustom === "boolean" ? t.titleIsCustom : true;
       var reminderDateTime = typeof t.reminderDateTime === "string" && /^\d{8}T\d{4}$/.test(t.reminderDateTime) ? t.reminderDateTime : null;
       var subtasks = Array.isArray(t.subtasks) ? t.subtasks.filter(function(s){
         return s && typeof s.id === "string" && typeof s.text === "string";
@@ -4429,7 +4447,7 @@
       // reshuffle the first time this loads, then drags take over from there.
       var order = typeof t.order === "number" ? t.order : t.createdAt;
       return Object.assign({}, t, {
-        type: type, title: title, reminderDateTime: reminderDateTime, reminderFired: !!t.reminderFired,
+        type: type, title: title, titleIsCustom: titleIsCustom, reminderDateTime: reminderDateTime, reminderFired: !!t.reminderFired,
         reminderCarriedOver: !!t.reminderCarriedOver, subtasks: subtasks, category: category, recurrence: recurrence,
         motivation: undefined, order: order,
         deleted: !!t.deleted, deletedAt: typeof t.deletedAt === "number" ? t.deletedAt : null,
@@ -6716,8 +6734,9 @@
 
   // ---------- mutations ----------
   function addTask(title, text, type, reminderDateTime, category, recurrence){
+    var titleVal = title && title.trim();
     var task = {
-      id: genId(), title: (title && title.trim()) ? title.trim() : autoTitleFromText(text),
+      id: genId(), title: titleVal ? titleVal : autoTitleFromText(text), titleIsCustom: !!titleVal,
       text: text, type: type, completed: false, createdAt: Date.now(), order: Date.now(),
       deleted: false, deletedAt: null, archived: false, archivedAt: null,
       reminderDateTime: reminderDateTime || null, reminderFired: false, reminderCarriedOver: false,
@@ -8280,7 +8299,20 @@
         var task = state.tasks.find(function(t){ return t.id === taskDetailEditingId; });
         if(task){
           var titleVal = taskDetailTitleInput.value.trim();
-          task.title = titleVal ? titleVal : autoTitleFromText(newText);
+          // titleIsCustom false means the title field is just showing an auto-derived preview,
+          // never actually typed by the user — left alone (the common case: editing a short
+          // task's body without bothering to also touch the title, since the two often look
+          // identical anyway) it should keep re-deriving from the new text, not freeze at
+          // whatever the text used to say. Only a title that's genuinely different from the
+          // still-auto one it was pre-filled with counts as the user having set their own.
+          var titleTouched = task.titleIsCustom || titleVal !== (task.title || "");
+          if(titleTouched && titleVal){
+            task.title = titleVal;
+            task.titleIsCustom = true;
+          }else{
+            task.title = autoTitleFromText(newText);
+            task.titleIsCustom = false;
+          }
           task.text = newText;
           saveState();
           renderTasks();
@@ -9182,6 +9214,9 @@
         state.activeCollection = btn.dataset.collection;
         saveState();
         renderCollection();
+        // The tabs strip scrolls (see .collection-tabs) — a tab picked while sitting half-cut-off
+        // at the edge should end up fully in view, not stay stuck half-hidden after selection.
+        btn.scrollIntoView({ block: "nearest", inline: "nearest" });
       });
     });
 
