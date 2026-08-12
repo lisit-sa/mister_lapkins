@@ -37,6 +37,7 @@
   "dependencies": {
     "@capacitor-community/native-audio": "^8.0.0",
     "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor-firebase/app-check": "^8.3.0",
     "@capacitor-firebase/authentication": "^8.3.0",
     "@capacitor/android": "^8.4.2",
     "@capacitor/app": "^8.1.1",

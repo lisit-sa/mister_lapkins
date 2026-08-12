@@ -8,7 +8,8 @@
       "providers": ["google.com"]
     },
     "CapacitorUpdater": {
-      "autoUpdate": false
+      "autoUpdate": false,
+      "statsUrl": ""
     }
   }
 }

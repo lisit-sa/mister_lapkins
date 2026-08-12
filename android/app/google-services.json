@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "687434243745-8ao9h5g4klpiqfe41qvlgdcnqd4e5d9k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lisitsa.misterlapkins",
+            "certificate_hash": "02ced76925b6410d9589270b95feefd144087137"
+          }
+        },
+        {
+          "client_id": "687434243745-mpqittj673tputj4gk6vgdjvlun47ao7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lisitsa.misterlapkins",
+            "certificate_hash": "365b9720fb0dec490e5833e9f704db1d1512a6c9"
+          }
+        },
+        {
           "client_id": "687434243745-q89t1jgu5va56h6u8ulmbp11hq2ap4jg.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

@@ -17,8 +17,8 @@
     }
   };
   var __export = (target, all) => {
-    for (var name4 in all)
-      __defProp(target, name4, { get: all[name4], enumerable: true });
+    for (var name5 in all)
+      __defProp(target, name5, { get: all[name5], enumerable: true });
   };
 
   // node_modules/@firebase/util/dist/postinstall.mjs
@@ -41,43 +41,6 @@
       return global;
     }
     throw new Error("Unable to locate global object.");
-  }
-  function createMockUserToken(token, projectId) {
-    if (token.uid) {
-      throw new Error('The "uid" field is no longer supported by mockUserToken. Please use "sub" instead for Firebase Auth User ID.');
-    }
-    const header = {
-      alg: "none",
-      type: "JWT"
-    };
-    const project = projectId || "demo-project";
-    const iat = token.iat || 0;
-    const sub = token.sub || token.user_id;
-    if (!sub) {
-      throw new Error("mockUserToken must contain 'sub' or 'user_id' field!");
-    }
-    const payload = {
-      // Set all required fields to decent defaults
-      iss: `https://securetoken.google.com/${project}`,
-      aud: project,
-      iat,
-      exp: iat + 3600,
-      auth_time: iat,
-      sub,
-      user_id: sub,
-      firebase: {
-        sign_in_provider: "custom",
-        identities: {}
-      },
-      // Override with user options
-      ...token
-    };
-    const signature = "";
-    return [
-      base64urlEncodeWithoutPadding(JSON.stringify(header)),
-      base64urlEncodeWithoutPadding(JSON.stringify(payload)),
-      signature
-    ].join(".");
   }
   function getUA() {
     if (typeof navigator !== "undefined" && typeof navigator["userAgent"] === "string") {
@@ -121,6 +84,9 @@
   function isSafari() {
     return !isNode() && !!navigator.userAgent && navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome");
   }
+  function isSafariOrWebkit() {
+    return !isNode() && !!navigator.userAgent && (navigator.userAgent.includes("Safari") || navigator.userAgent.includes("WebKit")) && !navigator.userAgent.includes("Chrome");
+  }
   function isIndexedDBAvailable() {
     try {
       return typeof indexedDB === "object";
@@ -158,6 +124,9 @@
       return value != null ? String(value) : `<${key}?>`;
     });
   }
+  function jsonEval(str) {
+    return JSON.parse(str);
+  }
   function isEmpty(obj) {
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -172,12 +141,12 @@
     }
     const aKeys = Object.keys(a);
     const bKeys = Object.keys(b);
-    for (const k of aKeys) {
-      if (!bKeys.includes(k)) {
+    for (const k2 of aKeys) {
+      if (!bKeys.includes(k2)) {
         return false;
       }
-      const aProp = a[k];
-      const bProp = b[k];
+      const aProp = a[k2];
+      const bProp = b[k2];
       if (isObject(aProp) && isObject(bProp)) {
         if (!deepEqual(aProp, bProp)) {
           return false;
@@ -186,8 +155,8 @@
         return false;
       }
     }
-    for (const k of bKeys) {
-      if (!aKeys.includes(k)) {
+    for (const k2 of bKeys) {
+      if (!aKeys.includes(k2)) {
         return false;
       }
     }
@@ -245,6 +214,17 @@
   }
   function noop() {
   }
+  function calculateBackoffMillis(backoffCount, intervalMillis = DEFAULT_INTERVAL_MILLIS, backoffFactor = DEFAULT_BACKOFF_FACTOR) {
+    const currBaseValue = intervalMillis * Math.pow(backoffFactor, backoffCount);
+    const randomWait = Math.round(
+      // A fraction of the backoff value to add/subtract.
+      // Deviation: changes multiplication order to improve readability.
+      RANDOM_FACTOR * currBaseValue * // A random float (rounded to int by Math.round above) in the range [-1, 1]. Determines
+      // if we add or subtract.
+      (Math.random() - 0.5) * 2
+    );
+    return Math.min(MAX_VALUE_MILLIS, currBaseValue + randomWait);
+  }
   function getModularInstance(service) {
     if (service && service._delegate) {
       return service._delegate;
@@ -266,7 +246,7 @@
     });
     return result.ok;
   }
-  var stringToByteArray$1, byteArrayToString, base64, DecodeBase64StringError, base64Encode, base64urlEncodeWithoutPadding, base64Decode, getDefaultsFromGlobal, getDefaultsFromEnvVariable, getDefaultsFromCookie, getDefaults, getDefaultEmulatorHost, getDefaultEmulatorHostnameAndPort, getDefaultAppConfig, getExperimentalSetting, Deferred, ERROR_NAME, FirebaseError, ErrorFactory, PATTERN, ObserverProxy, MAX_VALUE_MILLIS;
+  var stringToByteArray$1, byteArrayToString, base64, DecodeBase64StringError, base64Encode, base64urlEncodeWithoutPadding, base64Decode, getDefaultsFromGlobal, getDefaultsFromEnvVariable, getDefaultsFromCookie, getDefaults, getDefaultEmulatorHost, getDefaultAppConfig, getExperimentalSetting, Deferred, ERROR_NAME, FirebaseError, ErrorFactory, PATTERN, decode, issuedAtTime, ObserverProxy, DEFAULT_INTERVAL_MILLIS, DEFAULT_BACKOFF_FACTOR, MAX_VALUE_MILLIS, RANDOM_FACTOR;
   var init_index_esm = __esm({
     "node_modules/@firebase/util/dist/index.esm.js"() {
       init_postinstall();
@@ -550,24 +530,8 @@
         }
       };
       getDefaultEmulatorHost = (productName) => getDefaults()?.emulatorHosts?.[productName];
-      getDefaultEmulatorHostnameAndPort = (productName) => {
-        const host = getDefaultEmulatorHost(productName);
-        if (!host) {
-          return void 0;
-        }
-        const separatorIndex = host.lastIndexOf(":");
-        if (separatorIndex <= 0 || separatorIndex + 1 === host.length) {
-          throw new Error(`Invalid host ${host} with no separate hostname and port!`);
-        }
-        const port = parseInt(host.substring(separatorIndex + 1), 10);
-        if (host[0] === "[") {
-          return [host.substring(1, separatorIndex - 1), port];
-        } else {
-          return [host.substring(0, separatorIndex), port];
-        }
-      };
       getDefaultAppConfig = () => getDefaults()?.config;
-      getExperimentalSetting = (name4) => getDefaults()?.[`_${name4}`];
+      getExperimentalSetting = (name5) => getDefaults()?.[`_${name5}`];
       Deferred = class {
         constructor() {
           this.reject = () => {
@@ -633,6 +597,31 @@
         }
       };
       PATTERN = /\{\$([^}]+)}/g;
+      decode = function(token) {
+        let header = {}, claims = {}, data = {}, signature = "";
+        try {
+          const parts = token.split(".");
+          header = jsonEval(base64Decode(parts[0]) || "");
+          claims = jsonEval(base64Decode(parts[1]) || "");
+          signature = parts[2];
+          data = claims["d"] || {};
+          delete claims["d"];
+        } catch (e) {
+        }
+        return {
+          header,
+          claims,
+          data,
+          signature
+        };
+      };
+      issuedAtTime = function(token) {
+        const claims = decode(token).claims;
+        if (typeof claims === "object" && claims.hasOwnProperty("iat")) {
+          return claims["iat"];
+        }
+        return null;
+      };
       ObserverProxy = class {
         /**
          * @param executor Function which can make calls to a single Observer
@@ -769,7 +758,10 @@
           });
         }
       };
+      DEFAULT_INTERVAL_MILLIS = 1e3;
+      DEFAULT_BACKOFF_FACTOR = 2;
       MAX_VALUE_MILLIS = 4 * 60 * 60 * 1e3;
+      RANDOM_FACTOR = 0.5;
     }
   });
 
@@ -791,8 +783,8 @@
          * @param instanceFactory Service factory responsible for creating the public interface
          * @param type whether the service provided by the component is public or private
          */
-        constructor(name4, instanceFactory, type) {
-          this.name = name4;
+        constructor(name5, instanceFactory, type) {
+          this.name = name5;
           this.instanceFactory = instanceFactory;
           this.type = type;
           this.multipleInstances = false;
@@ -819,8 +811,8 @@
       };
       DEFAULT_ENTRY_NAME = "[DEFAULT]";
       Provider = class {
-        constructor(name4, container) {
-          this.name = name4;
+        constructor(name5, container) {
+          this.name = name5;
           this.container = container;
           this.component = null;
           this.instances = /* @__PURE__ */ new Map();
@@ -1017,8 +1009,8 @@
         }
       };
       ComponentContainer = class {
-        constructor(name4) {
-          this.name = name4;
+        constructor(name5) {
+          this.name = name5;
           this.providers = /* @__PURE__ */ new Map();
         }
         /**
@@ -1051,12 +1043,12 @@
          * Firebase SDKs providing services should extend NameServiceMapping interface to register
          * themselves.
          */
-        getProvider(name4) {
-          if (this.providers.has(name4)) {
-            return this.providers.get(name4);
+        getProvider(name5) {
+          if (this.providers.has(name5)) {
+            return this.providers.get(name5);
           }
-          const provider = new Provider(name4, this);
-          this.providers.set(name4, provider);
+          const provider = new Provider(name5, this);
+          this.providers.set(name5, provider);
           return provider;
         }
         getProviders() {
@@ -1114,8 +1106,8 @@
          *
          * @param name The name that the logs will be associated with
          */
-        constructor(name4) {
-          this.name = name4;
+        constructor(name5) {
+          this.name = name5;
           this._logLevel = defaultLogLevel;
           this._logHandler = defaultLogHandler;
           this._userLogHandler = null;
@@ -1323,8 +1315,8 @@
   });
 
   // node_modules/idb/build/index.js
-  function openDB(name4, version4, { blocked, upgrade, blocking, terminated } = {}) {
-    const request = indexedDB.open(name4, version4);
+  function openDB(name5, version5, { blocked, upgrade, blocking, terminated } = {}) {
+    const request = indexedDB.open(name5, version5);
     const openPromise = wrap(request);
     if (upgrade) {
       request.addEventListener("upgradeneeded", (event) => {
@@ -1420,12 +1412,12 @@
     }
     return true;
   }
-  function _getProvider(app, name4) {
+  function _getProvider(app, name5) {
     const heartbeatController = app.container.getProvider("heartbeat").getImmediate({ optional: true });
     if (heartbeatController) {
       void heartbeatController.triggerHeartbeat();
     }
-    return app.container.getProvider(name4);
+    return app.container.getProvider(name5);
   }
   function _isFirebaseServerApp(obj) {
     if (obj === null || obj === void 0) {
@@ -1436,18 +1428,18 @@
   function initializeApp(_options, rawConfig = {}) {
     let options = _options;
     if (typeof rawConfig !== "object") {
-      const name5 = rawConfig;
-      rawConfig = { name: name5 };
+      const name6 = rawConfig;
+      rawConfig = { name: name6 };
     }
     const config = {
       name: DEFAULT_ENTRY_NAME2,
       automaticDataCollectionEnabled: true,
       ...rawConfig
     };
-    const name4 = config.name;
-    if (typeof name4 !== "string" || !name4) {
+    const name5 = config.name;
+    if (typeof name5 !== "string" || !name5) {
       throw ERROR_FACTORY.create("bad-app-name", {
-        appName: String(name4)
+        appName: String(name5)
       });
     }
     options || (options = getDefaultAppConfig());
@@ -1457,42 +1449,42 @@
         /* AppError.NO_OPTIONS */
       );
     }
-    const existingApp = _apps.get(name4);
+    const existingApp = _apps.get(name5);
     if (existingApp) {
       if (deepEqual(options, existingApp.options) && deepEqual(config, existingApp.config)) {
         return existingApp;
       } else {
-        throw ERROR_FACTORY.create("duplicate-app", { appName: name4 });
+        throw ERROR_FACTORY.create("duplicate-app", { appName: name5 });
       }
     }
-    const container = new ComponentContainer(name4);
+    const container = new ComponentContainer(name5);
     for (const component of _components.values()) {
       container.addComponent(component);
     }
     const newApp = new FirebaseAppImpl(options, config, container);
-    _apps.set(name4, newApp);
+    _apps.set(name5, newApp);
     return newApp;
   }
-  function getApp(name4 = DEFAULT_ENTRY_NAME2) {
-    const app = _apps.get(name4);
-    if (!app && name4 === DEFAULT_ENTRY_NAME2 && getDefaultAppConfig()) {
+  function getApp(name5 = DEFAULT_ENTRY_NAME2) {
+    const app = _apps.get(name5);
+    if (!app && name5 === DEFAULT_ENTRY_NAME2 && getDefaultAppConfig()) {
       return initializeApp();
     }
     if (!app) {
-      throw ERROR_FACTORY.create("no-app", { appName: name4 });
+      throw ERROR_FACTORY.create("no-app", { appName: name5 });
     }
     return app;
   }
-  function registerVersion(libraryKeyOrName, version4, variant) {
+  function registerVersion(libraryKeyOrName, version5, variant) {
     let library = PLATFORM_LOG_STRING[libraryKeyOrName] ?? libraryKeyOrName;
     if (variant) {
       library += `-${variant}`;
     }
     const libraryMismatch = library.match(/\s|\//);
-    const versionMismatch = version4.match(/\s|\//);
+    const versionMismatch = version5.match(/\s|\//);
     if (libraryMismatch || versionMismatch) {
       const warning = [
-        `Unable to register library "${library}" with version "${version4}":`
+        `Unable to register library "${library}" with version "${version5}":`
       ];
       if (libraryMismatch) {
         warning.push(`library name "${library}" contains illegal characters (whitespace or "/")`);
@@ -1501,14 +1493,14 @@
         warning.push("and");
       }
       if (versionMismatch) {
-        warning.push(`version name "${version4}" contains illegal characters (whitespace or "/")`);
+        warning.push(`version name "${version5}" contains illegal characters (whitespace or "/")`);
       }
       logger.warn(warning.join(" "));
       return;
     }
     _registerComponent(new Component(
       `${library}-version`,
-      () => ({ library, version: version4 }),
+      () => ({ library, version: version5 }),
       "VERSION"
       /* ComponentType.VERSION */
     ));
@@ -2033,8 +2025,8 @@
       ...prodErrorMap(),
       [code]: message
     };
-    const factory = new ErrorFactory("auth", "Firebase", errorMap);
-    return factory.create(code, {
+    const factory2 = new ErrorFactory("auth", "Firebase", errorMap);
+    return factory2.create(code, {
       appName: auth.name
     });
   }
@@ -2506,8 +2498,8 @@
     } else if (_isAndroid(ua)) {
       return "Android";
     } else {
-      const re = /([a-zA-Z\d\.]+)\/[a-zA-Z\d\.]*$/;
-      const matches = userAgent.match(re);
+      const re2 = /([a-zA-Z\d\.]+)\/[a-zA-Z\d\.]*$/;
+      const matches = userAgent.match(re2);
       if (matches?.length === 2) {
         return matches[1];
       }
@@ -3452,8 +3444,8 @@
   function finalizeEnrollTotpMfa(auth, request) {
     return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:finalize", _addTidIfNecessary(auth, request));
   }
-  function getDocumentCookie(name4) {
-    const escapedName = name4.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+  function getDocumentCookie(name5) {
+    const escapedName = name5.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
     const matcher = RegExp(`${escapedName}=([^;]+)`);
     return document.cookie.match(matcher)?.[1] ?? null;
   }
@@ -3990,8 +3982,8 @@
       return hostname === expected;
     }
     const escapedDomainPattern = expected.replace(/\./g, "\\.");
-    const re = new RegExp("^(.+\\." + escapedDomainPattern + "|" + escapedDomainPattern + ")$", "i");
-    return re.test(hostname);
+    const re2 = new RegExp("^(.+\\." + escapedDomainPattern + "|" + escapedDomainPattern + ")$", "i");
+    return re2.test(hostname);
   }
   function resetUnloadedGapiModules() {
     const beacon = _window().___jsl;
@@ -4116,7 +4108,7 @@
       });
     }));
   }
-  function _open(auth, url, name4, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT) {
+  function _open(auth, url, name5, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT) {
     const top = Math.max((window.screen.availHeight - height) / 2, 0).toString();
     const left = Math.max((window.screen.availWidth - width) / 2, 0).toString();
     let target = "";
@@ -4128,8 +4120,8 @@
       left
     };
     const ua = getUA().toLowerCase();
-    if (name4) {
-      target = _isChromeIOS(ua) ? TARGET_BLANK : name4;
+    if (name5) {
+      target = _isChromeIOS(ua) ? TARGET_BLANK : name5;
     }
     if (_isFirefox(ua)) {
       url = url || FIREFOX_EMPTY_URL;
@@ -5189,9 +5181,9 @@
           this.persistence = persistence;
           this.auth = auth;
           this.userKey = userKey;
-          const { config, name: name4 } = this.auth;
-          this.fullUserKey = _persistenceKeyName(this.userKey, config.apiKey, name4);
-          this.fullPersistenceKey = _persistenceKeyName("persistence", config.apiKey, name4);
+          const { config, name: name5 } = this.auth;
+          this.fullUserKey = _persistenceKeyName(this.userKey, config.apiKey, name5);
+          this.fullPersistenceKey = _persistenceKeyName("persistence", config.apiKey, name5);
           this.boundEventHandler = auth._onStorageEvent.bind(auth);
           this.persistence._addListener(this.fullUserKey, this.boundEventHandler);
         }
@@ -7352,12 +7344,12 @@
           if (!this._isAvailable()) {
             return null;
           }
-          const name4 = getCookieName(key);
+          const name5 = getCookieName(key);
           if (window.cookieStore) {
-            const cookie = await window.cookieStore.get(name4);
+            const cookie = await window.cookieStore.get(name5);
             return cookie?.value;
           }
-          return getDocumentCookie(name4);
+          return getDocumentCookie(name5);
         }
         // Log out by overriding the idToken with a sentinel value of ""
         async _remove(key) {
@@ -7368,8 +7360,8 @@
           if (!existingValue) {
             return;
           }
-          const name4 = getCookieName(key);
-          document.cookie = `${name4}=;Max-Age=34560000;Partitioned;Secure;SameSite=Strict;Path=/;Priority=High`;
+          const name5 = getCookieName(key);
+          document.cookie = `${name5}=;Max-Age=34560000;Partitioned;Secure;SameSite=Strict;Path=/;Priority=High`;
           await fetch(`/__cookies__`, { method: "DELETE" }).catch(() => void 0);
         }
         // Listen for cookie changes, both cookieStore and fallback to polling document.cookie
@@ -7377,14 +7369,14 @@
           if (!this._isAvailable()) {
             return;
           }
-          const name4 = getCookieName(key);
+          const name5 = getCookieName(key);
           if (window.cookieStore) {
             const cb = ((event) => {
-              const changedCookie = event.changed.find((change) => change.name === name4);
+              const changedCookie = event.changed.find((change) => change.name === name5);
               if (changedCookie) {
                 listener(changedCookie.value);
               }
-              const deletedCookie = event.deleted.find((change) => change.name === name4);
+              const deletedCookie = event.deleted.find((change) => change.name === name5);
               if (deletedCookie) {
                 listener(null);
               }
@@ -7393,9 +7385,9 @@
             this.listenerUnsubscribes.set(listener, unsubscribe2);
             return window.cookieStore.addEventListener("change", cb);
           }
-          let lastValue = getDocumentCookie(name4);
+          let lastValue = getDocumentCookie(name5);
           const interval = setInterval(() => {
-            const currentValue = getDocumentCookie(name4);
+            const currentValue = getDocumentCookie(name5);
             if (currentValue !== lastValue) {
               listener(currentValue);
               lastValue = currentValue;
@@ -7779,10 +7771,10 @@
           }
           return false;
         }
-        async _withPendingWrite(write) {
+        async _withPendingWrite(write2) {
           this.pendingWrites++;
           try {
-            await write();
+            await write2();
           } finally {
             this.pendingWrites--;
           }
@@ -9107,7 +9099,7 @@
       bloom_blob_es2018 = {};
       (function() {
         var h;
-        function k(d, a) {
+        function k2(d, a) {
           function c() {
           }
           c.prototype = a.prototype;
@@ -9130,7 +9122,7 @@
           this.o = this.h = 0;
           this.u();
         }
-        k(m, l);
+        k2(m, l);
         m.prototype.u = function() {
           this.g[0] = 1732584193;
           this.g[1] = 4023233417;
@@ -9314,7 +9306,7 @@
           return d;
         };
         function p(d, a) {
-          var c = q;
+          var c = q2;
           return Object.prototype.hasOwnProperty.call(c, d) ? c[d] : c[d] = a(d);
         }
         function t(d, a) {
@@ -9327,7 +9319,7 @@
           }
           this.g = c;
         }
-        var q = {};
+        var q2 = {};
         function u(d) {
           return -128 <= d && d < 128 ? p(d, function(a) {
             return new t([a | 0], a < 0 ? -1 : 0);
@@ -9434,19 +9426,19 @@
           for (f = 0; f < this.g.length; f++) for (let e = 0; e < d.g.length; e++) {
             const g = this.i(f) >>> 16, b = this.i(f) & 65535, r = d.i(e) >>> 16, E = d.i(e) & 65535;
             c[2 * f + 2 * e] += b * E;
-            G(c, 2 * f + 2 * e);
+            G2(c, 2 * f + 2 * e);
             c[2 * f + 2 * e + 1] += g * E;
-            G(c, 2 * f + 2 * e + 1);
+            G2(c, 2 * f + 2 * e + 1);
             c[2 * f + 2 * e + 1] += b * r;
-            G(c, 2 * f + 2 * e + 1);
+            G2(c, 2 * f + 2 * e + 1);
             c[2 * f + 2 * e + 2] += g * r;
-            G(c, 2 * f + 2 * e + 2);
+            G2(c, 2 * f + 2 * e + 2);
           }
           for (d = 0; d < a; d++) c[d] = c[2 * d + 1] << 16 | c[2 * d];
           for (d = a; d < 2 * a; d++) c[d] = 0;
           return new t(c, 0);
         };
-        function G(d, a) {
+        function G2(d, a) {
           for (; (d[a] & 65535) != d[a]; ) d[a + 1] += d[a] >>> 16, d[a] &= 65535, a++;
         }
         function H2(d, a) {
@@ -9461,13 +9453,13 @@
           if (d.g.length > 30) {
             if (B2(d) || B2(a)) throw Error("slowDivide_ only works with positive integers.");
             for (var c = z2, f = a; f.l(d) <= 0; ) c = I(c), f = I(f);
-            var e = J(c, 1), g = J(f, 1);
-            f = J(f, 2);
-            for (c = J(c, 2); !C2(f); ) {
+            var e = J2(c, 1), g = J2(f, 1);
+            f = J2(f, 2);
+            for (c = J2(c, 2); !C2(f); ) {
               var b = g.add(f);
               b.l(d) <= 0 && (e = e.add(c), g = b);
-              f = J(f, 1);
-              c = J(c, 1);
+              f = J2(f, 1);
+              c = J2(c, 1);
             }
             a = F2(d, e.j(a));
             return new H2(e, a);
@@ -9507,7 +9499,7 @@
           for (let f = 0; f < a; f++) c[f] = d.i(f) << 1 | d.i(f - 1) >>> 31;
           return new t(c, d.h);
         }
-        function J(d, a) {
+        function J2(d, a) {
           const c = a >> 5;
           a %= 32;
           const f = d.g.length - c, e = [];
@@ -9607,7 +9599,7 @@
           a.prototype = new c();
           a.prototype.constructor = a;
           a.Ob = function(d, e, f) {
-            for (var g = Array(arguments.length - 2), k = 2; k < arguments.length; k++) g[k - 2] = arguments[k];
+            for (var g = Array(arguments.length - 2), k2 = 2; k2 < arguments.length; k2++) g[k2 - 2] = arguments[k2];
             return b.prototype[e].apply(d, g);
           };
         }
@@ -9859,9 +9851,9 @@
         function Na(a, b, c, d, e, f) {
           if (!b) throw Error("Invalid event type");
           const g = n(e) ? !!e.capture : !!e;
-          let k = Oa(a);
-          k || (a[Ha] = k = new Ea(a));
-          c = k.add(b, c, d, g, f);
+          let k2 = Oa(a);
+          k2 || (a[Ha] = k2 = new Ea(a));
+          c = k2.add(b, c, d, g, f);
           if (c.proxy) return c;
           d = Pa();
           c.proxy = d;
@@ -9986,9 +9978,9 @@
           for (let f = 0; f < b.length; ++f) {
             const g = b[f];
             if (g && !g.da && g.capture == c) {
-              const k = g.listener, q = g.ha || g.src;
+              const k2 = g.listener, q2 = g.ha || g.src;
               g.fa && Ga(a.i, g);
-              e = k.call(q, d) !== false && e;
+              e = k2.call(q2, d) !== false && e;
             }
           }
           return e && !d.defaultPrevented;
@@ -10087,7 +10079,7 @@
           this.stat = b;
         }
         t(mb, x2);
-        function J(a) {
+        function J2(a) {
           const b = jb();
           D2(b, new mb(b, a));
         }
@@ -10113,14 +10105,14 @@
           a.info(function() {
             if (a.g) if (f) {
               var g = "";
-              var k = f.split("&");
-              for (let m = 0; m < k.length; m++) {
-                var q = k[m].split("=");
-                if (q.length > 1) {
-                  const r = q[0];
-                  q = q[1];
+              var k2 = f.split("&");
+              for (let m = 0; m < k2.length; m++) {
+                var q2 = k2[m].split("=");
+                if (q2.length > 1) {
+                  const r = q2[0];
+                  q2 = q2[1];
                   const A = r.split("_");
-                  g = A.length >= 2 && A[1] == "type" ? g + (r + "=" + q + "&") : g + (r + "=redacted&");
+                  g = A.length >= 2 && A[1] == "type" ? g + (r + "=" + q2 + "&") : g + (r + "=redacted&");
                 }
               }
             } else g = null;
@@ -10262,15 +10254,15 @@
         N2.prototype.Y = function(a) {
           try {
             if (a == this.g) a: {
-              const k = P(this.g), q = this.g.ya(), m = this.g.ca();
-              if (!(k < 3) && (k != 3 || this.g && (this.h.h || this.g.la() || Ib(this.g)))) {
-                this.K || k != 4 || q == 7 || (q == 8 || m <= 0 ? lb(3) : lb(2));
+              const k2 = P(this.g), q2 = this.g.ya(), m = this.g.ca();
+              if (!(k2 < 3) && (k2 != 3 || this.g && (this.h.h || this.g.la() || Ib(this.g)))) {
+                this.K || k2 != 4 || q2 == 7 || (q2 == 8 || m <= 0 ? lb(3) : lb(2));
                 Jb(this);
                 var b = this.g.ca();
                 this.X = b;
                 var c = Kb(this);
                 this.o = b == 200;
-                rb(this.i, this.v, this.B, this.l, this.S, k, b);
+                rb(this.i, this.v, this.B, this.l, this.S, k2, b);
                 if (this.o) {
                   if (this.U && !this.L) {
                     b: {
@@ -10287,7 +10279,7 @@
                     else {
                       this.o = false;
                       this.m = 3;
-                      J(12);
+                      J2(12);
                       Q2(this);
                       Mb(this);
                       break a;
@@ -10297,18 +10289,18 @@
                     a = true;
                     let r;
                     for (; !this.K && this.C < c.length; ) if (r = Nb(this, c), r == Bb) {
-                      k == 4 && (this.m = 4, J(14), a = false);
+                      k2 == 4 && (this.m = 4, J2(14), a = false);
                       K2(this.i, this.l, null, "[Incomplete Response]");
                       break;
                     } else if (r == Ab) {
                       this.m = 4;
-                      J(15);
+                      J2(15);
                       K2(this.i, this.l, c, "[Invalid Chunk]");
                       a = false;
                       break;
                     } else K2(this.i, this.l, r, null), Lb(this, r);
                     Ob(this) && this.C != 0 && (this.h.g = this.h.g.slice(this.C), this.C = 0);
-                    k != 4 || c.length != 0 || this.h.h || (this.m = 1, J(16), a = false);
+                    k2 != 4 || c.length != 0 || this.h.h || (this.m = 1, J2(16), a = false);
                     this.o = this.o && a;
                     if (!a) K2(
                       this.i,
@@ -10319,15 +10311,15 @@
                     else if (c.length > 0 && !this.W) {
                       this.W = true;
                       var g = this.j;
-                      g.g == this && g.aa && !g.P && (g.j.info("Great, no buffering proxy detected. Bytes received: " + c.length), Pb(g), g.P = true, J(11));
+                      g.g == this && g.aa && !g.P && (g.j.info("Great, no buffering proxy detected. Bytes received: " + c.length), Pb(g), g.P = true, J2(11));
                     }
                   } else K2(this.i, this.l, c, null), Lb(this, c);
-                  k == 4 && Q2(this);
-                  this.o && !this.K && (k == 4 ? Qb(this.j, this) : (this.o = false, Fb(this)));
-                } else Rb(this.g), b == 400 && c.indexOf("Unknown SID") > 0 ? (this.m = 3, J(12)) : (this.m = 0, J(13)), Q2(this), Mb(this);
+                  k2 == 4 && Q2(this);
+                  this.o && !this.K && (k2 == 4 ? Qb(this.j, this) : (this.o = false, Fb(this)));
+                } else Rb(this.g), b == 400 && c.indexOf("Unknown SID") > 0 ? (this.m = 3, J2(12)) : (this.m = 0, J2(13)), Q2(this), Mb(this);
               }
             }
-          } catch (k) {
+          } catch (k2) {
           } finally {
           }
         };
@@ -10379,7 +10371,7 @@
         N2.prototype.aa = function() {
           this.D = null;
           const a = Date.now();
-          a - this.T >= 0 ? (tb(this.i, this.B), this.M != 2 && (lb(), J(17)), Q2(this), this.m = 2, Mb(this)) : Sb(this, this.T - a);
+          a - this.T >= 0 ? (tb(this.i, this.B), this.M != 2 && (lb(), J2(17)), Q2(this), this.m = 2, Mb(this)) : Sb(this, this.T - a);
         };
         function Mb(a) {
           a.j.I == 0 || a.K || Qb(a.j, a);
@@ -10409,7 +10401,7 @@
                       if (c.g) if (c.g.F + 3e3 < a.F) Ub(c), Vb(c);
                       else break a;
                       Wb(c);
-                      J(18);
+                      J2(18);
                     }
                   }
                   else c.xa = e[1], 0 < c.xa - c.K && e[2] < 37500 && c.F && c.A == 0 && !c.C && (c.C = ob(p(c.Va, c), 6e3));
@@ -10428,15 +10420,15 @@
                   const F2 = m[5];
                   F2 != null && typeof F2 === "number" && F2 > 0 && (d = 1.5 * F2, c.O = d, c.j.info("backChannelRequestTimeoutMs_=" + d));
                   d = c;
-                  const G = a.g;
-                  if (G) {
-                    const za = G.g ? G.g.getResponseHeader("X-Client-Wire-Protocol") : null;
+                  const G2 = a.g;
+                  if (G2) {
+                    const za = G2.g ? G2.g.getResponseHeader("X-Client-Wire-Protocol") : null;
                     if (za) {
                       var f = d.h;
                       f.g || za.indexOf("spdy") == -1 && za.indexOf("quic") == -1 && za.indexOf("h2") == -1 || (f.j = f.l, f.g = /* @__PURE__ */ new Set(), f.h && (Yb(f, f.h), f.h = null));
                     }
                     if (d.G) {
-                      const bb = G.g ? G.g.getResponseHeader("X-HTTP-Session-Id") : null;
+                      const bb = G2.g ? G2.g.getResponseHeader("X-HTTP-Session-Id") : null;
                       bb && (d.wa = bb, S2(d.J, d.G, bb));
                     }
                   }
@@ -10448,9 +10440,9 @@
                   d.na = Zb(d, d.L ? d.ba : null, d.W);
                   if (g.L) {
                     $b(d.h, g);
-                    var k = g, q = d.O;
-                    q && (k.H = q);
-                    k.D && (Jb(k), Fb(k));
+                    var k2 = g, q2 = d.O;
+                    q2 && (k2.H = q2);
+                    k2.D && (Jb(k2), Fb(k2));
                     d.g = g;
                   } else ac(d);
                   c.i.length > 0 && bc(c);
@@ -10561,8 +10553,8 @@
               e = e.split("/");
               const f = [];
               for (let g = 0; g < e.length; ) {
-                const k = e[g++];
-                k == "." ? d && g == e.length && f.push("") : k == ".." ? ((f.length > 1 || f.length == 1 && f[0] != "") && f.pop(), d && g == e.length && f.push("")) : (f.push(k), d = true);
+                const k2 = e[g++];
+                k2 == "." ? d && g == e.length && f.push("") : k2 == ".." ? ((f.length > 1 || f.length == 1 && f[0] != "") && f.pop(), d && g == e.length && f.push("")) : (f.push(k2), d = true);
               }
               d = f.join("/");
             } else d = e;
@@ -10612,14 +10604,14 @@
           this.i = a || null;
           this.j = !!b;
         }
-        function U(a) {
+        function U2(a) {
           a.g || (a.g = /* @__PURE__ */ new Map(), a.h = 0, a.i && jc(a.i, function(b, c) {
             a.add(decodeURIComponent(b.replace(/\+/g, " ")), c);
           }));
         }
         h = pc.prototype;
         h.add = function(a, b) {
-          U(this);
+          U2(this);
           this.i = null;
           a = V(this, a);
           let c = this.g.get(a);
@@ -10629,17 +10621,17 @@
           return this;
         };
         function yc(a, b) {
-          U(a);
+          U2(a);
           b = V(a, b);
           a.g.has(b) && (a.i = null, a.h -= a.g.get(b).length, a.g.delete(b));
         }
         function zc(a, b) {
-          U(a);
+          U2(a);
           b = V(a, b);
           return a.g.has(b);
         }
         h.forEach = function(a, b) {
-          U(this);
+          U2(this);
           this.g.forEach(function(c, d) {
             c.forEach(function(e) {
               a.call(b, e, d, this);
@@ -10647,14 +10639,14 @@
           }, this);
         };
         function Ac(a, b) {
-          U(a);
+          U2(a);
           let c = [];
           if (typeof b === "string") zc(a, b) && (c = c.concat(a.g.get(V(a, b))));
           else for (a = Array.from(a.g.values()), b = 0; b < a.length; b++) c = c.concat(a[b]);
           return c;
         }
         h.set = function(a, b) {
-          U(this);
+          U2(this);
           this.i = null;
           a = V(this, a);
           zc(this, a) && (this.h -= this.g.get(a).length);
@@ -10699,7 +10691,7 @@
           return b;
         }
         function vc(a, b) {
-          b && !a.j && (U(a), a.i = null, a.g.forEach(function(c, d) {
+          b && !a.j && (U2(a), a.i = null, a.g.forEach(function(c, d) {
             const e = d.toLowerCase();
             d != e && (yc(this, d), Gb(this, e, c));
           }, a));
@@ -10873,7 +10865,7 @@
           }
           d || (c = Jc(c), typeof a === "string" ? c != null && L2(c) : S2(a, b, c));
         }
-        function X(a) {
+        function X2(a) {
           C2.call(this);
           this.headers = /* @__PURE__ */ new Map();
           this.L = a || null;
@@ -10887,9 +10879,9 @@
           this.F = "";
           this.H = false;
         }
-        t(X, C2);
+        t(X2, C2);
         var Lc = /^https?$/i, Mc = ["POST", "PUT"];
-        h = X.prototype;
+        h = X2.prototype;
         h.Fa = function(a) {
           this.H = a;
         };
@@ -10942,7 +10934,7 @@
         };
         h.N = function() {
           this.g && (this.h && (this.h = false, this.j = true, this.g.abort(), this.j = false), Pc(this, true));
-          X.Z.N.call(this);
+          X2.Z.N.call(this);
         };
         h.Ca = function() {
           this.u || (this.B || this.v || this.j ? Qc(this) : this.Xa());
@@ -11120,7 +11112,7 @@
         h.ka = 8;
         h.I = 1;
         h.connect = function(a, b, c, d) {
-          J(0);
+          J2(0);
           this.W = a;
           this.H = b || {};
           c && d !== void 0 && (this.H.OSID = c, this.H.OAID = d);
@@ -11257,34 +11249,34 @@
           const d = a.l ? p(a.l.Ka, a.l, a) : null;
           a: {
             var e = a.i;
-            let k = -1;
+            let k2 = -1;
             for (; ; ) {
-              const q = ["count=" + c];
-              k == -1 ? c > 0 ? (k = e[0].g, q.push("ofs=" + k)) : k = 0 : q.push("ofs=" + k);
+              const q2 = ["count=" + c];
+              k2 == -1 ? c > 0 ? (k2 = e[0].g, q2.push("ofs=" + k2)) : k2 = 0 : q2.push("ofs=" + k2);
               let m = true;
               for (let r = 0; r < c; r++) {
                 var f = e[r].g;
                 const A = e[r].map;
-                f -= k;
-                if (f < 0) k = Math.max(0, e[r].g - 100), m = false;
+                f -= k2;
+                if (f < 0) k2 = Math.max(0, e[r].g - 100), m = false;
                 else try {
                   f = "req" + f + "_" || "";
                   try {
                     var g = A instanceof Map ? A : Object.entries(A);
                     for (const [M2, F2] of g) {
-                      let G = F2;
-                      n(F2) && (G = ab(F2));
-                      q.push(f + M2 + "=" + encodeURIComponent(G));
+                      let G2 = F2;
+                      n(F2) && (G2 = ab(F2));
+                      q2.push(f + M2 + "=" + encodeURIComponent(G2));
                     }
                   } catch (M2) {
-                    throw q.push(f + "type=" + encodeURIComponent("_badmap")), M2;
+                    throw q2.push(f + "type=" + encodeURIComponent("_badmap")), M2;
                   }
                 } catch (M2) {
                   d && d(A);
                 }
               }
               if (m) {
-                g = q.join("&");
+                g = q2.join("&");
                 break a;
               }
             }
@@ -11321,7 +11313,7 @@
           }
         };
         h.Wa = function() {
-          this.B && (this.B = null, this.j.info("BP detection timeout reached."), this.j.info("Buffering proxy detected and switch to long-polling!"), this.F = false, this.P = true, J(10), Vb(this), $c(this));
+          this.B && (this.B = null, this.j.info("BP detection timeout reached."), this.j.info("Buffering proxy detected and switch to long-polling!"), this.F = false, this.P = true, J2(10), Vb(this), $c(this));
         };
         function Pb(a) {
           a.B != null && (l.clearTimeout(a.B), a.B = null);
@@ -11349,7 +11341,7 @@
           Eb(c, a);
         }
         h.Va = function() {
-          this.C != null && (this.C = null, Vb(this), Wb(this), J(19));
+          this.C != null && (this.C = null, Vb(this), Wb(this), J2(19));
         };
         function Ub(a) {
           a.C != null && (l.clearTimeout(a.C), a.C = null);
@@ -11401,14 +11393,14 @@
             l.location && l.location.protocol == "http" || kc(d, "https");
             Db(d);
             e ? Bc(d.toString(), c) : Cc(d.toString(), c);
-          } else J(2);
+          } else J2(2);
           a.I = 0;
           a.l && a.l.pa(b);
           Vc(a);
           Tc(a);
         }
         h.bb = function(a) {
-          a ? (this.j.info("Successfully pinged google.com"), J(2)) : (this.j.info("Failed to ping google.com"), J(1));
+          a ? (this.j.info("Successfully pinged google.com"), J2(2)) : (this.j.info("Failed to ping google.com"), J2(1));
         };
         function Vc(a) {
           a.I = 0;
@@ -11443,7 +11435,7 @@
         }
         function Hb(a, b, c) {
           if (b && !a.L) throw Error("Can't create secondary domain capable XhrIo object.");
-          b = a.Aa && !a.ma ? new X(new Ec({ ab: c })) : new X(a.ma);
+          b = a.Aa && !a.ma ? new X2(new Ec({ ab: c })) : new X2(a.ma);
           b.Fa(a.L);
           return b;
         }
@@ -11469,9 +11461,9 @@
         function bd() {
         }
         bd.prototype.g = function(a, b) {
-          return new Y(a, b);
+          return new Y2(a, b);
         };
-        function Y(a, b) {
+        function Y2(a, b) {
           C2.call(this);
           this.g = new Sc(b);
           this.l = a;
@@ -11487,18 +11479,18 @@
           this.A = b && b.supportsCrossDomainXhr || false;
           this.v = b && b.sendRawJson || false;
           (b = b && b.httpSessionIdParam) && !y(b) && (this.g.G = b, a = this.h, a !== null && b in a && (a = this.h, b in a && delete a[b]));
-          this.j = new Z(this);
+          this.j = new Z2(this);
         }
-        t(Y, C2);
-        Y.prototype.m = function() {
+        t(Y2, C2);
+        Y2.prototype.m = function() {
           this.g.l = this.j;
           this.A && (this.g.L = true);
           this.g.connect(this.l, this.h || void 0);
         };
-        Y.prototype.close = function() {
+        Y2.prototype.close = function() {
           cc(this.g);
         };
-        Y.prototype.o = function(a) {
+        Y2.prototype.o = function(a) {
           var b = this.g;
           if (typeof a === "string") {
             var c = {};
@@ -11508,12 +11500,12 @@
           b.i.push(new dc(b.Ya++, a));
           b.I == 3 && bc(b);
         };
-        Y.prototype.N = function() {
+        Y2.prototype.N = function() {
           this.g.l = null;
           delete this.j;
           cc(this.g);
           delete this.g;
-          Y.Z.N.call(this);
+          Y2.Z.N.call(this);
         };
         function cd(a) {
           gb.call(this);
@@ -11537,26 +11529,26 @@
           this.status = 1;
         }
         t(dd, hb);
-        function Z(a) {
+        function Z2(a) {
           this.g = a;
         }
-        t(Z, ad);
-        Z.prototype.ra = function() {
+        t(Z2, ad);
+        Z2.prototype.ra = function() {
           D2(this.g, "a");
         };
-        Z.prototype.qa = function(a) {
+        Z2.prototype.qa = function(a) {
           D2(this.g, new cd(a));
         };
-        Z.prototype.pa = function(a) {
+        Z2.prototype.pa = function(a) {
           D2(this.g, new dd());
         };
-        Z.prototype.oa = function() {
+        Z2.prototype.oa = function() {
           D2(this.g, "b");
         };
         bd.prototype.createWebChannel = bd.prototype.g;
-        Y.prototype.send = Y.prototype.o;
-        Y.prototype.open = Y.prototype.m;
-        Y.prototype.close = Y.prototype.close;
+        Y2.prototype.send = Y2.prototype.o;
+        Y2.prototype.open = Y2.prototype.m;
+        Y2.prototype.close = Y2.prototype.close;
         createWebChannelTransport = webchannel_blob_es2018.createWebChannelTransport = function() {
           return new bd();
         };
@@ -11579,15 +11571,15 @@
         C2.prototype.listen = C2.prototype.J;
         WebChannel = webchannel_blob_es2018.WebChannel = fb;
         FetchXmlHttpFactory = webchannel_blob_es2018.FetchXmlHttpFactory = Ec;
-        X.prototype.listenOnce = X.prototype.K;
-        X.prototype.getLastError = X.prototype.Ha;
-        X.prototype.getLastErrorCode = X.prototype.ya;
-        X.prototype.getStatus = X.prototype.ca;
-        X.prototype.getResponseJson = X.prototype.La;
-        X.prototype.getResponseText = X.prototype.la;
-        X.prototype.send = X.prototype.ea;
-        X.prototype.setWithCredentials = X.prototype.Fa;
-        XhrIo = webchannel_blob_es2018.XhrIo = X;
+        X2.prototype.listenOnce = X2.prototype.K;
+        X2.prototype.getLastError = X2.prototype.Ha;
+        X2.prototype.getLastErrorCode = X2.prototype.ya;
+        X2.prototype.getStatus = X2.prototype.ca;
+        X2.prototype.getResponseJson = X2.prototype.La;
+        X2.prototype.getResponseText = X2.prototype.la;
+        X2.prototype.send = X2.prototype.ea;
+        X2.prototype.setWithCredentials = X2.prototype.Fa;
+        XhrIo = webchannel_blob_es2018.XhrIo = X2;
       }).apply(typeof commonjsGlobal2 !== "undefined" ? commonjsGlobal2 : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {});
     }
   });
@@ -12676,16 +12668,16 @@
                   res += replacement.substring(last, i);
                 }
                 i++;
-                let j = i + 1;
-                while (j < replacement.length && replacement.codePointAt(j) !== Codepoint.CODES.get("}") && replacement.codePointAt(j) !== Codepoint.CODES.get(" ")) {
-                  j++;
+                let j2 = i + 1;
+                while (j2 < replacement.length && replacement.codePointAt(j2) !== Codepoint.CODES.get("}") && replacement.codePointAt(j2) !== Codepoint.CODES.get(" ")) {
+                  j2++;
                 }
-                if (j === replacement.length || replacement.codePointAt(j) !== Codepoint.CODES.get("}")) {
+                if (j2 === replacement.length || replacement.codePointAt(j2) !== Codepoint.CODES.get("}")) {
                   throw new RE2JSGroupException("named capture group is missing trailing '}'");
                 }
-                const groupName = replacement.substring(i + 1, j);
+                const groupName = replacement.substring(i + 1, j2);
                 res += this.group(groupName);
-                last = j + 1;
+                last = j2 + 1;
               }
             }
           }
@@ -12757,22 +12749,22 @@
                   res += replacement.substring(last, i);
                 }
                 i++;
-                let j = i + 1;
-                while (j < replacement.length && replacement.codePointAt(j) !== Codepoint.CODES.get(">") && replacement.codePointAt(j) !== Codepoint.CODES.get(" ")) {
-                  j++;
+                let j2 = i + 1;
+                while (j2 < replacement.length && replacement.codePointAt(j2) !== Codepoint.CODES.get(">") && replacement.codePointAt(j2) !== Codepoint.CODES.get(" ")) {
+                  j2++;
                 }
-                if (j === replacement.length || replacement.codePointAt(j) !== Codepoint.CODES.get(">")) {
-                  res += replacement.substring(i - 1, j + 1);
-                  last = j + 1;
+                if (j2 === replacement.length || replacement.codePointAt(j2) !== Codepoint.CODES.get(">")) {
+                  res += replacement.substring(i - 1, j2 + 1);
+                  last = j2 + 1;
                   continue;
                 }
-                const groupName = replacement.substring(i + 1, j);
+                const groupName = replacement.substring(i + 1, j2);
                 if (Object.prototype.hasOwnProperty.call(this.namedGroups, groupName)) {
                   res += this.group(groupName);
                 } else {
                   res += `$<${groupName}>`;
                 }
-                last = j + 1;
+                last = j2 + 1;
               }
             }
           }
@@ -12934,10 +12926,10 @@
           }
           let sourceLength = source.length;
           for (let i = fromIndex; i <= sourceLength - targetLength; i++) {
-            for (let j = 0; j < targetLength; j++) {
-              if (source[i + j] !== target[j]) {
+            for (let j2 = 0; j2 < targetLength; j2++) {
+              if (source[i + j2] !== target[j2]) {
                 break;
-              } else if (j === targetLength - 1) {
+              } else if (j2 === targetLength - 1) {
                 return i;
               }
             }
@@ -13046,16 +13038,16 @@
           }
           return "";
         }
-        static fromRegexp(re) {
-          const regex = new _Regexp(re.op);
-          regex.flags = re.flags;
-          regex.subs = re.subs;
-          regex.runes = re.runes;
-          regex.cap = re.cap;
-          regex.min = re.min;
-          regex.max = re.max;
-          regex.name = re.name;
-          regex.namedGroups = re.namedGroups;
+        static fromRegexp(re2) {
+          const regex = new _Regexp(re2.op);
+          regex.flags = re2.flags;
+          regex.subs = re2.subs;
+          regex.runes = re2.runes;
+          regex.cap = re2.cap;
+          regex.min = re2.min;
+          regex.max = re2.max;
+          regex.name = re2.name;
+          regex.namedGroups = re2.namedGroups;
           return regex;
         }
         constructor(op) {
@@ -13364,11 +13356,11 @@
             }
             return r === r0;
           }
-          for (let j = 0; j < this.runes.length && j <= 8; j += 2) {
-            if (r < this.runes[j]) {
+          for (let j2 = 0; j2 < this.runes.length && j2 <= 8; j2 += 2) {
+            if (r < this.runes[j2]) {
               return false;
             }
-            if (r <= this.runes[j + 1]) {
+            if (r <= this.runes[j2 + 1]) {
               return true;
             }
           }
@@ -13577,9 +13569,9 @@
         static ANY_RUNE() {
           return [0, Unicode.MAX_RUNE];
         }
-        static compileRegexp(re) {
+        static compileRegexp(re2) {
           const c = new _Compiler();
-          const f = c.compile(re);
+          const f = c.compile(re2);
           c.prog.patch(f.out, c.newInst(Inst.MATCH).i);
           c.prog.start = f.i;
           return c.prog;
@@ -13707,25 +13699,25 @@
           }
           return f;
         }
-        compile(re) {
-          switch (re.op) {
+        compile(re2) {
+          switch (re2.op) {
             case Regexp.Op.NO_MATCH:
               return this.fail();
             case Regexp.Op.EMPTY_MATCH:
               return this.nop();
             case Regexp.Op.LITERAL:
-              if (re.runes.length === 0) {
+              if (re2.runes.length === 0) {
                 return this.nop();
               } else {
                 let f = null;
-                for (let r of re.runes) {
-                  const f1 = this.rune([r], re.flags);
+                for (let r of re2.runes) {
+                  const f1 = this.rune([r], re2.flags);
                   f = f === null ? f1 : this.cat(f, f1);
                 }
                 return f;
               }
             case Regexp.Op.CHAR_CLASS:
-              return this.rune(re.runes, re.flags);
+              return this.rune(re2.runes, re2.flags);
             case Regexp.Op.ANY_CHAR_NOT_NL:
               return this.rune(_Compiler.ANY_RUNE_NOT_NL(), 0);
             case Regexp.Op.ANY_CHAR:
@@ -13743,23 +13735,23 @@
             case Regexp.Op.NO_WORD_BOUNDARY:
               return this.empty(Utils.EMPTY_NO_WORD_BOUNDARY);
             case Regexp.Op.CAPTURE: {
-              const bra = this.cap(re.cap << 1);
-              const sub = this.compile(re.subs[0]);
-              const ket = this.cap(re.cap << 1 | 1);
+              const bra = this.cap(re2.cap << 1);
+              const sub = this.compile(re2.subs[0]);
+              const ket = this.cap(re2.cap << 1 | 1);
               return this.cat(this.cat(bra, sub), ket);
             }
             case Regexp.Op.STAR:
-              return this.star(this.compile(re.subs[0]), (re.flags & RE2Flags.NON_GREEDY) !== 0);
+              return this.star(this.compile(re2.subs[0]), (re2.flags & RE2Flags.NON_GREEDY) !== 0);
             case Regexp.Op.PLUS:
-              return this.plus(this.compile(re.subs[0]), (re.flags & RE2Flags.NON_GREEDY) !== 0);
+              return this.plus(this.compile(re2.subs[0]), (re2.flags & RE2Flags.NON_GREEDY) !== 0);
             case Regexp.Op.QUEST:
-              return this.quest(this.compile(re.subs[0]), (re.flags & RE2Flags.NON_GREEDY) !== 0);
+              return this.quest(this.compile(re2.subs[0]), (re2.flags & RE2Flags.NON_GREEDY) !== 0);
             case Regexp.Op.CONCAT: {
-              if (re.subs.length === 0) {
+              if (re2.subs.length === 0) {
                 return this.nop();
               } else {
                 let f = null;
-                for (let sub of re.subs) {
+                for (let sub of re2.subs) {
                   const f1 = this.compile(sub);
                   f = f === null ? f1 : this.cat(f, f1);
                 }
@@ -13767,11 +13759,11 @@
               }
             }
             case Regexp.Op.ALTERNATE: {
-              if (re.subs.length === 0) {
+              if (re2.subs.length === 0) {
                 return this.nop();
               } else {
                 let f = null;
-                for (let sub of re.subs) {
+                for (let sub of re2.subs) {
                   const f1 = this.compile(sub);
                   f = f === null ? f1 : this.alt(f, f1);
                 }
@@ -13792,24 +13784,24 @@
         // or removed.  For example, the simplified form for /(x){1,2}/ is
         // /(x)(x)?/ but both parentheses capture as $1.  The returned regexp
         // may share structure with or be the original.
-        static simplify(re) {
-          if (re === null) {
+        static simplify(re2) {
+          if (re2 === null) {
             return null;
           }
-          switch (re.op) {
+          switch (re2.op) {
             case Regexp.Op.CAPTURE:
             case Regexp.Op.CONCAT:
             case Regexp.Op.ALTERNATE: {
-              let nre = re;
-              for (let i = 0; i < re.subs.length; i++) {
-                const sub = re.subs[i];
+              let nre = re2;
+              for (let i = 0; i < re2.subs.length; i++) {
+                const sub = re2.subs[i];
                 const nsub = _Simplify.simplify(sub);
-                if (nre === re && nsub !== sub) {
-                  nre = Regexp.fromRegexp(re);
+                if (nre === re2 && nsub !== sub) {
+                  nre = Regexp.fromRegexp(re2);
                   nre.runes = null;
-                  nre.subs = re.subs.slice(0, re.subs.length);
+                  nre.subs = re2.subs.slice(0, re2.subs.length);
                 }
-                if (nre !== re) {
+                if (nre !== re2) {
                   nre.subs[i] = nsub;
                 }
               }
@@ -13818,46 +13810,46 @@
             case Regexp.Op.STAR:
             case Regexp.Op.PLUS:
             case Regexp.Op.QUEST: {
-              const sub = _Simplify.simplify(re.subs[0]);
-              return _Simplify.simplify1(re.op, re.flags, sub, re);
+              const sub = _Simplify.simplify(re2.subs[0]);
+              return _Simplify.simplify1(re2.op, re2.flags, sub, re2);
             }
             case Regexp.Op.REPEAT: {
-              if (re.min === 0 && re.max === 0) {
+              if (re2.min === 0 && re2.max === 0) {
                 return new Regexp(Regexp.Op.EMPTY_MATCH);
               }
-              const sub = _Simplify.simplify(re.subs[0]);
-              if (re.max === -1) {
-                if (re.min === 0) {
-                  return _Simplify.simplify1(Regexp.Op.STAR, re.flags, sub, null);
+              const sub = _Simplify.simplify(re2.subs[0]);
+              if (re2.max === -1) {
+                if (re2.min === 0) {
+                  return _Simplify.simplify1(Regexp.Op.STAR, re2.flags, sub, null);
                 }
-                if (re.min === 1) {
-                  return _Simplify.simplify1(Regexp.Op.PLUS, re.flags, sub, null);
+                if (re2.min === 1) {
+                  return _Simplify.simplify1(Regexp.Op.PLUS, re2.flags, sub, null);
                 }
                 const nre = new Regexp(Regexp.Op.CONCAT);
                 const subs = [];
-                for (let i = 0; i < re.min - 1; i++) {
+                for (let i = 0; i < re2.min - 1; i++) {
                   subs.push(sub);
                 }
-                subs.push(_Simplify.simplify1(Regexp.Op.PLUS, re.flags, sub, null));
+                subs.push(_Simplify.simplify1(Regexp.Op.PLUS, re2.flags, sub, null));
                 nre.subs = subs.slice(0);
                 return nre;
               }
-              if (re.min === 1 && re.max === 1) {
+              if (re2.min === 1 && re2.max === 1) {
                 return sub;
               }
               let prefixSubs = null;
-              if (re.min > 0) {
+              if (re2.min > 0) {
                 prefixSubs = [];
-                for (let i = 0; i < re.min; i++) {
+                for (let i = 0; i < re2.min; i++) {
                   prefixSubs.push(sub);
                 }
               }
-              if (re.max > re.min) {
-                let suffix = _Simplify.simplify1(Regexp.Op.QUEST, re.flags, sub, null);
-                for (let i = re.min + 1; i < re.max; i++) {
+              if (re2.max > re2.min) {
+                let suffix = _Simplify.simplify1(Regexp.Op.QUEST, re2.flags, sub, null);
+                for (let i = re2.min + 1; i < re2.max; i++) {
                   const nre2 = new Regexp(Regexp.Op.CONCAT);
                   nre2.subs = [sub, suffix];
-                  suffix = _Simplify.simplify1(Regexp.Op.QUEST, re.flags, nre2, null);
+                  suffix = _Simplify.simplify1(Regexp.Op.QUEST, re2.flags, nre2, null);
                 }
                 if (prefixSubs === null) {
                   return suffix;
@@ -13872,7 +13864,7 @@
               return new Regexp(Regexp.Op.NO_MATCH);
             }
           }
-          return re;
+          return re2;
         }
         // simplify1 implements Simplify for the unary OpStar,
         // OpPlus, and OpQuest operators.  It returns the simple regexp
@@ -13889,20 +13881,20 @@
         // for other operators generates these unary expressions.
         // Letting them call simplify1 makes sure the expressions they
         // generate are simple.
-        static simplify1(op, flags, sub, re) {
+        static simplify1(op, flags, sub, re2) {
           if (sub.op === Regexp.Op.EMPTY_MATCH) {
             return sub;
           }
           if (op === sub.op && (flags & RE2Flags.NON_GREEDY) === (sub.flags & RE2Flags.NON_GREEDY)) {
             return sub;
           }
-          if (re !== null && re.op === op && (re.flags & RE2Flags.NON_GREEDY) === (flags & RE2Flags.NON_GREEDY) && sub === re.subs[0]) {
-            return re;
+          if (re2 !== null && re2.op === op && (re2.flags & RE2Flags.NON_GREEDY) === (flags & RE2Flags.NON_GREEDY) && sub === re2.subs[0]) {
+            return re2;
           }
-          re = new Regexp(op);
-          re.flags = flags;
-          re.subs = [sub];
-          return re;
+          re2 = new Regexp(op);
+          re2.flags = flags;
+          re2.subs = [sub];
+          return re2;
         }
       };
       CharGroup = class {
@@ -13963,29 +13955,29 @@
           const pivotFrom = array2[pivotIndex];
           const pivotTo = array2[pivotIndex + 1];
           let i = left;
-          let j = right;
-          while (i <= j) {
+          let j2 = right;
+          while (i <= j2) {
             while (i < right && _CharClass.cmp(array2, i, pivotFrom, pivotTo) < 0) {
               i += 2;
             }
-            while (j > left && _CharClass.cmp(array2, j, pivotFrom, pivotTo) > 0) {
-              j -= 2;
+            while (j2 > left && _CharClass.cmp(array2, j2, pivotFrom, pivotTo) > 0) {
+              j2 -= 2;
             }
-            if (i <= j) {
-              if (i !== j) {
+            if (i <= j2) {
+              if (i !== j2) {
                 let temp = array2[i];
-                array2[i] = array2[j];
-                array2[j] = temp;
+                array2[i] = array2[j2];
+                array2[j2] = temp;
                 temp = array2[i + 1];
-                array2[i + 1] = array2[j + 1];
-                array2[j + 1] = temp;
+                array2[i + 1] = array2[j2 + 1];
+                array2[j2 + 1] = temp;
               }
               i += 2;
-              j -= 2;
+              j2 -= 2;
             }
           }
-          if (left < j) {
-            _CharClass.qsortIntPair(array2, left, j);
+          if (left < j2) {
+            _CharClass.qsortIntPair(array2, left, j2);
           }
           if (i < right) {
             _CharClass.qsortIntPair(array2, i, right);
@@ -14293,15 +14285,15 @@
         // unicodeTable() returns the Unicode RangeTable identified by name
         // and the table of additional fold-equivalent code points.
         // Returns null if |name| does not identify a Unicode character range.
-        static unicodeTable(name4) {
-          if (name4 === "Any") {
+        static unicodeTable(name5) {
+          if (name5 === "Any") {
             return Pair.of(_Parser.ANY_TABLE(), _Parser.ANY_TABLE());
           }
-          if (UnicodeTables.CATEGORIES.has(name4)) {
-            return Pair.of(UnicodeTables.CATEGORIES.get(name4), UnicodeTables.FOLD_CATEGORIES.get(name4));
+          if (UnicodeTables.CATEGORIES.has(name5)) {
+            return Pair.of(UnicodeTables.CATEGORIES.get(name5), UnicodeTables.FOLD_CATEGORIES.get(name5));
           }
-          if (UnicodeTables.SCRIPTS.has(name4)) {
-            return Pair.of(UnicodeTables.SCRIPTS.get(name4), UnicodeTables.FOLD_SCRIPT.get(name4));
+          if (UnicodeTables.SCRIPTS.has(name5)) {
+            return Pair.of(UnicodeTables.SCRIPTS.get(name5), UnicodeTables.FOLD_SCRIPT.get(name5));
           }
           return null;
         }
@@ -14321,24 +14313,24 @@
         }
         // leadingRegexp returns the leading regexp that re begins with.
         // The regexp refers to storage in re or its children.
-        static leadingRegexp(re) {
-          if (re.op === Regexp.Op.EMPTY_MATCH) {
+        static leadingRegexp(re2) {
+          if (re2.op === Regexp.Op.EMPTY_MATCH) {
             return null;
           }
-          if (re.op === Regexp.Op.CONCAT && re.subs.length > 0) {
-            const sub = re.subs[0];
+          if (re2.op === Regexp.Op.CONCAT && re2.subs.length > 0) {
+            const sub = re2.subs[0];
             if (sub.op === Regexp.Op.EMPTY_MATCH) {
               return null;
             }
             return sub;
           }
-          return re;
+          return re2;
         }
         static literalRegexp(s, flags) {
-          const re = new Regexp(Regexp.Op.LITERAL);
-          re.flags = flags;
-          re.runes = Utils.stringToRunes(s);
-          return re;
+          const re2 = new Regexp(Regexp.Op.LITERAL);
+          re2.flags = flags;
+          re2.runes = Utils.stringToRunes(s);
+          return re2;
         }
         /**
          * Parse regular expression pattern {@code pattern} with mode flags {@code flags}.
@@ -14399,12 +14391,12 @@
         // PCRE limits names to 32 bytes.
         // Python rejects names starting with digits.
         // We don't enforce either of those.
-        static isValidCaptureName(name4) {
-          if (name4.length === 0) {
+        static isValidCaptureName(name5) {
+          if (name5.length === 0) {
             return false;
           }
-          for (let i = 0; i < name4.length; i++) {
-            const c = name4.codePointAt(i);
+          for (let i = 0; i < name5.length; i++) {
+            const c = name5.codePointAt(i);
             if (c !== Codepoint.CODES.get("_") && !Utils.isalnum(c)) {
               return false;
             }
@@ -14429,17 +14421,17 @@
         }
         // can this be represented as a character class?
         // single-rune literal string, char class, ., and .|\n.
-        static isCharClass(re) {
-          return re.op === Regexp.Op.LITERAL && re.runes.length === 1 || re.op === Regexp.Op.CHAR_CLASS || re.op === Regexp.Op.ANY_CHAR_NOT_NL || re.op === Regexp.Op.ANY_CHAR;
+        static isCharClass(re2) {
+          return re2.op === Regexp.Op.LITERAL && re2.runes.length === 1 || re2.op === Regexp.Op.CHAR_CLASS || re2.op === Regexp.Op.ANY_CHAR_NOT_NL || re2.op === Regexp.Op.ANY_CHAR;
         }
         // does re match r?
-        static matchRune(re, r) {
-          switch (re.op) {
+        static matchRune(re2, r) {
+          switch (re2.op) {
             case Regexp.Op.LITERAL:
-              return re.runes.length === 1 && re.runes[0] === r;
+              return re2.runes.length === 1 && re2.runes[0] === r;
             case Regexp.Op.CHAR_CLASS:
-              for (let i = 0; i < re.runes.length; i += 2) {
-                if (re.runes[i] <= r && r <= re.runes[i + 1]) {
+              for (let i = 0; i < re2.runes.length; i += 2) {
+                if (re2.runes[i] <= r && r <= re2.runes[i + 1]) {
                   return true;
                 }
               }
@@ -14600,21 +14592,21 @@
         }
         // Allocate a Regexp, from the free list if possible.
         newRegexp(op) {
-          let re = this.free;
-          if (re !== null && re.subs !== null && re.subs.length > 0) {
-            this.free = re.subs[0];
-            re.reinit();
-            re.op = op;
+          let re2 = this.free;
+          if (re2 !== null && re2.subs !== null && re2.subs.length > 0) {
+            this.free = re2.subs[0];
+            re2.reinit();
+            re2.op = op;
           } else {
-            re = new Regexp(op);
+            re2 = new Regexp(op);
           }
-          return re;
+          return re2;
         }
-        reuse(re) {
-          if (re.subs !== null && re.subs.length > 0) {
-            re.subs[0] = this.free;
+        reuse(re2) {
+          if (re2.subs !== null && re2.subs.length > 0) {
+            re2.subs[0] = this.free;
           }
-          this.free = re;
+          this.free = re2;
         }
         // Parse stack manipulation.
         pop() {
@@ -14632,26 +14624,26 @@
         }
         // push pushes the regexp re onto the parse stack and returns the regexp.
         // Returns null for a CHAR_CLASS that can be merged with the top-of-stack.
-        push(re) {
-          if (re.op === Regexp.Op.CHAR_CLASS && re.runes.length === 2 && re.runes[0] === re.runes[1]) {
-            if (this.maybeConcat(re.runes[0], this.flags & ~RE2Flags.FOLD_CASE)) {
+        push(re2) {
+          if (re2.op === Regexp.Op.CHAR_CLASS && re2.runes.length === 2 && re2.runes[0] === re2.runes[1]) {
+            if (this.maybeConcat(re2.runes[0], this.flags & ~RE2Flags.FOLD_CASE)) {
               return null;
             }
-            re.op = Regexp.Op.LITERAL;
-            re.runes = [re.runes[0]];
-            re.flags = this.flags & ~RE2Flags.FOLD_CASE;
-          } else if (re.op === Regexp.Op.CHAR_CLASS && re.runes.length === 4 && re.runes[0] === re.runes[1] && re.runes[2] === re.runes[3] && Unicode.simpleFold(re.runes[0]) === re.runes[2] && Unicode.simpleFold(re.runes[2]) === re.runes[0] || re.op === Regexp.Op.CHAR_CLASS && re.runes.length === 2 && re.runes[0] + 1 === re.runes[1] && Unicode.simpleFold(re.runes[0]) === re.runes[1] && Unicode.simpleFold(re.runes[1]) === re.runes[0]) {
-            if (this.maybeConcat(re.runes[0], this.flags | RE2Flags.FOLD_CASE)) {
+            re2.op = Regexp.Op.LITERAL;
+            re2.runes = [re2.runes[0]];
+            re2.flags = this.flags & ~RE2Flags.FOLD_CASE;
+          } else if (re2.op === Regexp.Op.CHAR_CLASS && re2.runes.length === 4 && re2.runes[0] === re2.runes[1] && re2.runes[2] === re2.runes[3] && Unicode.simpleFold(re2.runes[0]) === re2.runes[2] && Unicode.simpleFold(re2.runes[2]) === re2.runes[0] || re2.op === Regexp.Op.CHAR_CLASS && re2.runes.length === 2 && re2.runes[0] + 1 === re2.runes[1] && Unicode.simpleFold(re2.runes[0]) === re2.runes[1] && Unicode.simpleFold(re2.runes[1]) === re2.runes[0]) {
+            if (this.maybeConcat(re2.runes[0], this.flags | RE2Flags.FOLD_CASE)) {
               return null;
             }
-            re.op = Regexp.Op.LITERAL;
-            re.runes = [re.runes[0]];
-            re.flags = this.flags | RE2Flags.FOLD_CASE;
+            re2.op = Regexp.Op.LITERAL;
+            re2.runes = [re2.runes[0]];
+            re2.flags = this.flags | RE2Flags.FOLD_CASE;
           } else {
             this.maybeConcat(-1, 0);
           }
-          this.stack.push(re);
-          return re;
+          this.stack.push(re2);
+          return re2;
         }
         // maybeConcat implements incremental concatenation
         // of literal runes into string nodes.  The parser calls this
@@ -14684,13 +14676,13 @@
         }
         // newLiteral returns a new LITERAL Regexp with the given flags
         newLiteral(r, flags) {
-          const re = this.newRegexp(Regexp.Op.LITERAL);
-          re.flags = flags;
+          const re2 = this.newRegexp(Regexp.Op.LITERAL);
+          re2.flags = flags;
           if ((flags & RE2Flags.FOLD_CASE) !== 0) {
             r = _Parser.minFoldRune(r);
           }
-          re.runes = [r];
-          return re;
+          re2.runes = [r];
+          return re2;
         }
         // literal pushes a literal regexp for the rune r on the stack
         // and returns that regexp.
@@ -14700,9 +14692,9 @@
         // op pushes a regexp with the given op onto the stack
         // and returns that regexp.
         op(op) {
-          const re = this.newRegexp(op);
-          re.flags = this.flags;
-          return this.push(re);
+          const re2 = this.newRegexp(op);
+          re2.flags = this.flags;
+          return this.push(re2);
         }
         // repeat replaces the top stack element with itself repeated according to
         // op, min, max.  beforePos is the start position of the repetition operator.
@@ -14728,12 +14720,12 @@
           if (Regexp.isPseudoOp(sub.op)) {
             throw new RE2JSSyntaxException(_Parser.ERR_MISSING_REPEAT_ARGUMENT, t.from(beforePos));
           }
-          const re = this.newRegexp(op);
-          re.min = min;
-          re.max = max;
-          re.flags = flags;
-          re.subs = [sub];
-          this.stack[n - 1] = re;
+          const re2 = this.newRegexp(op);
+          re2.min = min;
+          re2.max = max;
+          re2.flags = flags;
+          re2.subs = [sub];
+          this.stack[n - 1] = re2;
         }
         // concat replaces the top of the stack (above the topmost '|' or '(') with
         // its concatenation.
@@ -14758,15 +14750,15 @@
           return this.push(this.collapse(subs, Regexp.Op.ALTERNATE));
         }
         // cleanAlt cleans re for eventual inclusion in an alternation.
-        cleanAlt(re) {
-          if (re.op === Regexp.Op.CHAR_CLASS) {
-            re.runes = new CharClass(re.runes).cleanClass().toArray();
-            if (re.runes.length === 2 && re.runes[0] === 0 && re.runes[1] === Unicode.MAX_RUNE) {
-              re.runes = null;
-              re.op = Regexp.Op.ANY_CHAR;
-            } else if (re.runes.length === 4 && re.runes[0] === 0 && re.runes[1] === Codepoint.CODES.get("\n") - 1 && re.runes[2] === Codepoint.CODES.get("\n") + 1 && re.runes[3] === Unicode.MAX_RUNE) {
-              re.runes = null;
-              re.op = Regexp.Op.ANY_CHAR_NOT_NL;
+        cleanAlt(re2) {
+          if (re2.op === Regexp.Op.CHAR_CLASS) {
+            re2.runes = new CharClass(re2.runes).cleanClass().toArray();
+            if (re2.runes.length === 2 && re2.runes[0] === 0 && re2.runes[1] === Unicode.MAX_RUNE) {
+              re2.runes = null;
+              re2.op = Regexp.Op.ANY_CHAR;
+            } else if (re2.runes.length === 4 && re2.runes[0] === 0 && re2.runes[1] === Codepoint.CODES.get("\n") - 1 && re2.runes[2] === Codepoint.CODES.get("\n") + 1 && re2.runes[3] === Unicode.MAX_RUNE) {
+              re2.runes = null;
+              re2.op = Regexp.Op.ANY_CHAR_NOT_NL;
             }
           }
         }
@@ -14793,17 +14785,17 @@
               newsubs[i++] = sub;
             }
           }
-          let re = this.newRegexp(op);
-          re.subs = newsubs;
+          let re2 = this.newRegexp(op);
+          re2.subs = newsubs;
           if (op === Regexp.Op.ALTERNATE) {
-            re.subs = this.factor(re.subs);
-            if (re.subs.length === 1) {
-              const old = re;
-              re = re.subs[0];
+            re2.subs = this.factor(re2.subs);
+            if (re2.subs.length === 1) {
+              const old = re2;
+              re2 = re2.subs[0];
               this.reuse(old);
             }
           }
-          return re;
+          return re2;
         }
         // factor factors common prefixes from the alternation list sub.  It
         // returns a replacement list that reuses the same storage and frees
@@ -14832,14 +14824,14 @@
             let istrlen = 0;
             let iflags = 0;
             if (i < lensub) {
-              let re = array2[s + i];
-              if (re.op === Regexp.Op.CONCAT && re.subs.length > 0) {
-                re = re.subs[0];
+              let re2 = array2[s + i];
+              if (re2.op === Regexp.Op.CONCAT && re2.subs.length > 0) {
+                re2 = re2.subs[0];
               }
-              if (re.op === Regexp.Op.LITERAL) {
-                istr = re.runes;
-                istrlen = re.runes.length;
-                iflags = re.flags & RE2Flags.FOLD_CASE;
+              if (re2.op === Regexp.Op.LITERAL) {
+                istr = re2.runes;
+                istrlen = re2.runes.length;
+                iflags = re2.flags & RE2Flags.FOLD_CASE;
               }
               if (iflags === strflags) {
                 let same = 0;
@@ -14859,13 +14851,13 @@
               const prefix = this.newRegexp(Regexp.Op.LITERAL);
               prefix.flags = strflags;
               prefix.runes = str.slice(0, strlen);
-              for (let j = start; j < i; j++) {
-                array2[s + j] = this.removeLeadingString(array2[s + j], strlen);
+              for (let j2 = start; j2 < i; j2++) {
+                array2[s + j2] = this.removeLeadingString(array2[s + j2], strlen);
               }
               const suffix = this.collapse(array2.slice(s + start, s + i), Regexp.Op.ALTERNATE);
-              const re = this.newRegexp(Regexp.Op.CONCAT);
-              re.subs = [prefix, suffix];
-              array2[lenout++] = re;
+              const re2 = this.newRegexp(Regexp.Op.CONCAT);
+              re2.subs = [prefix, suffix];
+              array2[lenout++] = re2;
             }
             start = i;
             str = istr;
@@ -14890,14 +14882,14 @@
               array2[lenout++] = array2[s + start];
             } else {
               const prefix = first;
-              for (let j = start; j < i; j++) {
-                const reuse = j !== start;
-                array2[s + j] = this.removeLeadingRegexp(array2[s + j], reuse);
+              for (let j2 = start; j2 < i; j2++) {
+                const reuse = j2 !== start;
+                array2[s + j2] = this.removeLeadingRegexp(array2[s + j2], reuse);
               }
               const suffix = this.collapse(array2.slice(s + start, s + i), Regexp.Op.ALTERNATE);
-              const re = this.newRegexp(Regexp.Op.CONCAT);
-              re.subs = [prefix, suffix];
-              array2[lenout++] = re;
+              const re2 = this.newRegexp(Regexp.Op.CONCAT);
+              re2.subs = [prefix, suffix];
+              array2[lenout++] = re2;
             }
             start = i;
             first = ifirst;
@@ -14915,19 +14907,19 @@
               array2[lenout++] = array2[s + start];
             } else {
               let max = start;
-              for (let j = start + 1; j < i; j++) {
+              for (let j2 = start + 1; j2 < i; j2++) {
                 const subMax = array2[s + max];
-                const subJ = array2[s + j];
+                const subJ = array2[s + j2];
                 if (subMax.op < subJ.op || subMax.op === subJ.op && (subMax.runes !== null ? subMax.runes.length : 0) < (subJ.runes !== null ? subJ.runes.length : 0)) {
-                  max = j;
+                  max = j2;
                 }
               }
               const tmp = array2[s + start];
               array2[s + start] = array2[s + max];
               array2[s + max] = tmp;
-              for (let j = start + 1; j < i; j++) {
-                _Parser.mergeCharClass(array2[s + start], array2[s + j]);
-                this.reuse(array2[s + j]);
+              for (let j2 = start + 1; j2 < i; j2++) {
+                _Parser.mergeCharClass(array2[s + start], array2[s + j2]);
+                this.reuse(array2[s + j2]);
               }
               this.cleanAlt(array2[s + start]);
               array2[lenout++] = array2[s + start];
@@ -14953,66 +14945,66 @@
         }
         // removeLeadingString removes the first n leading runes
         // from the beginning of re.  It returns the replacement for re.
-        removeLeadingString(re, n) {
-          if (re.op === Regexp.Op.CONCAT && re.subs.length > 0) {
-            const sub = this.removeLeadingString(re.subs[0], n);
-            re.subs[0] = sub;
+        removeLeadingString(re2, n) {
+          if (re2.op === Regexp.Op.CONCAT && re2.subs.length > 0) {
+            const sub = this.removeLeadingString(re2.subs[0], n);
+            re2.subs[0] = sub;
             if (sub.op === Regexp.Op.EMPTY_MATCH) {
               this.reuse(sub);
-              switch (re.subs.length) {
+              switch (re2.subs.length) {
                 case 0:
                 case 1:
-                  re.op = Regexp.Op.EMPTY_MATCH;
-                  re.subs = null;
+                  re2.op = Regexp.Op.EMPTY_MATCH;
+                  re2.subs = null;
                   break;
                 case 2: {
-                  const old = re;
-                  re = re.subs[1];
+                  const old = re2;
+                  re2 = re2.subs[1];
                   this.reuse(old);
                   break;
                 }
                 default:
-                  re.subs = re.subs.slice(1, re.subs.length);
+                  re2.subs = re2.subs.slice(1, re2.subs.length);
                   break;
               }
             }
-            return re;
+            return re2;
           }
-          if (re.op === Regexp.Op.LITERAL) {
-            re.runes = re.runes.slice(n, re.runes.length);
-            if (re.runes.length === 0) {
-              re.op = Regexp.Op.EMPTY_MATCH;
+          if (re2.op === Regexp.Op.LITERAL) {
+            re2.runes = re2.runes.slice(n, re2.runes.length);
+            if (re2.runes.length === 0) {
+              re2.op = Regexp.Op.EMPTY_MATCH;
             }
           }
-          return re;
+          return re2;
         }
         // removeLeadingRegexp removes the leading regexp in re.
         // It returns the replacement for re.
         // If reuse is true, it passes the removed regexp (if no longer needed) to
         // reuse.
-        removeLeadingRegexp(re, reuse) {
-          if (re.op === Regexp.Op.CONCAT && re.subs.length > 0) {
+        removeLeadingRegexp(re2, reuse) {
+          if (re2.op === Regexp.Op.CONCAT && re2.subs.length > 0) {
             if (reuse) {
-              this.reuse(re.subs[0]);
+              this.reuse(re2.subs[0]);
             }
-            re.subs = re.subs.slice(1, re.subs.length);
-            switch (re.subs.length) {
+            re2.subs = re2.subs.slice(1, re2.subs.length);
+            switch (re2.subs.length) {
               case 0: {
-                re.op = Regexp.Op.EMPTY_MATCH;
-                re.subs = Regexp.emptySubs();
+                re2.op = Regexp.Op.EMPTY_MATCH;
+                re2.subs = Regexp.emptySubs();
                 break;
               }
               case 1: {
-                const old = re;
-                re = re.subs[0];
+                const old = re2;
+                re2 = re2.subs[0];
                 this.reuse(old);
                 break;
               }
             }
-            return re;
+            return re2;
           }
           if (reuse) {
-            this.reuse(re);
+            this.reuse(re2);
           }
           return this.newRegexp(Regexp.Op.EMPTY_MATCH);
         }
@@ -15128,11 +15120,11 @@
                         }
                         t.skipString(lit);
                         t.skipString("\\E");
-                        let j = 0;
-                        while (j < lit.length) {
-                          const codepoint = lit.codePointAt(j);
+                        let j2 = 0;
+                        while (j2 < lit.length) {
+                          const codepoint = lit.codePointAt(j2);
                           this.literal(codepoint);
-                          j += Utils.charCount(codepoint);
+                          j2 += Utils.charCount(codepoint);
                         }
                         break bigswitch;
                       }
@@ -15144,24 +15136,24 @@
                         break;
                     }
                   }
-                  const re = this.newRegexp(Regexp.Op.CHAR_CLASS);
-                  re.flags = this.flags;
+                  const re2 = this.newRegexp(Regexp.Op.CHAR_CLASS);
+                  re2.flags = this.flags;
                   if (t.lookingAt("\\p") || t.lookingAt("\\P")) {
                     const cc2 = new CharClass();
                     if (this.parseUnicodeClass(t, cc2)) {
-                      re.runes = cc2.toArray();
-                      this.push(re);
+                      re2.runes = cc2.toArray();
+                      this.push(re2);
                       break bigswitch;
                     }
                   }
                   const cc = new CharClass();
                   if (this.parsePerlClassEscape(t, cc)) {
-                    re.runes = cc.toArray();
-                    this.push(re);
+                    re2.runes = cc.toArray();
+                    this.push(re2);
                     break bigswitch;
                   }
                   t.rewindTo(savedPos);
-                  this.reuse(re);
+                  this.reuse(re2);
                   this.literal(_Parser.parseEscape(t));
                   break;
                 }
@@ -15197,19 +15189,19 @@
             if (end < 0) {
               throw new RE2JSSyntaxException(_Parser.ERR_INVALID_NAMED_CAPTURE, s);
             }
-            const name4 = s.substring(begin, end);
-            t.skipString(name4);
+            const name5 = s.substring(begin, end);
+            t.skipString(name5);
             t.skip(begin + 1);
-            if (!_Parser.isValidCaptureName(name4)) {
+            if (!_Parser.isValidCaptureName(name5)) {
               throw new RE2JSSyntaxException(_Parser.ERR_INVALID_NAMED_CAPTURE, s.substring(0, end + 1));
             }
-            const re = this.op(Regexp.Op.LEFT_PAREN);
-            re.cap = ++this.numCap;
-            if (this.namedGroups[name4]) {
-              throw new RE2JSSyntaxException(_Parser.ERR_DUPLICATE_NAMED_CAPTURE, name4);
+            const re2 = this.op(Regexp.Op.LEFT_PAREN);
+            re2.cap = ++this.numCap;
+            if (this.namedGroups[name5]) {
+              throw new RE2JSSyntaxException(_Parser.ERR_DUPLICATE_NAMED_CAPTURE, name5);
             }
-            this.namedGroups[name4] = this.numCap;
-            re.name = name4;
+            this.namedGroups[name5] = this.numCap;
+            re2.name = name5;
             return;
           }
           t.skip(2);
@@ -15361,11 +15353,11 @@
           if (i < 0) {
             return false;
           }
-          const name4 = cls.substring(0, i + 2);
-          t.skipString(name4);
-          const g = POSIX_GROUPS.has(name4) ? POSIX_GROUPS.get(name4) : null;
+          const name5 = cls.substring(0, i + 2);
+          t.skipString(name5);
+          const g = POSIX_GROUPS.has(name5) ? POSIX_GROUPS.get(name5) : null;
           if (g === null) {
-            throw new RE2JSSyntaxException(_Parser.ERR_INVALID_CHAR_RANGE, name4);
+            throw new RE2JSSyntaxException(_Parser.ERR_INVALID_CHAR_RANGE, name5);
           }
           cc.appendGroup(g, (this.flags & RE2Flags.FOLD_CASE) !== 0);
           return true;
@@ -15393,9 +15385,9 @@
             throw new RE2JSSyntaxException(_Parser.ERR_INVALID_CHAR_RANGE, t.rest());
           }
           c = t.pop();
-          let name4;
+          let name5;
           if (c !== Codepoint.CODES.get("{")) {
-            name4 = Utils.runeToString(c);
+            name5 = Utils.runeToString(c);
           } else {
             const rest = t.rest();
             const end = rest.indexOf("}");
@@ -15403,15 +15395,15 @@
               t.rewindTo(startPos);
               throw new RE2JSSyntaxException(_Parser.ERR_INVALID_CHAR_RANGE, t.rest());
             }
-            name4 = rest.substring(0, end);
-            t.skipString(name4);
+            name5 = rest.substring(0, end);
+            t.skipString(name5);
             t.skip(1);
           }
-          if (!(name4.length === 0) && name4.codePointAt(0) === Codepoint.CODES.get("^")) {
+          if (!(name5.length === 0) && name5.codePointAt(0) === Codepoint.CODES.get("^")) {
             sign = 0 - sign;
-            name4 = name4.substring(1);
+            name5 = name5.substring(1);
           }
-          const pair = _Parser.unicodeTable(name4);
+          const pair = _Parser.unicodeTable(name5);
           if (pair === null) {
             throw new RE2JSSyntaxException(_Parser.ERR_INVALID_CHAR_RANGE, t.from(startPos));
           }
@@ -15433,8 +15425,8 @@
         parseClass(t) {
           const startPos = t.pos();
           t.skip(1);
-          const re = this.newRegexp(Regexp.Op.CHAR_CLASS);
-          re.flags = this.flags;
+          const re2 = this.newRegexp(Regexp.Op.CHAR_CLASS);
+          re2.flags = this.flags;
           const cc = new CharClass();
           let sign = 1;
           if (t.more() && t.lookingAt("^")) {
@@ -15492,8 +15484,8 @@
           if (sign < 0) {
             cc.negateClass();
           }
-          re.runes = cc.toArray();
-          this.push(re);
+          re2.runes = cc.toArray();
+          this.push(re2);
         }
       };
       Thread = class {
@@ -15510,18 +15502,18 @@
           this.size = 0;
         }
         contains(pc) {
-          const j = this.sparse[pc];
-          return j < this.size && this.densePcs[j] === pc;
+          const j2 = this.sparse[pc];
+          return j2 < this.size && this.densePcs[j2] === pc;
         }
         isEmpty() {
           return this.size === 0;
         }
         add(pc) {
-          const j = this.size++;
-          this.sparse[pc] = j;
-          this.denseThreads[j] = null;
-          this.densePcs[j] = pc;
-          return j;
+          const j2 = this.size++;
+          this.sparse[pc] = j2;
+          this.denseThreads[j2] = null;
+          this.densePcs[j2] = pc;
+          return j2;
         }
         clear() {
           this.sparse = [];
@@ -15715,8 +15707,8 @@
         }
         step(runq, nextq, pos, nextPos, c, nextCond, anchor, atEnd) {
           const longest = this.re2.longest;
-          for (let j = 0; j < runq.size; j++) {
-            let t = runq.denseThreads[j];
+          for (let j2 = 0; j2 < runq.size; j2++) {
+            let t = runq.denseThreads[j2];
             if (t === null) {
               continue;
             }
@@ -15736,7 +15728,7 @@
                   this.matchcap = t.cap.slice(0, this.ncap);
                 }
                 if (!longest) {
-                  this.freeQueue(runq, j + 1);
+                  this.freeQueue(runq, j2 + 1);
                 }
                 this.matched = true;
                 break;
@@ -15760,44 +15752,44 @@
             }
             if (t !== null) {
               this.freeThread(t);
-              runq.denseThreads[j] = null;
+              runq.denseThreads[j2] = null;
             }
           }
           runq.clear();
         }
-        add(q, pc, pos, cap, cond, t) {
+        add(q2, pc, pos, cap, cond, t) {
           if (pc === 0) {
             return t;
           }
-          if (q.contains(pc)) {
+          if (q2.contains(pc)) {
             return t;
           }
-          const d = q.add(pc);
+          const d = q2.add(pc);
           const inst = this.prog.inst[pc];
           switch (inst.op) {
             case Inst.FAIL:
               break;
             case Inst.ALT:
             case Inst.ALT_MATCH:
-              t = this.add(q, inst.out, pos, cap, cond, t);
-              t = this.add(q, inst.arg, pos, cap, cond, t);
+              t = this.add(q2, inst.out, pos, cap, cond, t);
+              t = this.add(q2, inst.arg, pos, cap, cond, t);
               break;
             case Inst.EMPTY_WIDTH:
               if ((inst.arg & ~cond) === 0) {
-                t = this.add(q, inst.out, pos, cap, cond, t);
+                t = this.add(q2, inst.out, pos, cap, cond, t);
               }
               break;
             case Inst.NOP:
-              t = this.add(q, inst.out, pos, cap, cond, t);
+              t = this.add(q2, inst.out, pos, cap, cond, t);
               break;
             case Inst.CAPTURE:
               if (inst.arg < this.ncap) {
                 const opos = cap[inst.arg];
                 cap[inst.arg] = pos;
-                this.add(q, inst.out, pos, cap, cond, null);
+                this.add(q2, inst.out, pos, cap, cond, null);
                 cap[inst.arg] = opos;
               } else {
-                t = this.add(q, inst.out, pos, cap, cond, t);
+                t = this.add(q2, inst.out, pos, cap, cond, t);
               }
               break;
             case Inst.MATCH:
@@ -15813,7 +15805,7 @@
               if (this.ncap > 0 && t.cap !== cap) {
                 t.cap = cap.slice(0, this.ncap);
               }
-              q.denseThreads[d] = t;
+              q2.denseThreads[d] = t;
               t = null;
               break;
             default:
@@ -15889,20 +15881,20 @@
         }
         // Exposed to ExecTests.
         static compileImpl(expr, mode, longest) {
-          let re = Parser.parse(expr, mode);
-          const maxCap = re.maxCap();
-          re = Simplify.simplify(re);
-          const prog = Compiler.compileRegexp(re);
-          const re2 = new _RE2(expr, prog, maxCap, longest);
+          let re2 = Parser.parse(expr, mode);
+          const maxCap = re2.maxCap();
+          re2 = Simplify.simplify(re2);
+          const prog = Compiler.compileRegexp(re2);
+          const re22 = new _RE2(expr, prog, maxCap, longest);
           const [prefixCompl, prefixStr] = prog.prefix();
-          re2.prefixComplete = prefixCompl;
-          re2.prefix = prefixStr;
-          re2.prefixUTF8 = Utils.stringToUtf8ByteArray(re2.prefix);
-          if (re2.prefix.length > 0) {
-            re2.prefixRune = re2.prefix.codePointAt(0);
+          re22.prefixComplete = prefixCompl;
+          re22.prefix = prefixStr;
+          re22.prefixUTF8 = Utils.stringToUtf8ByteArray(re22.prefix);
+          if (re22.prefix.length > 0) {
+            re22.prefixRune = re22.prefix.codePointAt(0);
           }
-          re2.namedGroups = re.namedGroups;
-          return re2;
+          re22.namedGroups = re2.namedGroups;
+          return re22;
         }
         /**
          * Returns true iff textual regular expression {@code pattern} matches string {@code s}.
@@ -16365,9 +16357,9 @@
         findAllUTF8Submatch(b, n) {
           const result = this.allMatches(MachineInput.fromUTF8(b), n, (match) => {
             let slice = new Array(match.length / 2 | 0).fill(null);
-            for (let j = 0; j < slice.length; j++) {
-              if (match[2 * j] >= 0) {
-                slice[j] = b.slice(match[2 * j], match[2 * j + 1]);
+            for (let j2 = 0; j2 < slice.length; j2++) {
+              if (match[2 * j2] >= 0) {
+                slice[j2] = b.slice(match[2 * j2], match[2 * j2 + 1]);
               }
             }
             return slice;
@@ -16403,9 +16395,9 @@
         findAllSubmatch(s, n) {
           const result = this.allMatches(MachineInput.fromUTF16(s), n, (match) => {
             let slice = new Array(match.length / 2 | 0).fill(null);
-            for (let j = 0; j < slice.length; j++) {
-              if (match[2 * j] >= 0) {
-                slice[j] = s.substring(match[2 * j], match[2 * j + 1]);
+            for (let j2 = 0; j2 < slice.length; j2++) {
+              if (match[2 * j2] >= 0) {
+                slice[j2] = s.substring(match[2 * j2], match[2 * j2 + 1]);
               }
             }
             return slice;
@@ -16753,6 +16745,9 @@
   function __PRIVATE_arrayEquals(e, t, n) {
     return e.length === t.length && e.every(((e2, r) => n(e2, t[r])));
   }
+  function __PRIVATE_immediateSuccessor(e) {
+    return e + "\0";
+  }
   function __PRIVATE_validateNonEmptyArgument(e, t, n) {
     if (!n) throw new FirestoreError(D.INVALID_ARGUMENT, `Function ${e}() cannot be called with an empty ${t}.`);
   }
@@ -16832,6 +16827,12 @@
     if (n) throw new FirestoreError(D.INVALID_ARGUMENT, n);
     return true;
   }
+  function __PRIVATE_fieldIndexGetArraySegment(e) {
+    return e.fields.find(((e2) => 2 === e2.kind));
+  }
+  function __PRIVATE_fieldIndexGetDirectionalSegments(e) {
+    return e.fields.filter(((e2) => 2 !== e2.kind));
+  }
   function __PRIVATE_newIndexOffsetSuccessorFromReadTime(e, t) {
     const n = e.toTimestamp().seconds, r = e.toTimestamp().nanoseconds + 1, i = SnapshotVersion.fromTimestamp(1e9 === r ? new Timestamp(n + 1, 0) : new Timestamp(n, r));
     return new IndexOffset(i, DocumentKey.empty(), t);
@@ -16853,6 +16854,32 @@
   }
   function __PRIVATE_isIndexedDbTransactionError(e) {
     return "IndexedDbTransactionError" === e.name;
+  }
+  function __PRIVATE_wrapRequest(e) {
+    return new PersistencePromise(((t, n) => {
+      e.onsuccess = (e2) => {
+        const n2 = e2.target.result;
+        t(n2);
+      }, e.onerror = (e2) => {
+        const t2 = __PRIVATE_checkForAndReportiOSError(e2.target.error);
+        n(t2);
+      };
+    }));
+  }
+  function __PRIVATE_checkForAndReportiOSError(e) {
+    const t = __PRIVATE_SimpleDb.O(getUA());
+    if (t >= 12.2 && t < 13) {
+      const t2 = "An internal error was encountered in the Indexed Database server";
+      if (e.message.indexOf(t2) >= 0) {
+        const e2 = new FirestoreError("internal", `IOS_INDEXEDDB_BUG1: IndexedDb has thrown '${t2}'. This is likely due to an unavoidable bug in iOS. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.`);
+        return k || (k = true, // Throw a global exception outside of this promise chain, for the user to
+        // potentially catch.
+        setTimeout((() => {
+          throw e2;
+        }), 0)), e2;
+      }
+    }
+    return e;
   }
   function __PRIVATE_isNullOrUndefined(e) {
     return null == e;
@@ -16891,6 +16918,58 @@
   }
   function __PRIVATE_encodeSeparator(e) {
     return e + K + "";
+  }
+  function __PRIVATE_decodeResourcePath(e) {
+    const t = e.length;
+    if (__PRIVATE_hardAssert(t >= 2, 64408, {
+      path: e
+    }), 2 === t) return __PRIVATE_hardAssert(e.charAt(0) === K && "" === e.charAt(1), 56145, {
+      path: e
+    }), ResourcePath.emptyPath();
+    const __PRIVATE_lastReasonableEscapeIndex = t - 2, n = [];
+    let r = "";
+    for (let i = 0; i < t; ) {
+      const t2 = e.indexOf(K, i);
+      (t2 < 0 || t2 > __PRIVATE_lastReasonableEscapeIndex) && fail(50515, {
+        path: e
+      });
+      switch (e.charAt(t2 + 1)) {
+        case "":
+          const s = e.substring(i, t2);
+          let _;
+          0 === r.length ? (
+            // Avoid copying for the common case of a segment that excludes \0
+            // and \001
+            _ = s
+          ) : (r += s, _ = r, r = ""), n.push(_);
+          break;
+        case "":
+          r += e.substring(i, t2), r += "\0";
+          break;
+        case "":
+          r += e.substring(i, t2 + 1);
+          break;
+        default:
+          fail(61167, {
+            path: e
+          });
+      }
+      i = t2 + 2;
+    }
+    return new ResourcePath(n);
+  }
+  function __PRIVATE_newDbDocumentMutationPrefixForPath(e, t) {
+    return [e, __PRIVATE_encodeResourcePath(t)];
+  }
+  function __PRIVATE_newDbDocumentMutationKey(e, t, n) {
+    return [e, __PRIVATE_encodeResourcePath(t), n];
+  }
+  function __PRIVATE_getStore(e, t) {
+    const n = __PRIVATE_debugCast(e);
+    return __PRIVATE_SimpleDb.M(n.le, t);
+  }
+  function __PRIVATE_advanceIterator(e) {
+    return e.hasNext() ? e.getNext() : void 0;
   }
   function __PRIVATE_objectSize(e) {
     let t = 0;
@@ -17168,6 +17247,11 @@
         });
     }
   }
+  function __PRIVATE_refValue(e, t) {
+    return {
+      referenceValue: `projects/${e.projectId}/databases/${e.database}/documents/${t.path.canonicalString()}`
+    };
+  }
   function isInteger(e) {
     return !!e && "integerValue" in e;
   }
@@ -17230,6 +17314,66 @@
   }
   function __PRIVATE_isMaxValue(e) {
     return (((e.mapValue || {}).fields || {}).__type__ || {}).stringValue === ot;
+  }
+  function __PRIVATE_valuesGetLowerBound(e) {
+    return "nullValue" in e ? lt : "booleanValue" in e ? {
+      booleanValue: false
+    } : "integerValue" in e || "doubleValue" in e ? {
+      doubleValue: NaN
+    } : "timestampValue" in e ? {
+      timestampValue: {
+        seconds: Number.MIN_SAFE_INTEGER
+      }
+    } : "stringValue" in e ? {
+      stringValue: ""
+    } : "bytesValue" in e ? {
+      bytesValue: ""
+    } : "referenceValue" in e ? __PRIVATE_refValue(DatabaseId.empty(), DocumentKey.empty()) : "geoPointValue" in e ? {
+      geoPointValue: {
+        latitude: -90,
+        longitude: -180
+      }
+    } : "arrayValue" in e ? {
+      arrayValue: {}
+    } : "mapValue" in e ? __PRIVATE_isVectorValue(e) ? Tt : {
+      mapValue: {}
+    } : fail(35942, {
+      value: e
+    });
+  }
+  function __PRIVATE_valuesGetUpperBound(e) {
+    return "nullValue" in e ? {
+      booleanValue: false
+    } : "booleanValue" in e ? {
+      doubleValue: NaN
+    } : "integerValue" in e || "doubleValue" in e ? {
+      timestampValue: {
+        seconds: Number.MIN_SAFE_INTEGER
+      }
+    } : "timestampValue" in e ? {
+      stringValue: ""
+    } : "stringValue" in e ? {
+      bytesValue: ""
+    } : "bytesValue" in e ? __PRIVATE_refValue(DatabaseId.empty(), DocumentKey.empty()) : "referenceValue" in e ? {
+      geoPointValue: {
+        latitude: -90,
+        longitude: -180
+      }
+    } : "geoPointValue" in e ? {
+      arrayValue: {}
+    } : "arrayValue" in e ? Tt : "mapValue" in e ? __PRIVATE_isVectorValue(e) ? {
+      mapValue: {}
+    } : at : fail(61959, {
+      value: e
+    });
+  }
+  function __PRIVATE_lowerBoundCompare(e, t) {
+    const n = __PRIVATE_valueCompare(e.value, t.value);
+    return 0 !== n ? n : e.inclusive && !t.inclusive ? -1 : !e.inclusive && t.inclusive ? 1 : 0;
+  }
+  function __PRIVATE_upperBoundCompare(e, t) {
+    const n = __PRIVATE_valueCompare(e.value, t.value);
+    return 0 !== n ? n : e.inclusive && !t.inclusive ? 1 : !e.inclusive && t.inclusive ? -1 : 0;
   }
   function __PRIVATE_extractFieldMask(e) {
     const t = [];
@@ -17449,6 +17593,9 @@
   function __PRIVATE_compositeFilterIsConjunction(e) {
     return "and" === e.op;
   }
+  function __PRIVATE_compositeFilterIsDisjunction(e) {
+    return "or" === e.op;
+  }
   function __PRIVATE_compositeFilterIsFlatConjunction(e) {
     return __PRIVATE_compositeFilterIsFlat(e) && __PRIVATE_compositeFilterIsConjunction(e);
   }
@@ -17475,6 +17622,10 @@
       }
       return false;
     })(e, t) : void fail(19439);
+  }
+  function __PRIVATE_compositeFilterWithAddedFilters(e, t) {
+    const n = e.filters.concat(t);
+    return CompositeFilter.create(n, e.op);
   }
   function __PRIVATE_stringifyFilter(e) {
     return e instanceof FieldFilter ? (function __PRIVATE_stringifyFieldFilter(e2) {
@@ -17515,6 +17666,103 @@
   }
   function __PRIVATE_targetIsDocumentTarget(e) {
     return !!e.path && DocumentKey.isDocumentKey(e.path) && null === e.collectionGroup && 0 === e.filters.length;
+  }
+  function __PRIVATE_targetGetFieldFiltersForPath(e, t) {
+    return e.filters.filter(((e2) => e2 instanceof FieldFilter && e2.field.isEqual(t)));
+  }
+  function __PRIVATE_targetGetAscendingBound(e, t, n) {
+    let r = lt, i = true;
+    for (const n2 of __PRIVATE_targetGetFieldFiltersForPath(e, t)) {
+      let e2 = lt, t2 = true;
+      switch (n2.op) {
+        case "<":
+        case "<=":
+          e2 = __PRIVATE_valuesGetLowerBound(n2.value);
+          break;
+        case "==":
+        case "in":
+        case ">=":
+          e2 = n2.value;
+          break;
+        case ">":
+          e2 = n2.value, t2 = false;
+          break;
+        case "!=":
+        case "not-in":
+          e2 = lt;
+      }
+      __PRIVATE_lowerBoundCompare({
+        value: r,
+        inclusive: i
+      }, {
+        value: e2,
+        inclusive: t2
+      }) < 0 && (r = e2, i = t2);
+    }
+    if (null !== n) for (let s = 0; s < e.orderBy.length; ++s) {
+      if (e.orderBy[s].field.isEqual(t)) {
+        const e2 = n.position[s];
+        __PRIVATE_lowerBoundCompare({
+          value: r,
+          inclusive: i
+        }, {
+          value: e2,
+          inclusive: n.inclusive
+        }) < 0 && (r = e2, i = n.inclusive);
+        break;
+      }
+    }
+    return {
+      value: r,
+      inclusive: i
+    };
+  }
+  function __PRIVATE_targetGetDescendingBound(e, t, n) {
+    let r = at, i = true;
+    for (const n2 of __PRIVATE_targetGetFieldFiltersForPath(e, t)) {
+      let e2 = at, t2 = true;
+      switch (n2.op) {
+        case ">=":
+        case ">":
+          e2 = __PRIVATE_valuesGetUpperBound(n2.value), t2 = false;
+          break;
+        case "==":
+        case "in":
+        case "<=":
+          e2 = n2.value;
+          break;
+        case "<":
+          e2 = n2.value, t2 = false;
+          break;
+        case "!=":
+        case "not-in":
+          e2 = at;
+      }
+      __PRIVATE_upperBoundCompare({
+        value: r,
+        inclusive: i
+      }, {
+        value: e2,
+        inclusive: t2
+      }) > 0 && (r = e2, i = t2);
+    }
+    if (null !== n) for (let s = 0; s < e.orderBy.length; ++s) {
+      if (e.orderBy[s].field.isEqual(t)) {
+        const e2 = n.position[s];
+        __PRIVATE_upperBoundCompare({
+          value: r,
+          inclusive: i
+        }, {
+          value: e2,
+          inclusive: n.inclusive
+        }) > 0 && (r = e2, i = n.inclusive);
+        break;
+      }
+    }
+    return {
+      value: r,
+      inclusive: i
+    };
   }
   function __PRIVATE_newQuery(e, t, n, r, i, s, _, o) {
     return new __PRIVATE_QueryImpl(e, t, n, r, i, s, _, o);
@@ -17846,6 +18094,14 @@
       fields: n.value.mapValue.fields
     };
   }
+  function fromDocument(e, t, n) {
+    const r = fromName(e, t.name), i = __PRIVATE_fromVersion(t.updateTime), s = t.createTime ? __PRIVATE_fromVersion(t.createTime) : SnapshotVersion.min(), _ = new ObjectValue({
+      mapValue: {
+        fields: t.fields
+      }
+    }), o = MutableDocument.newFoundDocument(r, i, s, _);
+    return n && o.setHasCommittedMutations(), n ? o.setHasCommittedMutations() : o;
+  }
   function __PRIVATE_fromWatchChange(e, t) {
     let n;
     if ("targetChange" in t) {
@@ -17961,6 +18217,54 @@
         exists: t2.exists
       } : fail(27497);
     })(e, t.precondition)), n;
+  }
+  function __PRIVATE_fromMutation(e, t) {
+    const n = t.currentDocument ? (function __PRIVATE_fromPrecondition(e2) {
+      return void 0 !== e2.updateTime ? Precondition.updateTime(__PRIVATE_fromVersion(e2.updateTime)) : void 0 !== e2.exists ? Precondition.exists(e2.exists) : Precondition.none();
+    })(t.currentDocument) : Precondition.none(), r = t.updateTransforms ? t.updateTransforms.map(((t2) => (function __PRIVATE_fromFieldTransform(e2, t3) {
+      let n2 = null;
+      if ("setToServerValue" in t3) __PRIVATE_hardAssert("REQUEST_TIME" === t3.setToServerValue, 16630, {
+        proto: t3
+      }), n2 = new __PRIVATE_ServerTimestampTransform();
+      else if ("appendMissingElements" in t3) {
+        const e3 = t3.appendMissingElements.values || [];
+        n2 = new __PRIVATE_ArrayUnionTransformOperation(e3);
+      } else if ("removeAllFromArray" in t3) {
+        const e3 = t3.removeAllFromArray.values || [];
+        n2 = new __PRIVATE_ArrayRemoveTransformOperation(e3);
+      } else "increment" in t3 ? n2 = new __PRIVATE_NumericIncrementTransformOperation(e2, t3.increment) : "minimum" in t3 ? n2 = new __PRIVATE_NumericMinimumTransformOperation(e2, t3.minimum) : "maximum" in t3 ? n2 = new __PRIVATE_NumericMaximumTransformOperation(e2, t3.maximum) : fail(16584, {
+        proto: t3
+      });
+      const r2 = FieldPath$1.fromServerFormat(t3.fieldPath);
+      return new FieldTransform(r2, n2);
+    })(e, t2))) : [];
+    if (t.update) {
+      t.update.name;
+      const i = fromName(e, t.update.name), s = new ObjectValue({
+        mapValue: {
+          fields: t.update.fields
+        }
+      });
+      if (t.updateMask) {
+        const e2 = (function __PRIVATE_fromDocumentMask(e3) {
+          const t2 = e3.fieldPaths || [];
+          return new FieldMask(t2.map(((e4) => FieldPath$1.fromServerFormat(e4))));
+        })(t.updateMask);
+        return new __PRIVATE_PatchMutation(i, s, e2, n, r);
+      }
+      return new __PRIVATE_SetMutation(i, s, n, r);
+    }
+    if (t.delete) {
+      const r2 = fromName(e, t.delete);
+      return new __PRIVATE_DeleteMutation(r2, n);
+    }
+    if (t.verify) {
+      const r2 = fromName(e, t.verify);
+      return new __PRIVATE_VerifyMutation(r2, n);
+    }
+    return fail(1463, {
+      proto: t
+    });
   }
   function __PRIVATE_fromWriteResults(e, t) {
     return e && e.length > 0 ? (__PRIVATE_hardAssert(void 0 !== t, 14353), e.map(((e2) => (function __PRIVATE_fromWriteResult(e3, t2) {
@@ -18308,31 +18612,6 @@
   function __PRIVATE_newLruGarbageCollector(e, t) {
     return new __PRIVATE_LruGarbageCollectorImpl(e, t);
   }
-  function connectFirestoreEmulator(e, t, n, r = {}) {
-    e = __PRIVATE_cast(e, Firestore$1);
-    const i = isCloudWorkstation(t), s = e._getSettings(), _ = {
-      ...s,
-      emulatorOptions: e._getEmulatorOptions()
-    }, l = `${t}:${n}`;
-    i && pingServer(`https://${l}`), s.host !== kt && s.host !== l && __PRIVATE_logWarn("Host has been set in both settings() and connectFirestoreEmulator(), emulator host will be used.");
-    const E = {
-      ...s,
-      host: l,
-      ssl: i,
-      emulatorOptions: r
-    };
-    if (!deepEqual(E, _) && (e._setSettings(E), r.mockUserToken)) {
-      let t2, n2;
-      if ("string" == typeof r.mockUserToken) t2 = r.mockUserToken, n2 = User.MOCK_USER;
-      else {
-        t2 = createMockUserToken(r.mockUserToken, e._app?.options.projectId);
-        const i2 = r.mockUserToken.sub || r.mockUserToken.user_id;
-        if (!i2) throw new FirestoreError(D.INVALID_ARGUMENT, "mockUserToken must contain 'sub' or 'user_id' field!");
-        n2 = new User(i2);
-      }
-      e._authCredentials = new __PRIVATE_EmulatorAuthCredentialsProvider(new __PRIVATE_OAuthToken(t2, n2));
-    }
-  }
   function collection(e, t, ...n) {
     if (e = getModularInstance(e), __PRIVATE_validateNonEmptyArgument("collection", "path", t), e instanceof Firestore$1) {
       const r = ResourcePath.fromString(t, ...n);
@@ -18658,6 +18937,9 @@
   function arrayUnion(...e) {
     return new __PRIVATE_ArrayUnionFieldValueImpl("arrayUnion", e);
   }
+  function arrayRemove(...e) {
+    return new __PRIVATE_ArrayRemoveFieldValueImpl("arrayRemove", e);
+  }
   function vector(e) {
     return new VectorValue(e);
   }
@@ -18945,6 +19227,118 @@
   function __PRIVATE_targetOrPipelineEqual(e, t) {
     return e instanceof CorePipeline && t instanceof CorePipeline ? __PRIVATE_pipelineEq(e, t) : !(e instanceof CorePipeline && !(t instanceof CorePipeline) || !(e instanceof CorePipeline) && t instanceof CorePipeline) && __PRIVATE_targetEquals(e, t);
   }
+  function __PRIVATE_fromDbRemoteDocument(e, t) {
+    let n;
+    if (t.document) n = fromDocument(e.zr, t.document, !!t.hasCommittedMutations);
+    else if (t.noDocument) {
+      const e2 = DocumentKey.fromSegments(t.noDocument.path), r = __PRIVATE_fromDbTimestamp(t.noDocument.readTime);
+      n = MutableDocument.newNoDocument(e2, r), t.hasCommittedMutations && n.setHasCommittedMutations();
+    } else {
+      if (!t.unknownDocument) return fail(56709);
+      {
+        const e2 = DocumentKey.fromSegments(t.unknownDocument.path), r = __PRIVATE_fromDbTimestamp(t.unknownDocument.version);
+        n = MutableDocument.newUnknownDocument(e2, r);
+      }
+    }
+    return t.readTime && n.setReadTime((function __PRIVATE_fromDbTimestampKey(e2) {
+      const t2 = new Timestamp(e2[0], e2[1]);
+      return SnapshotVersion.fromTimestamp(t2);
+    })(t.readTime)), n;
+  }
+  function __PRIVATE_toDbRemoteDocument(e, t) {
+    const n = t.key, r = {
+      prefixPath: n.getCollectionPath().popLast().toArray(),
+      collectionGroup: n.collectionGroup,
+      documentId: n.path.lastSegment(),
+      readTime: __PRIVATE_toDbTimestampKey(t.readTime),
+      hasCommittedMutations: t.hasCommittedMutations
+    };
+    if (t.isFoundDocument()) r.document = (function __PRIVATE_toDocument(e2, t2) {
+      return {
+        name: __PRIVATE_toName(e2, t2.key),
+        fields: t2.data.value.mapValue.fields,
+        updateTime: toTimestamp(e2, t2.version.toTimestamp()),
+        createTime: toTimestamp(e2, t2.createTime.toTimestamp())
+      };
+    })(e.zr, t);
+    else if (t.isNoDocument()) r.noDocument = {
+      path: n.path.toArray(),
+      readTime: __PRIVATE_toDbTimestamp(t.version)
+    };
+    else {
+      if (!t.isUnknownDocument()) return fail(57904, {
+        document: t
+      });
+      r.unknownDocument = {
+        path: n.path.toArray(),
+        version: __PRIVATE_toDbTimestamp(t.version)
+      };
+    }
+    return r;
+  }
+  function __PRIVATE_toDbTimestampKey(e) {
+    const t = e.toTimestamp();
+    return [t.seconds, t.nanoseconds];
+  }
+  function __PRIVATE_toDbTimestamp(e) {
+    const t = e.toTimestamp();
+    return {
+      seconds: t.seconds,
+      nanoseconds: t.nanoseconds
+    };
+  }
+  function __PRIVATE_fromDbTimestamp(e) {
+    const t = new Timestamp(e.seconds, e.nanoseconds);
+    return SnapshotVersion.fromTimestamp(t);
+  }
+  function __PRIVATE_fromDbMutationBatch(e, t) {
+    const n = (t.baseMutations || []).map(((t2) => __PRIVATE_fromMutation(e.zr, t2)));
+    for (let e2 = 0; e2 < t.mutations.length - 1; ++e2) {
+      const n2 = t.mutations[e2];
+      if (e2 + 1 < t.mutations.length && void 0 !== t.mutations[e2 + 1].transform) {
+        const r2 = t.mutations[e2 + 1];
+        n2.updateTransforms = r2.transform.fieldTransforms, t.mutations.splice(e2 + 1, 1), ++e2;
+      }
+    }
+    const r = t.mutations.map(((t2) => __PRIVATE_fromMutation(e.zr, t2))), i = Timestamp.fromMillis(t.localWriteTimeMs);
+    return new MutationBatch(t.batchId, i, n, r);
+  }
+  function __PRIVATE_fromDbTarget(e, t) {
+    const n = __PRIVATE_fromDbTimestamp(t.readTime), r = void 0 !== t.lastLimboFreeSnapshotVersion ? __PRIVATE_fromDbTimestamp(t.lastLimboFreeSnapshotVersion) : SnapshotVersion.min();
+    let i;
+    return i = (function __PRIVATE_isPipelineQueryTarget(e2) {
+      return void 0 !== e2.structuredPipeline;
+    })(t.query) ? (function __PRIVATE_fromPipelineTarget(e2, t2) {
+      const n2 = e2.structuredPipeline;
+      __PRIVATE_hardAssert((n2?.pipeline?.stages ?? []).length > 0, 1845);
+      const r2 = n2?.pipeline?.stages.map(__PRIVATE_stageFromProto);
+      return new CorePipeline(t2, r2);
+    })(t.query, e.zr) : (function __PRIVATE_isDocumentQuery(e2) {
+      return void 0 !== e2.documents;
+    })(t.query) ? (function __PRIVATE_fromDocumentsTarget(e2) {
+      const t2 = e2.documents.length;
+      return __PRIVATE_hardAssert(1 === t2, 1966, {
+        count: t2
+      }), __PRIVATE_queryToTarget(__PRIVATE_newQueryForPath(__PRIVATE_fromQueryPath(e2.documents[0])));
+    })(t.query) : (function __PRIVATE_fromQueryTarget(e2) {
+      return __PRIVATE_queryToTarget(__PRIVATE_convertQueryTargetToQuery(e2));
+    })(t.query), new TargetData(i, t.targetId, "TargetPurposeListen", t.lastListenSequenceNumber, n, r, ByteString.fromBase64String(t.resumeToken));
+  }
+  function __PRIVATE_toDbTarget(e, t) {
+    const n = __PRIVATE_toDbTimestamp(t.snapshotVersion), r = __PRIVATE_toDbTimestamp(t.lastLimboFreeSnapshotVersion);
+    let i;
+    i = __PRIVATE_targetIsPipelineTarget(t.target) ? __PRIVATE_toPipelineTarget(e.zr, t.target) : __PRIVATE_targetIsDocumentTarget(t.target) ? __PRIVATE_toDocumentsTarget(e.zr, t.target) : __PRIVATE_toQueryTarget(e.zr, t.target).yt;
+    const s = t.resumeToken.toBase64();
+    return {
+      targetId: t.targetId,
+      canonicalId: __PRIVATE_canonifyTargetOrPipeline(t.target),
+      readTime: n,
+      resumeToken: s,
+      lastListenSequenceNumber: t.sequenceNumber,
+      lastLimboFreeSnapshotVersion: r,
+      query: i
+    };
+  }
   function __PRIVATE_fromBundledQuery(e) {
     const t = __PRIVATE_convertQueryTargetToQuery({
       parent: e.parent,
@@ -18956,6 +19350,303 @@
       "L"
       /* LimitType.Last */
     ) : t;
+  }
+  function __PRIVATE_fromDbDocumentOverlay(e, t) {
+    return new Overlay(t.largestBatchId, __PRIVATE_fromMutation(e.zr, t.overlayMutation));
+  }
+  function __PRIVATE_toDbDocumentOverlayKey(e, t) {
+    const n = t.path.lastSegment();
+    return [e, __PRIVATE_encodeResourcePath(t.path.popLast()), n];
+  }
+  function __PRIVATE_toDbIndexState(e, t, n, r) {
+    return {
+      indexId: e,
+      uid: t,
+      sequenceNumber: n,
+      readTime: __PRIVATE_toDbTimestamp(r.readTime),
+      documentKey: __PRIVATE_encodeResourcePath(r.documentKey.path),
+      largestBatchId: r.largestBatchId
+    };
+  }
+  function __PRIVATE_stageFromProto(e) {
+    switch (e.name) {
+      case "collection":
+        return new __PRIVATE_CollectionSource(e.args[0].referenceValue, {});
+      case "collection_group":
+        return new __PRIVATE_CollectionGroupSource(e.args[1].stringValue, {});
+      case "database":
+        return new __PRIVATE_DatabaseSource({});
+      case "documents":
+        return new __PRIVATE_DocumentsSource(e.args.map(((e2) => e2.referenceValue)), {});
+      case "where":
+        return new __PRIVATE_Where(__PRIVATE_exprFromProto(e.args[0]), {});
+      case "limit": {
+        const t = e.args[0].integerValue ?? e.args[0].doubleValue;
+        return new __PRIVATE_Limit("number" == typeof t ? t : Number(t), {});
+      }
+      case "sort":
+        return new __PRIVATE_Sort(e.args.map(((e2) => (function __PRIVATE_orderingFromProto(e3) {
+          const t = e3.mapValue?.fields;
+          return new Ordering(__PRIVATE_exprFromProto(t.expression), t.direction?.stringValue, "orderingFromProto");
+        })(e2))), {});
+      default:
+        throw new Error(`Stage type: ${e.name} not supported.`);
+    }
+  }
+  function __PRIVATE_exprFromProto(e) {
+    return e.fieldReferenceValue ? new Field(__PRIVATE_fieldPathFromArgument("_exprFromProto", e.fieldReferenceValue), "_exprFromProto") : e.functionValue ? (function __PRIVATE_functionFromProto(e2) {
+      return new FunctionExpression(e2.functionValue.name, e2.functionValue.args?.map(__PRIVATE_exprFromProto) || []);
+    })(e) : Constant._fromProto(e);
+  }
+  function __PRIVATE_bundlesStore(e) {
+    return __PRIVATE_getStore(e, me);
+  }
+  function __PRIVATE_namedQueriesStore(e) {
+    return __PRIVATE_getStore(e, ge);
+  }
+  function __PRIVATE_documentOverlayStore(e) {
+    return __PRIVATE_getStore(e, Be);
+  }
+  function __PRIVATE_numberOfLeadingZerosInByte(e) {
+    if (0 === e) return 8;
+    let t = 0;
+    return e >> 4 || // Test if the first four bits are zero.
+    (t += 4, e <<= 4), e >> 6 || // Test if the first two (or next two) bits are zero.
+    (t += 2, e <<= 2), e >> 7 || // Test if the remaining bit is zero.
+    (t += 1), t;
+  }
+  function __PRIVATE_unsignedNumLength(e) {
+    const t = 64 - (function __PRIVATE_numberOfLeadingZeros(e2) {
+      let t2 = 0;
+      for (let n = 0; n < 8; ++n) {
+        const r = __PRIVATE_numberOfLeadingZerosInByte(255 & e2[n]);
+        if (t2 += r, 8 !== r) break;
+      }
+      return t2;
+    })(e);
+    return Math.ceil(t / 8);
+  }
+  function __PRIVATE_indexEntryComparator(e, t) {
+    let n = e.Fi - t.Fi;
+    return 0 !== n ? n : (n = __PRIVATE_compareByteArrays(e.Mi, t.Mi), 0 !== n ? n : (n = __PRIVATE_compareByteArrays(e.Ni, t.Ni), 0 !== n ? n : DocumentKey.comparator(e.Oi, t.Oi)));
+  }
+  function __PRIVATE_compareByteArrays(e, t) {
+    for (let n = 0; n < e.length && n < t.length; ++n) {
+      const r = e[n] - t[n];
+      if (0 !== r) return r;
+    }
+    return e.length - t.length;
+  }
+  function __PRIVATE_encodeKeySafeBytes(e) {
+    return isSafariOrWebkit() ? (
+      /**
+      * Encodes a Uint8Array into a "sortable byte string".
+      * A "sortable byte string" sorts in the same order as the Uint8Array.
+      * This works because JS string comparison sorts strings based on code points.
+      */
+      (function __PRIVATE_encodeUint8ArrayToSortableString(e2) {
+        let t = "";
+        for (let n = 0; n < e2.length; n++) t += String.fromCharCode(e2[n]);
+        return t;
+      })(e)
+    ) : e;
+  }
+  function __PRIVATE_decodeKeySafeBytes(e) {
+    return "string" != typeof e ? e : (function __PRIVATE_decodeSortableStringToUint8Array(e2) {
+      const t = new Uint8Array(e2.length);
+      for (let n = 0; n < e2.length; n++) t[n] = e2.charCodeAt(n);
+      return t;
+    })(e);
+  }
+  function __PRIVATE_computeInExpansion(e) {
+    if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 20012), e instanceof FieldFilter) {
+      if (e instanceof __PRIVATE_InFilter) {
+        const t2 = e.value.arrayValue?.values?.map(((t3) => FieldFilter.create(e.field, "==", t3))) || [];
+        return CompositeFilter.create(
+          t2,
+          "or"
+          /* CompositeOperator.OR */
+        );
+      }
+      return e;
+    }
+    const t = e.filters.map(((e2) => __PRIVATE_computeInExpansion(e2)));
+    return CompositeFilter.create(t, e.op);
+  }
+  function __PRIVATE_getDnfTerms(e) {
+    if (0 === e.getFilters().length) return [];
+    const t = __PRIVATE_computeDistributedNormalForm(__PRIVATE_computeInExpansion(e));
+    return __PRIVATE_hardAssert(__PRIVATE_isDisjunctiveNormalForm(t), 7391), __PRIVATE_isSingleFieldFilter(t) || __PRIVATE_isFlatConjunction(t) ? [t] : t.getFilters();
+  }
+  function __PRIVATE_isSingleFieldFilter(e) {
+    return e instanceof FieldFilter;
+  }
+  function __PRIVATE_isFlatConjunction(e) {
+    return e instanceof CompositeFilter && __PRIVATE_compositeFilterIsFlatConjunction(e);
+  }
+  function __PRIVATE_isDisjunctiveNormalForm(e) {
+    return __PRIVATE_isSingleFieldFilter(e) || __PRIVATE_isFlatConjunction(e) || /**
+    * Returns true if the given filter is the disjunction of one or more "flat conjunctions" and
+    * field filters. e.g. (a == 10) || (b==20 && c==30)
+    */
+    (function __PRIVATE_isDisjunctionOfFieldFiltersAndFlatConjunctions(e2) {
+      if (e2 instanceof CompositeFilter && __PRIVATE_compositeFilterIsDisjunction(e2)) {
+        for (const t of e2.getFilters()) if (!__PRIVATE_isSingleFieldFilter(t) && !__PRIVATE_isFlatConjunction(t)) return false;
+        return true;
+      }
+      return false;
+    })(e);
+  }
+  function __PRIVATE_computeDistributedNormalForm(e) {
+    if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 34018), e instanceof FieldFilter) return e;
+    if (1 === e.filters.length) return __PRIVATE_computeDistributedNormalForm(e.filters[0]);
+    const t = e.filters.map(((e2) => __PRIVATE_computeDistributedNormalForm(e2)));
+    let n = CompositeFilter.create(t, e.op);
+    return n = __PRIVATE_applyAssociation(n), __PRIVATE_isDisjunctiveNormalForm(n) ? n : (__PRIVATE_hardAssert(n instanceof CompositeFilter, 64498), __PRIVATE_hardAssert(__PRIVATE_compositeFilterIsConjunction(n), 40251), __PRIVATE_hardAssert(n.filters.length > 1, 57927), n.filters.reduce(((e2, t2) => __PRIVATE_applyDistribution(e2, t2))));
+  }
+  function __PRIVATE_applyDistribution(e, t) {
+    let n;
+    return __PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 38388), __PRIVATE_hardAssert(t instanceof FieldFilter || t instanceof CompositeFilter, 25473), // FieldFilter FieldFilter
+    n = e instanceof FieldFilter ? t instanceof FieldFilter ? (function __PRIVATE_applyDistributionFieldFilters(e2, t2) {
+      return CompositeFilter.create(
+        [e2, t2],
+        "and"
+        /* CompositeOperator.AND */
+      );
+    })(e, t) : __PRIVATE_applyDistributionFieldAndCompositeFilters(e, t) : t instanceof FieldFilter ? __PRIVATE_applyDistributionFieldAndCompositeFilters(t, e) : (function __PRIVATE_applyDistributionCompositeFilters(e2, t2) {
+      if (__PRIVATE_hardAssert(e2.filters.length > 0 && t2.filters.length > 0, 48005), __PRIVATE_compositeFilterIsConjunction(e2) && __PRIVATE_compositeFilterIsConjunction(t2)) return __PRIVATE_compositeFilterWithAddedFilters(e2, t2.getFilters());
+      const n2 = __PRIVATE_compositeFilterIsDisjunction(e2) ? e2 : t2, r = __PRIVATE_compositeFilterIsDisjunction(e2) ? t2 : e2, i = n2.filters.map(((e3) => __PRIVATE_applyDistribution(e3, r)));
+      return CompositeFilter.create(
+        i,
+        "or"
+        /* CompositeOperator.OR */
+      );
+    })(e, t), __PRIVATE_applyAssociation(n);
+  }
+  function __PRIVATE_applyDistributionFieldAndCompositeFilters(e, t) {
+    if (__PRIVATE_compositeFilterIsConjunction(t))
+      return __PRIVATE_compositeFilterWithAddedFilters(t, e.getFilters());
+    {
+      const n = t.filters.map(((t2) => __PRIVATE_applyDistribution(e, t2)));
+      return CompositeFilter.create(
+        n,
+        "or"
+        /* CompositeOperator.OR */
+      );
+    }
+  }
+  function __PRIVATE_applyAssociation(e) {
+    if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 11850), e instanceof FieldFilter) return e;
+    const t = e.getFilters();
+    if (1 === t.length) return __PRIVATE_applyAssociation(t[0]);
+    if (__PRIVATE_compositeFilterIsFlat(e)) return e;
+    const n = t.map(((e2) => __PRIVATE_applyAssociation(e2))), r = [];
+    return n.forEach(((t2) => {
+      t2 instanceof FieldFilter ? r.push(t2) : t2 instanceof CompositeFilter && (t2.op === e.op ? (
+        // compositeFilter: (A | (B | C))
+        // compositeSubfilter: (B | C)
+        // Result: (A | B | C)
+        r.push(...t2.filters)
+      ) : (
+        // compositeFilter: (A | (B & C))
+        // compositeSubfilter: (B & C)
+        // Result: (A | (B & C))
+        r.push(t2)
+      ));
+    })), 1 === r.length ? r[0] : CompositeFilter.create(r, e.op);
+  }
+  function __PRIVATE_collectionParentsStore(e) {
+    return __PRIVATE_getStore(e, Ae);
+  }
+  function __PRIVATE_indexEntriesStore(e) {
+    return __PRIVATE_getStore(e, Oe);
+  }
+  function __PRIVATE_indexConfigurationStore(e) {
+    return __PRIVATE_getStore(e, we);
+  }
+  function __PRIVATE_indexStateStore(e) {
+    return __PRIVATE_getStore(e, De);
+  }
+  function __PRIVATE_getMinOffsetFromFieldIndexes(e) {
+    __PRIVATE_hardAssert(0 !== e.length, 28825);
+    let t = e[0].indexState.offset, n = t.largestBatchId;
+    for (let r = 1; r < e.length; r++) {
+      const i = e[r].indexState.offset;
+      __PRIVATE_indexOffsetComparator(i, t) < 0 && (t = i), n < i.largestBatchId && (n = i.largestBatchId);
+    }
+    return new IndexOffset(t.readTime, t.documentKey, n);
+  }
+  function removeMutationBatch(e, t, n) {
+    const r = e.store(H), i = e.store(ee), s = [], _ = IDBKeyRange.only(n.batchId);
+    let o = 0;
+    const a = r.ee({
+      range: _
+    }, ((e2, t2, n2) => (o++, n2.delete())));
+    s.push(a.next((() => {
+      __PRIVATE_hardAssert(1 === o, 47070, {
+        batchId: n.batchId
+      });
+    })));
+    const u = [];
+    for (const e2 of n.mutations) {
+      const r2 = __PRIVATE_newDbDocumentMutationKey(t, e2.key.path, n.batchId);
+      s.push(i.delete(r2)), u.push(e2.key);
+    }
+    return PersistencePromise.waitFor(s).next((() => u));
+  }
+  function __PRIVATE_dbDocumentSize(e) {
+    if (!e) return 0;
+    let t;
+    if (e.document) t = e.document;
+    else if (e.unknownDocument) t = e.unknownDocument;
+    else {
+      if (!e.noDocument) throw fail(14731);
+      t = e.noDocument;
+    }
+    return JSON.stringify(t).length;
+  }
+  function __PRIVATE_mutationQueueContainsKey(e, t, n) {
+    const r = __PRIVATE_newDbDocumentMutationPrefixForPath(t, n.path), i = r[1], s = IDBKeyRange.lowerBound(r);
+    let _ = false;
+    return __PRIVATE_documentMutationsStore(e).ee({
+      range: s,
+      X: true
+    }, ((e2, n2, r2) => {
+      const [
+        s2,
+        o,
+        /*batchID*/
+        a
+      ] = e2;
+      s2 === t && o === i && (_ = true), r2.done();
+    })).next((() => _));
+  }
+  function __PRIVATE_mutationsStore(e) {
+    return __PRIVATE_getStore(e, H);
+  }
+  function __PRIVATE_documentMutationsStore(e) {
+    return __PRIVATE_getStore(e, ee);
+  }
+  function __PRIVATE_mutationQueuesStore(e) {
+    return __PRIVATE_getStore(e, z);
+  }
+  function __PRIVATE_targetsStore(e) {
+    return __PRIVATE_getStore(e, ue);
+  }
+  function __PRIVATE_globalTargetStore(e) {
+    return __PRIVATE_getStore(e, Ie);
+  }
+  function __PRIVATE_documentTargetStore(e) {
+    return __PRIVATE_getStore(e, Ee);
+  }
+  function __PRIVATE_writeSentinelKey(e, t) {
+    return __PRIVATE_documentTargetStore(e).put((function __PRIVATE_sentinelRow(e2, t2) {
+      return {
+        targetId: 0,
+        path: __PRIVATE_encodeResourcePath(e2.path),
+        sequenceNumber: t2
+      };
+    })(t, e.currentSequenceNumber));
   }
   function __PRIVATE_runPipeline(e, t) {
     let n = t;
@@ -19036,6 +19727,66 @@
         limit: n.limit
       };
     }
+  }
+  function __PRIVATE_newIndexedDbRemoteDocumentCache(e) {
+    return new __PRIVATE_IndexedDbRemoteDocumentCacheImpl(e);
+  }
+  function __PRIVATE_documentGlobalStore(e) {
+    return __PRIVATE_getStore(e, oe);
+  }
+  function __PRIVATE_remoteDocumentsStore(e) {
+    return __PRIVATE_getStore(e, te);
+  }
+  function __PRIVATE_dbKey(e) {
+    const t = e.path.toArray();
+    return [
+      /* prefix path */
+      t.slice(0, t.length - 2),
+      /* collection id */
+      t[t.length - 2],
+      /* document id */
+      t[t.length - 1]
+    ];
+  }
+  function __PRIVATE_dbCollectionGroupKey(e, t) {
+    const n = t.documentKey.path.toArray();
+    return [
+      /* collection id */
+      e,
+      __PRIVATE_toDbTimestampKey(t.readTime),
+      /* prefix path */
+      n.slice(0, n.length - 2),
+      /* document id */
+      n.length > 0 ? n[n.length - 1] : ""
+    ];
+  }
+  function __PRIVATE_dbKeyComparator(e, t) {
+    const n = e.path.toArray(), r = t.path.toArray();
+    let i = 0;
+    for (let e2 = 0; e2 < n.length - 2 && e2 < r.length - 2; ++e2) if (i = __PRIVATE_primitiveComparator(n[e2], r[e2]), i) return i;
+    return i = __PRIVATE_primitiveComparator(n.length, r.length), i || (i = __PRIVATE_primitiveComparator(n[n.length - 2], r[r.length - 2]), i || __PRIVATE_primitiveComparator(n[n.length - 1], r[r.length - 1]));
+  }
+  function __PRIVATE_createQueryCache(e) {
+    e.createObjectStore(Ee, {
+      keyPath: he
+    }).createIndex(Te, Pe, {
+      unique: true
+    });
+    e.createObjectStore(ue, {
+      keyPath: "targetId"
+    }).createIndex(ce, le, {
+      unique: true
+    }), e.createObjectStore(Ie);
+  }
+  function __PRIVATE_primaryClientStore(e) {
+    return __PRIVATE_getStore(e, Q);
+  }
+  function __PRIVATE_clientMetadataStore(e) {
+    return __PRIVATE_getStore(e, de);
+  }
+  function __PRIVATE_indexedDbStoragePrefix(e, t) {
+    let n = e.projectId;
+    return e.isDefaultDatabase || (n += "." + e.database), "firestore/" + t + "/" + n + "/";
   }
   function __PRIVATE_compareByKey(e, t) {
     return DocumentKey.comparator(e.key, t.key);
@@ -19228,6 +19979,9 @@
       const r = n.key.getCollectionGroup(), i = e.Wo.get(r) || SnapshotVersion.min();
       n.readTime.compareTo(i) > 0 && e.Wo.set(r, n.readTime);
     }));
+  }
+  function __PRIVATE_getWindow() {
+    return "undefined" != typeof window ? window : null;
   }
   function getDocument() {
     return "undefined" != typeof document ? document : null;
@@ -20095,15 +20849,22 @@
     let t = e.message || "";
     return e.stack && (t = e.stack.includes(e.message) ? e.stack : e.message + "\n" + e.stack), t;
   }
-  function getFirestore(e, n) {
-    const r = "object" == typeof e ? e : getApp(), i = "string" == typeof e ? e : n || st, s = _getProvider(r, "firestore").getImmediate({
-      identifier: i
-    });
-    if (!s._initialized) {
-      const e2 = getDefaultEmulatorHostnameAndPort("firestore");
-      e2 && connectFirestoreEmulator(s, ...e2);
+  function initializeFirestore(e, t, n) {
+    n || (n = st);
+    const r = _getProvider(e, "firestore");
+    if (r.isInitialized(n)) {
+      const e2 = r.getImmediate({
+        identifier: n
+      }), i = r.getOptions(n);
+      if (deepEqual(i, t)) return e2;
+      throw new FirestoreError(D.FAILED_PRECONDITION, "initializeFirestore() has already been called with different options. To avoid this error, call initializeFirestore() with the same options as when it was originally called, or call getFirestore() to return the already initialized instance.");
     }
-    return s;
+    if (void 0 !== t.cacheSizeBytes && void 0 !== t.localCache) throw new FirestoreError(D.INVALID_ARGUMENT, "cache and cacheSizeBytes cannot be specified at the same time as cacheSizeBytes willbe deprecated. Instead, specify the cache size in the cache object");
+    if (void 0 !== t.cacheSizeBytes && -1 !== t.cacheSizeBytes && t.cacheSizeBytes < Ut) throw new FirestoreError(D.INVALID_ARGUMENT, "cacheSizeBytes must be at least 1048576");
+    return t.host && isCloudWorkstation(t.host) && pingServer(t.host), r.initialize({
+      options: t,
+      instanceIdentifier: n
+    });
   }
   function ensureFirestoreConfigured(e) {
     if (e._terminated) throw new FirestoreError(D.FAILED_PRECONDITION, "The client has already been terminated.");
@@ -20122,7 +20883,7 @@
       };
     })(e._componentsProvider));
   }
-  var User, v, S, D, FirestoreError, __PRIVATE_Deferred, __PRIVATE_OAuthToken, __PRIVATE_EmptyAuthCredentialsProvider, __PRIVATE_EmulatorAuthCredentialsProvider, __PRIVATE_FirebaseAuthCredentialsProvider, __PRIVATE_FirstPartyToken, __PRIVATE_FirstPartyAuthCredentialsProvider, AppCheckToken, __PRIVATE_FirebaseAppCheckTokenProvider, __PRIVATE_AutoId, x, C, F, BasePath, ResourcePath, O, FieldPath$1, DocumentKey, M, N, Timestamp, SnapshotVersion, L, FieldIndex, IndexOffset, B, PersistenceTransaction, PersistencePromise, __PRIVATE_ListenSequence, $, K, W, Q, z, H, ee, te, oe, ue, Ee, Ie, Ae, de, me, ge, we, De, Oe, Be, We, Ge, ze, je, He, Je, Ze, SortedMap, SortedMapIterator, LLRBNode, SortedSet, SortedSetIterator, FieldMask, __PRIVATE_Base64DecodeError, ByteString, et, tt, nt, rt, it, DatabaseInfo, st, DatabaseId, _t, ot, at, ut, ct, lt, Et, ht, Tt, ObjectValue, TransformOperation, __PRIVATE_ServerTimestampTransform, __PRIVATE_ArrayUnionTransformOperation, __PRIVATE_ArrayRemoveTransformOperation, __PRIVATE_NumericTransformOperation, __PRIVATE_NumericIncrementTransformOperation, __PRIVATE_NumericMinimumTransformOperation, __PRIVATE_NumericMaximumTransformOperation, FieldTransform, MutationResult, Precondition, Mutation, __PRIVATE_SetMutation, __PRIVATE_PatchMutation, __PRIVATE_DeleteMutation, __PRIVATE_VerifyMutation, Bound, Filter, FieldFilter, CompositeFilter, __PRIVATE_KeyFieldFilter, __PRIVATE_KeyFieldInFilter, __PRIVATE_KeyFieldNotInFilter, __PRIVATE_ArrayContainsFilter, __PRIVATE_InFilter, __PRIVATE_NotInFilter, __PRIVATE_ArrayContainsAnyFilter, OrderBy, MutableDocument, __PRIVATE_TargetImpl, __PRIVATE_QueryImpl, ExistenceFilter, Pt, Rt, ObjectMap, It, At, Vt, dt, ft, mt, pt, BloomFilter, __PRIVATE_BloomFilterError, RemoteEvent, TargetChange, __PRIVATE_DocumentWatchChange, __PRIVATE_ExistenceFilterChange, __PRIVATE_WatchTargetChange, __PRIVATE_TargetState, gt, __PRIVATE_WatchChangeAggregator, yt, wt, bt, JsonProtoSerializer, Bytes, FieldPath, FieldValue, GeoPoint, __PRIVATE_NoopConnectivityMonitor, vt, __PRIVATE_BrowserConnectivityMonitor, St, Dt, xt, __PRIVATE_RestConnection, __PRIVATE_StreamBridge, Ct, __PRIVATE_unguardedEventListen, __PRIVATE_WebChannelConnection, __PRIVATE_ExponentialBackoff, Ft, __PRIVATE_PersistentStream, __PRIVATE_PersistentListenStream, __PRIVATE_PersistentWriteStream, Datastore, __PRIVATE_DatastoreImpl, Ot, Mt, Nt, Lt, LruParams, Bt, Ut, __PRIVATE_RollingSequenceNumberBuffer, __PRIVATE_LruScheduler, __PRIVATE_LruGarbageCollectorImpl, kt, qt, FirestoreSettingsImpl, Firestore$1, Query, DocumentReference, CollectionReference, VectorValue, $t, ParsedSetData, ParsedUpdateData, ParseContextImpl, UserDataReader, __PRIVATE_DeleteFieldValueImpl, __PRIVATE_ServerTimestampFieldValueImpl, __PRIVATE_ArrayUnionFieldValueImpl, Kt, OptionsUtil, Expression, AggregateFunction, AliasedAggregate, AliasedExpression, __PRIVATE_ListOfExprs, Field, Constant, FunctionExpression, BooleanExpression, __PRIVATE_BooleanFunctionExpression, __PRIVATE_BooleanConstant, __PRIVATE_BooleanField, Ordering, Stage, __PRIVATE_AddFields, __PRIVATE_Aggregate, __PRIVATE_Distinct, __PRIVATE_CollectionSource, __PRIVATE_CollectionGroupSource, __PRIVATE_DatabaseSource, __PRIVATE_DocumentsSource, __PRIVATE_Where, __PRIVATE_Limit, __PRIVATE_Offset, __PRIVATE_Select, __PRIVATE_Sort, __PRIVATE_Replace, CorePipeline, __PRIVATE_EvaluateResult, __PRIVATE_CoreField, __PRIVATE_CoreConstant, __PRIVATE_CoreListOfExprs, Wt, Qt, __PRIVATE_BigIntOrDoubleArithmetics, __PRIVATE_CoreAdd, __PRIVATE_CoreSubtract, __PRIVATE_CoreMultiply, __PRIVATE_CoreDivide, __PRIVATE_CoreMod, __PRIVATE_CoreAnd, __PRIVATE_CoreNot, __PRIVATE_CoreOr, __PRIVATE_CoreXor, __PRIVATE_CoreEqAny, __PRIVATE_CoreNotEqAny, __PRIVATE_CoreIsNan, __PRIVATE_CoreIsNotNan, __PRIVATE_CoreIsNull, __PRIVATE_CoreIsNotNull, __PRIVATE_CoreIsError, __PRIVATE_CoreExists, __PRIVATE_CoreCond, __PRIVATE_CoreLogicalMaximum, __PRIVATE_CoreLogicalMinimum, __PRIVATE_ComparisonBase, __PRIVATE_CoreEq, __PRIVATE_CoreNeq, __PRIVATE_CoreLt, __PRIVATE_CoreLte, __PRIVATE_CoreGt, __PRIVATE_CoreGte, __PRIVATE_CoreArrayConcat, __PRIVATE_CoreArrayReverse, __PRIVATE_CoreArrayContains, __PRIVATE_CoreArrayContainsAll, __PRIVATE_CoreArrayContainsAny, __PRIVATE_CoreArrayLength, __PRIVATE_CoreArrayElement, __PRIVATE_CoreReverse, __PRIVATE_CoreReplaceFirst, __PRIVATE_CoreReplaceAll, __PRIVATE_CoreCharLength, __PRIVATE_CoreByteLength, __PRIVATE_StringSearchFunctionBase, __PRIVATE_CoreLike, __PRIVATE_CoreRegexContains, __PRIVATE_CoreRegexMatch, __PRIVATE_CoreStrContains, __PRIVATE_CoreStartsWith, __PRIVATE_CoreEndsWith, __PRIVATE_CoreToLower, __PRIVATE_CoreToUpper, __PRIVATE_CoreTrim, __PRIVATE_CoreStrConcat, __PRIVATE_CoreMapGet, __PRIVATE_DistanceBase, __PRIVATE_CoreCosineDistance, __PRIVATE_CoreDotProduct, __PRIVATE_CoreEuclideanDistance, __PRIVATE_CoreVectorLength, Gt, zt, jt, Ht, Jt, Yt, Zt, Xt, __PRIVATE_UnixToTimestamp, __PRIVATE_CoreUnixMicrosToTimestamp, __PRIVATE_CoreUnixMillisToTimestamp, __PRIVATE_CoreUnixSecondsToTimestamp, __PRIVATE_TimestampToUnix, __PRIVATE_CoreTimestampToUnixMicros, __PRIVATE_CoreTimestampToUnixMillis, __PRIVATE_CoreTimestampToUnixSeconds, __PRIVATE_TimestampArithmetic, __PRIVATE_CoreTimestampAdd, __PRIVATE_CoreTimestampSub, MutationBatch, MutationBatchResult, Overlay, TargetData, __PRIVATE_LocalSerializer, __PRIVATE_FirestoreIndexValueWriter, __PRIVATE_MemoryIndexManager, __PRIVATE_MemoryCollectionParentIndex, nn, __PRIVATE_TargetIdGenerator, RemoteDocumentChangeBuffer, OverlayedDocument, LocalDocumentsView, __PRIVATE_MemoryBundleCache, __PRIVATE_MemoryDocumentOverlayCache, __PRIVATE_MemoryGlobalsCache, __PRIVATE_ReferenceSet, __PRIVATE_DocReference, __PRIVATE_MemoryMutationQueue, __PRIVATE_MemoryRemoteDocumentCacheImpl, __PRIVATE_MemoryRemoteDocumentChangeBuffer, __PRIVATE_MemoryTargetCache, __PRIVATE_MemoryPersistence, __PRIVATE_MemoryTransaction, __PRIVATE_MemoryEagerDelegate, __PRIVATE_MemoryLruDelegate, __PRIVATE_LocalViewChanges, QueryContext, __PRIVATE_QueryEngine, un, cn, __PRIVATE_LocalStoreImpl, __PRIVATE_LocalClientState, __PRIVATE_MemorySharedClientState, __PRIVATE_OnlineStateTracker, Rn, __PRIVATE_RemoteStoreImpl, DelayedOperation, DocumentSet, __PRIVATE_DocumentChangeSet, ViewSnapshot, __PRIVATE_QueryListenersInfo, __PRIVATE_EventManagerImpl, In, __PRIVATE_QueryListener, __PRIVATE_AddedLimboDocument, __PRIVATE_RemovedLimboDocument, __PRIVATE_View, An, __PRIVATE_QueryView, LimboResolution, __PRIVATE_SyncEngineImpl, __PRIVATE_MemoryOfflineComponentProvider, __PRIVATE_LruGcMemoryOfflineComponentProvider, OnlineComponentProvider, __PRIVATE_AsyncObserver, Vn, FirestoreClient, dn, __PRIVATE_AsyncQueueImpl, Firestore, AbstractUserDataWriter, __PRIVATE_ExpUserDataWriter;
+  var User, v, S, D, FirestoreError, __PRIVATE_Deferred, __PRIVATE_OAuthToken, __PRIVATE_EmptyAuthCredentialsProvider, __PRIVATE_FirebaseAuthCredentialsProvider, __PRIVATE_FirstPartyToken, __PRIVATE_FirstPartyAuthCredentialsProvider, AppCheckToken, __PRIVATE_FirebaseAppCheckTokenProvider, __PRIVATE_AutoId, x, C, F, BasePath, ResourcePath, O, FieldPath$1, DocumentKey, M, N, Timestamp, SnapshotVersion, L, FieldIndex, IndexSegment, IndexState, IndexOffset, B, PersistenceTransaction, PersistencePromise, U, __PRIVATE_SimpleDbTransaction, __PRIVATE_SimpleDb, __PRIVATE_IterationController, __PRIVATE_IndexedDbTransactionError, __PRIVATE_SimpleDbStore, k, q, __PRIVATE_IndexBackfillerScheduler, __PRIVATE_IndexBackfiller, __PRIVATE_ListenSequence, $, K, W, Q, G, z, j, H, J, Y, Z, X, ee, te, ne, re, ie, se, _e, oe, ae, ue, ce, le, Ee, he, Te, Pe, Re, Ie, Ae, Ve, de, fe, me, pe, ge, ye, we, be, ve, Se, De, xe, Ce, Fe, Oe, Me, Ne, Le, Be, Ue, ke, qe, $e, Ke, We, Qe, Ge, ze, je, He, Je, Ye, Ze, Xe, __PRIVATE_IndexedDbTransaction, SortedMap, SortedMapIterator, LLRBNode, SortedSet, SortedSetIterator, FieldMask, __PRIVATE_Base64DecodeError, ByteString, et, tt, nt, rt, it, DatabaseInfo, st, DatabaseId, _t, ot, at, ut, ct, lt, Et, ht, Tt, ObjectValue, TransformOperation, __PRIVATE_ServerTimestampTransform, __PRIVATE_ArrayUnionTransformOperation, __PRIVATE_ArrayRemoveTransformOperation, __PRIVATE_NumericTransformOperation, __PRIVATE_NumericIncrementTransformOperation, __PRIVATE_NumericMinimumTransformOperation, __PRIVATE_NumericMaximumTransformOperation, FieldTransform, MutationResult, Precondition, Mutation, __PRIVATE_SetMutation, __PRIVATE_PatchMutation, __PRIVATE_DeleteMutation, __PRIVATE_VerifyMutation, Bound, Filter, FieldFilter, CompositeFilter, __PRIVATE_KeyFieldFilter, __PRIVATE_KeyFieldInFilter, __PRIVATE_KeyFieldNotInFilter, __PRIVATE_ArrayContainsFilter, __PRIVATE_InFilter, __PRIVATE_NotInFilter, __PRIVATE_ArrayContainsAnyFilter, OrderBy, MutableDocument, __PRIVATE_TargetImpl, __PRIVATE_QueryImpl, ExistenceFilter, Pt, Rt, ObjectMap, It, At, Vt, dt, ft, mt, pt, BloomFilter, __PRIVATE_BloomFilterError, RemoteEvent, TargetChange, __PRIVATE_DocumentWatchChange, __PRIVATE_ExistenceFilterChange, __PRIVATE_WatchTargetChange, __PRIVATE_TargetState, gt, __PRIVATE_WatchChangeAggregator, yt, wt, bt, JsonProtoSerializer, Bytes, FieldPath, FieldValue, GeoPoint, __PRIVATE_NoopConnectivityMonitor, vt, __PRIVATE_BrowserConnectivityMonitor, St, Dt, xt, __PRIVATE_RestConnection, __PRIVATE_StreamBridge, Ct, __PRIVATE_unguardedEventListen, __PRIVATE_WebChannelConnection, __PRIVATE_ExponentialBackoff, Ft, __PRIVATE_PersistentStream, __PRIVATE_PersistentListenStream, __PRIVATE_PersistentWriteStream, Datastore, __PRIVATE_DatastoreImpl, Ot, Mt, Nt, Lt, LruParams, Bt, Ut, __PRIVATE_RollingSequenceNumberBuffer, __PRIVATE_LruScheduler, __PRIVATE_LruGarbageCollectorImpl, kt, qt, FirestoreSettingsImpl, Firestore$1, Query, DocumentReference, CollectionReference, VectorValue, $t, ParsedSetData, ParsedUpdateData, ParseContextImpl, UserDataReader, __PRIVATE_DeleteFieldValueImpl, __PRIVATE_ServerTimestampFieldValueImpl, __PRIVATE_ArrayUnionFieldValueImpl, __PRIVATE_ArrayRemoveFieldValueImpl, Kt, OptionsUtil, Expression, AggregateFunction, AliasedAggregate, AliasedExpression, __PRIVATE_ListOfExprs, Field, Constant, FunctionExpression, BooleanExpression, __PRIVATE_BooleanFunctionExpression, __PRIVATE_BooleanConstant, __PRIVATE_BooleanField, Ordering, Stage, __PRIVATE_AddFields, __PRIVATE_Aggregate, __PRIVATE_Distinct, __PRIVATE_CollectionSource, __PRIVATE_CollectionGroupSource, __PRIVATE_DatabaseSource, __PRIVATE_DocumentsSource, __PRIVATE_Where, __PRIVATE_Limit, __PRIVATE_Offset, __PRIVATE_Select, __PRIVATE_Sort, __PRIVATE_Replace, CorePipeline, __PRIVATE_EvaluateResult, __PRIVATE_CoreField, __PRIVATE_CoreConstant, __PRIVATE_CoreListOfExprs, Wt, Qt, __PRIVATE_BigIntOrDoubleArithmetics, __PRIVATE_CoreAdd, __PRIVATE_CoreSubtract, __PRIVATE_CoreMultiply, __PRIVATE_CoreDivide, __PRIVATE_CoreMod, __PRIVATE_CoreAnd, __PRIVATE_CoreNot, __PRIVATE_CoreOr, __PRIVATE_CoreXor, __PRIVATE_CoreEqAny, __PRIVATE_CoreNotEqAny, __PRIVATE_CoreIsNan, __PRIVATE_CoreIsNotNan, __PRIVATE_CoreIsNull, __PRIVATE_CoreIsNotNull, __PRIVATE_CoreIsError, __PRIVATE_CoreExists, __PRIVATE_CoreCond, __PRIVATE_CoreLogicalMaximum, __PRIVATE_CoreLogicalMinimum, __PRIVATE_ComparisonBase, __PRIVATE_CoreEq, __PRIVATE_CoreNeq, __PRIVATE_CoreLt, __PRIVATE_CoreLte, __PRIVATE_CoreGt, __PRIVATE_CoreGte, __PRIVATE_CoreArrayConcat, __PRIVATE_CoreArrayReverse, __PRIVATE_CoreArrayContains, __PRIVATE_CoreArrayContainsAll, __PRIVATE_CoreArrayContainsAny, __PRIVATE_CoreArrayLength, __PRIVATE_CoreArrayElement, __PRIVATE_CoreReverse, __PRIVATE_CoreReplaceFirst, __PRIVATE_CoreReplaceAll, __PRIVATE_CoreCharLength, __PRIVATE_CoreByteLength, __PRIVATE_StringSearchFunctionBase, __PRIVATE_CoreLike, __PRIVATE_CoreRegexContains, __PRIVATE_CoreRegexMatch, __PRIVATE_CoreStrContains, __PRIVATE_CoreStartsWith, __PRIVATE_CoreEndsWith, __PRIVATE_CoreToLower, __PRIVATE_CoreToUpper, __PRIVATE_CoreTrim, __PRIVATE_CoreStrConcat, __PRIVATE_CoreMapGet, __PRIVATE_DistanceBase, __PRIVATE_CoreCosineDistance, __PRIVATE_CoreDotProduct, __PRIVATE_CoreEuclideanDistance, __PRIVATE_CoreVectorLength, Gt, zt, jt, Ht, Jt, Yt, Zt, Xt, __PRIVATE_UnixToTimestamp, __PRIVATE_CoreUnixMicrosToTimestamp, __PRIVATE_CoreUnixMillisToTimestamp, __PRIVATE_CoreUnixSecondsToTimestamp, __PRIVATE_TimestampToUnix, __PRIVATE_CoreTimestampToUnixMicros, __PRIVATE_CoreTimestampToUnixMillis, __PRIVATE_CoreTimestampToUnixSeconds, __PRIVATE_TimestampArithmetic, __PRIVATE_CoreTimestampAdd, __PRIVATE_CoreTimestampSub, MutationBatch, MutationBatchResult, Overlay, TargetData, __PRIVATE_LocalSerializer, __PRIVATE_IndexedDbBundleCache, __PRIVATE_IndexedDbDocumentOverlayCache, __PRIVATE_IndexedDbGlobalsCache, __PRIVATE_FirestoreIndexValueWriter, en, __PRIVATE_OrderedCodeWriter, __PRIVATE_AscendingIndexByteEncoder, __PRIVATE_DescendingIndexByteEncoder, __PRIVATE_IndexByteEncoder, __PRIVATE_IndexEntry, __PRIVATE_TargetIndexMatcher, __PRIVATE_MemoryIndexManager, __PRIVATE_MemoryCollectionParentIndex, tn, nn, __PRIVATE_IndexedDbIndexManager, __PRIVATE_IndexedDbMutationQueue, __PRIVATE_TargetIdGenerator, __PRIVATE_IndexedDbTargetCache, __PRIVATE_IndexedDbLruDelegateImpl, RemoteDocumentChangeBuffer, __PRIVATE_IndexedDbRemoteDocumentCacheImpl, __PRIVATE_IndexedDbRemoteDocumentChangeBuffer, OverlayedDocument, LocalDocumentsView, __PRIVATE_MemoryBundleCache, __PRIVATE_MemoryDocumentOverlayCache, __PRIVATE_MemoryGlobalsCache, __PRIVATE_ReferenceSet, __PRIVATE_DocReference, __PRIVATE_MemoryMutationQueue, __PRIVATE_MemoryRemoteDocumentCacheImpl, __PRIVATE_MemoryRemoteDocumentChangeBuffer, __PRIVATE_MemoryTargetCache, __PRIVATE_MemoryPersistence, __PRIVATE_MemoryTransaction, __PRIVATE_MemoryEagerDelegate, __PRIVATE_MemoryLruDelegate, __PRIVATE_SchemaConverter, rn, sn, _n, on, an, __PRIVATE_IndexedDbPersistence, __PRIVATE_LocalViewChanges, QueryContext, __PRIVATE_QueryEngine, un, cn, __PRIVATE_LocalStoreImpl, __PRIVATE_LocalClientState, __PRIVATE_MemorySharedClientState, __PRIVATE_OnlineStateTracker, Rn, __PRIVATE_RemoteStoreImpl, DelayedOperation, DocumentSet, __PRIVATE_DocumentChangeSet, ViewSnapshot, __PRIVATE_QueryListenersInfo, __PRIVATE_EventManagerImpl, In, __PRIVATE_QueryListener, __PRIVATE_AddedLimboDocument, __PRIVATE_RemovedLimboDocument, __PRIVATE_View, An, __PRIVATE_QueryView, LimboResolution, __PRIVATE_SyncEngineImpl, __PRIVATE_MemoryOfflineComponentProvider, __PRIVATE_LruGcMemoryOfflineComponentProvider, __PRIVATE_IndexedDbOfflineComponentProvider, OnlineComponentProvider, __PRIVATE_AsyncObserver, Vn, FirestoreClient, dn, __PRIVATE_AsyncQueueImpl, Firestore, AbstractUserDataWriter, __PRIVATE_ExpUserDataWriter;
   var init_common_456515ba_esm = __esm({
     "node_modules/@firebase/firestore/dist/common-456515ba.esm.js"() {
       init_index_esm4();
@@ -20299,28 +21060,6 @@
         shutdown() {
         }
       };
-      __PRIVATE_EmulatorAuthCredentialsProvider = class {
-        constructor(e) {
-          this.token = e, /**
-           * Stores the listener registered with setChangeListener()
-           * This isn't actually necessary since the UID never changes, but we use this
-           * to verify the listen contract is adhered to in tests.
-           */
-          this.changeListener = null;
-        }
-        getToken() {
-          return Promise.resolve(this.token);
-        }
-        invalidateToken() {
-        }
-        start(e, t) {
-          this.changeListener = t, // Fire with initial user.
-          e.enqueueRetryable((() => t(this.token.user)));
-        }
-        shutdown() {
-          this.changeListener = null;
-        }
-      };
       __PRIVATE_FirebaseAuthCredentialsProvider = class {
         constructor(e) {
           this.t = e, /** Tracks the current User. */
@@ -20432,13 +21171,13 @@
         }
         start(e, t) {
           __PRIVATE_hardAssert(void 0 === this.o, 3512);
-          const onTokenChanged = (e2) => {
+          const onTokenChanged2 = (e2) => {
             null != e2.error && __PRIVATE_logDebug("FirebaseAppCheckTokenProvider", `Error getting App Check token; using placeholder token instead. Error: ${e2.error.message}`);
             const n = e2.token !== this.m;
             return this.m = e2.token, __PRIVATE_logDebug("FirebaseAppCheckTokenProvider", `Received ${n ? "new" : "existing"} token.`), n ? t(e2.token) : Promise.resolve();
           };
           this.o = (t2) => {
-            e.enqueueRetryable((() => onTokenChanged(t2)));
+            e.enqueueRetryable((() => onTokenChanged2(t2)));
           };
           const __PRIVATE_registerAppCheck = (e2) => {
             __PRIVATE_logDebug("FirebaseAppCheckTokenProvider", "AppCheck detected"), this.appCheck = e2, this.o && this.appCheck.addTokenListener(this.o);
@@ -20877,6 +21616,20 @@
         }
       };
       FieldIndex.UNKNOWN_ID = -1;
+      IndexSegment = class {
+        constructor(e, t) {
+          this.fieldPath = e, this.kind = t;
+        }
+      };
+      IndexState = class _IndexState {
+        constructor(e, t) {
+          this.sequenceNumber = e, this.offset = t;
+        }
+        /** The state of an index that has not yet been backfilled. */
+        static empty() {
+          return new _IndexState(0, IndexOffset.min());
+        }
+      };
       IndexOffset = class _IndexOffset {
         constructor(e, t, n) {
           this.readTime = e, this.documentKey = t, this.largestBatchId = n;
@@ -21015,6 +21768,398 @@
           }));
         }
       };
+      U = "SimpleDb";
+      __PRIVATE_SimpleDbTransaction = class ___PRIVATE_SimpleDbTransaction {
+        static open(e, t, n, r) {
+          try {
+            return new ___PRIVATE_SimpleDbTransaction(t, e.transaction(r, n));
+          } catch (e2) {
+            throw new __PRIVATE_IndexedDbTransactionError(t, e2);
+          }
+        }
+        constructor(e, t) {
+          this.action = e, this.transaction = t, this.aborted = false, /**
+           * A `Promise` that resolves with the result of the IndexedDb transaction.
+           */
+          this.v = new __PRIVATE_Deferred(), this.transaction.oncomplete = () => {
+            this.v.resolve();
+          }, this.transaction.onabort = () => {
+            t.error ? this.v.reject(new __PRIVATE_IndexedDbTransactionError(e, t.error)) : this.v.resolve();
+          }, this.transaction.onerror = (t2) => {
+            const n = __PRIVATE_checkForAndReportiOSError(t2.target.error);
+            this.v.reject(new __PRIVATE_IndexedDbTransactionError(e, n));
+          };
+        }
+        get S() {
+          return this.v.promise;
+        }
+        abort(e) {
+          e && this.v.reject(e), this.aborted || (__PRIVATE_logDebug(U, "Aborting transaction:", e ? e.message : "Client-initiated abort"), this.aborted = true, this.transaction.abort());
+        }
+        D() {
+          const e = this.transaction;
+          this.aborted || "function" != typeof e.commit || e.commit();
+        }
+        /**
+         * Returns a SimpleDbStore<KeyType, ValueType> for the specified store. All
+         * operations performed on the SimpleDbStore happen within the context of this
+         * transaction and it cannot be used anymore once the transaction is
+         * completed.
+         *
+         * Note that we can't actually enforce that the KeyType and ValueType are
+         * correct, but they allow type safety through the rest of the consuming code.
+         */
+        store(e) {
+          const t = this.transaction.objectStore(e);
+          return new __PRIVATE_SimpleDbStore(t);
+        }
+      };
+      __PRIVATE_SimpleDb = class ___PRIVATE_SimpleDb {
+        /** Deletes the specified database. */
+        static delete(e) {
+          __PRIVATE_logDebug(U, "Removing database:", e);
+          return __PRIVATE_wrapRequest(getGlobal().indexedDB.deleteDatabase(e)).toPromise();
+        }
+        /** Returns true if IndexedDB is available in the current environment. */
+        static C() {
+          if (!isIndexedDBAvailable()) return false;
+          if (___PRIVATE_SimpleDb.F()) return true;
+          const e = getUA(), t = ___PRIVATE_SimpleDb.O(e), n = 0 < t && t < 10, r = __PRIVATE_getAndroidVersion(e), i = 0 < r && r < 4.5;
+          return !(e.indexOf("MSIE ") > 0 || e.indexOf("Trident/") > 0 || e.indexOf("Edge/") > 0 || n || i);
+        }
+        /**
+         * Returns true if the backing IndexedDB store is the Node IndexedDBShim
+         * (see https://github.com/axemclion/IndexedDBShim).
+         */
+        static F() {
+          return "undefined" != typeof process && "YES" === process.__PRIVATE_env?.__PRIVATE_USE_MOCK_PERSISTENCE;
+        }
+        /** Helper to get a typed SimpleDbStore from a transaction. */
+        static M(e, t) {
+          return e.store(t);
+        }
+        // visible for testing
+        /** Parse User Agent to determine iOS version. Returns -1 if not found. */
+        static O(e) {
+          const t = e.match(/i(?:phone|pad|pod) os ([\d_]+)/i), n = t ? t[1].split("_").slice(0, 2).join(".") : "-1";
+          return Number(n);
+        }
+        /*
+         * Creates a new SimpleDb wrapper for IndexedDb database `name`.
+         *
+         * Note that `version` must not be a downgrade. IndexedDB does not support
+         * downgrading the schema version. We currently do not support any way to do
+         * versioning outside of IndexedDB's versioning mechanism, as only
+         * version-upgrade transactions are allowed to do things like create
+         * objectstores.
+         */
+        constructor(e, t, n) {
+          this.name = e, this.version = t, this.N = n, this.L = null;
+          12.2 === ___PRIVATE_SimpleDb.O(getUA()) && __PRIVATE_logError("Firestore persistence suffers from a bug in iOS 12.2 Safari that may cause your app to stop working. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.");
+        }
+        /**
+         * Opens the specified database, creating or upgrading it if necessary.
+         */
+        async B(e) {
+          return this.db || (__PRIVATE_logDebug(U, "Opening database:", this.name), this.db = await new Promise(((t, n) => {
+            const r = indexedDB.open(this.name, this.version);
+            r.onsuccess = (e2) => {
+              const n2 = e2.target.result;
+              t(n2);
+            }, r.onblocked = () => {
+              n(new __PRIVATE_IndexedDbTransactionError(e, "Cannot upgrade IndexedDB schema while another tab is open. Close all tabs that access Firestore and reload this page to proceed."));
+            }, r.onerror = (t2) => {
+              const r2 = t2.target.error;
+              "VersionError" === r2.name ? n(new FirestoreError(D.FAILED_PRECONDITION, "A newer version of the Firestore SDK was previously used and so the persisted data is not compatible with the version of the SDK you are now using. The SDK will operate with persistence disabled. If you need persistence, please re-upgrade to a newer version of the SDK or else clear the persisted IndexedDB data for your app to start fresh.")) : "InvalidStateError" === r2.name ? n(new FirestoreError(D.FAILED_PRECONDITION, "Unable to open an IndexedDB connection. This could be due to running in a private browsing session on a browser whose private browsing sessions do not support IndexedDB: " + r2)) : n(new __PRIVATE_IndexedDbTransactionError(e, r2));
+            }, r.onupgradeneeded = (e2) => {
+              __PRIVATE_logDebug(U, 'Database "' + this.name + '" requires upgrade from version:', e2.oldVersion);
+              const t2 = e2.target.result;
+              this.N.U(t2, r.transaction, e2.oldVersion, this.version).next((() => {
+                __PRIVATE_logDebug(U, "Database upgrade to version " + this.version + " complete");
+              }));
+            };
+          }))), this.k && (this.db.onversionchange = (e2) => this.k(e2)), this.db;
+        }
+        q(e) {
+          this.k = e, this.db && (this.db.onversionchange = (t) => e(t));
+        }
+        async runTransaction(e, t, n, r) {
+          const i = "readonly" === t;
+          let s = 0;
+          for (; ; ) {
+            ++s;
+            try {
+              this.db = await this.B(e);
+              const t2 = __PRIVATE_SimpleDbTransaction.open(this.db, e, i ? "readonly" : "readwrite", n), s2 = r(t2).next(((e2) => (t2.D(), e2))).catch(((e2) => (
+                // Abort the transaction if there was an error.
+                (t2.abort(e2), PersistencePromise.reject(e2))
+              ))).toPromise();
+              return s2.catch((() => {
+              })), // Wait for the transaction to complete (i.e. IndexedDb's onsuccess event to
+              // fire), but still return the original transactionFnResult back to the
+              // caller.
+              await t2.S, s2;
+            } catch (e2) {
+              const t2 = e2, n2 = "FirebaseError" !== t2.name && s < 3;
+              if (__PRIVATE_logDebug(U, "Transaction failed with error:", t2.message, "Retrying:", n2), this.close(), !n2) return Promise.reject(t2);
+            }
+          }
+        }
+        close() {
+          this.db && this.db.close(), this.db = void 0;
+        }
+      };
+      __PRIVATE_IterationController = class {
+        constructor(e) {
+          this.$ = e, this.K = false, this.W = null;
+        }
+        get isDone() {
+          return this.K;
+        }
+        get G() {
+          return this.W;
+        }
+        set cursor(e) {
+          this.$ = e;
+        }
+        /**
+         * This function can be called to stop iteration at any point.
+         */
+        done() {
+          this.K = true;
+        }
+        /**
+         * This function can be called to skip to that next key, which could be
+         * an index or a primary key.
+         */
+        j(e) {
+          this.W = e;
+        }
+        /**
+         * Delete the current cursor value from the object store.
+         *
+         * NOTE: You CANNOT do this with a keysOnly query.
+         */
+        delete() {
+          return __PRIVATE_wrapRequest(this.$.delete());
+        }
+      };
+      __PRIVATE_IndexedDbTransactionError = class extends FirestoreError {
+        constructor(e, t) {
+          super(D.UNAVAILABLE, `IndexedDB transaction '${e}' failed: ${t}`), this.name = "IndexedDbTransactionError";
+        }
+      };
+      __PRIVATE_SimpleDbStore = class {
+        constructor(e) {
+          this.store = e;
+        }
+        put(e, t) {
+          let n;
+          return void 0 !== t ? (__PRIVATE_logDebug(U, "PUT", this.store.name, e, t), n = this.store.put(t, e)) : (__PRIVATE_logDebug(U, "PUT", this.store.name, "<auto-key>", e), n = this.store.put(e)), __PRIVATE_wrapRequest(n);
+        }
+        /**
+         * Adds a new value into an Object Store and returns the new key. Similar to
+         * IndexedDb's `add()`, this method will fail on primary key collisions.
+         *
+         * @param value - The object to write.
+         * @returns The key of the value to add.
+         */
+        add(e) {
+          __PRIVATE_logDebug(U, "ADD", this.store.name, e, e);
+          return __PRIVATE_wrapRequest(this.store.add(e));
+        }
+        /**
+         * Gets the object with the specified key from the specified store, or null
+         * if no object exists with the specified key.
+         *
+         * @key The key of the object to get.
+         * @returns The object with the specified key or null if no object exists.
+         */
+        get(e) {
+          return __PRIVATE_wrapRequest(this.store.get(e)).next(((t) => (
+            // Normalize nonexistence to null.
+            (void 0 === t && (t = null), __PRIVATE_logDebug(U, "GET", this.store.name, e, t), t)
+          )));
+        }
+        delete(e) {
+          __PRIVATE_logDebug(U, "DELETE", this.store.name, e);
+          return __PRIVATE_wrapRequest(this.store.delete(e));
+        }
+        /**
+         * If we ever need more of the count variants, we can add overloads. For now,
+         * all we need is to count everything in a store.
+         *
+         * Returns the number of rows in the store.
+         */
+        count() {
+          __PRIVATE_logDebug(U, "COUNT", this.store.name);
+          return __PRIVATE_wrapRequest(this.store.count());
+        }
+        H(e, t) {
+          const n = this.options(e, t), r = n.index ? this.store.index(n.index) : this.store;
+          if ("function" == typeof r.getAll) {
+            const e2 = r.getAll(n.range);
+            return new PersistencePromise(((t2, n2) => {
+              e2.onerror = (e3) => {
+                n2(e3.target.error);
+              }, e2.onsuccess = (e3) => {
+                t2(e3.target.result);
+              };
+            }));
+          }
+          {
+            const e2 = this.cursor(n), t2 = [];
+            return this.J(e2, ((e3, n2) => {
+              t2.push(n2);
+            })).next((() => t2));
+          }
+        }
+        /**
+         * Loads the first `count` elements from the provided index range. Loads all
+         * elements if no limit is provided.
+         */
+        Y(e, t) {
+          const n = this.store.getAll(e, null === t ? void 0 : t);
+          return new PersistencePromise(((e2, t2) => {
+            n.onerror = (e3) => {
+              t2(e3.target.error);
+            }, n.onsuccess = (t3) => {
+              e2(t3.target.result);
+            };
+          }));
+        }
+        Z(e, t) {
+          __PRIVATE_logDebug(U, "DELETE ALL", this.store.name);
+          const n = this.options(e, t);
+          n.X = false;
+          const r = this.cursor(n);
+          return this.J(r, ((e2, t2, n2) => n2.delete()));
+        }
+        ee(e, t) {
+          let n;
+          t ? n = e : (n = {}, t = e);
+          const r = this.cursor(n);
+          return this.J(r, t);
+        }
+        /**
+         * Iterates over a store, but waits for the given callback to complete for
+         * each entry before iterating the next entry. This allows the callback to do
+         * asynchronous work to determine if this iteration should continue.
+         *
+         * The provided callback should return `true` to continue iteration, and
+         * `false` otherwise.
+         */
+        te(e) {
+          const t = this.cursor({});
+          return new PersistencePromise(((n, r) => {
+            t.onerror = (e2) => {
+              const t2 = __PRIVATE_checkForAndReportiOSError(e2.target.error);
+              r(t2);
+            }, t.onsuccess = (t2) => {
+              const r2 = t2.target.result;
+              r2 ? e(r2.primaryKey, r2.value).next(((e2) => {
+                e2 ? r2.continue() : n();
+              })) : n();
+            };
+          }));
+        }
+        J(e, t) {
+          const n = [];
+          return new PersistencePromise(((r, i) => {
+            e.onerror = (e2) => {
+              i(e2.target.error);
+            }, e.onsuccess = (e2) => {
+              const i2 = e2.target.result;
+              if (!i2) return void r();
+              const s = new __PRIVATE_IterationController(i2), _ = t(i2.primaryKey, i2.value, s);
+              if (_ instanceof PersistencePromise) {
+                const e3 = _.catch(((e4) => (s.done(), PersistencePromise.reject(e4))));
+                n.push(e3);
+              }
+              s.isDone ? r() : null === s.G ? i2.continue() : i2.continue(s.G);
+            };
+          })).next((() => PersistencePromise.waitFor(n)));
+        }
+        options(e, t) {
+          let n;
+          return void 0 !== e && ("string" == typeof e ? n = e : t = e), {
+            index: n,
+            range: t
+          };
+        }
+        cursor(e) {
+          let t = "next";
+          if (e.reverse && (t = "prev"), e.index) {
+            const n = this.store.index(e.index);
+            return e.X ? n.openKeyCursor(e.range, t) : n.openCursor(e.range, t);
+          }
+          return this.store.openCursor(e.range, t);
+        }
+      };
+      k = false;
+      q = "IndexBackfiller";
+      __PRIVATE_IndexBackfillerScheduler = class {
+        constructor(e, t) {
+          this.asyncQueue = e, this.ne = t, this.task = null;
+        }
+        start() {
+          this.re(15e3);
+        }
+        stop() {
+          this.task && (this.task.cancel(), this.task = null);
+        }
+        get started() {
+          return null !== this.task;
+        }
+        re(e) {
+          __PRIVATE_logDebug(q, `Scheduled in ${e}ms`), this.task = this.asyncQueue.enqueueAfterDelay("index_backfill", e, (async () => {
+            this.task = null;
+            try {
+              const e2 = await this.ne.ie();
+              __PRIVATE_logDebug(q, `Documents written: ${e2}`);
+            } catch (e2) {
+              __PRIVATE_isIndexedDbTransactionError(e2) ? __PRIVATE_logDebug(q, "Ignoring IndexedDB error during index backfill: ", e2) : await __PRIVATE_ignoreIfPrimaryLeaseLoss(e2);
+            }
+            await this.re(6e4);
+          }));
+        }
+      };
+      __PRIVATE_IndexBackfiller = class {
+        constructor(e, t) {
+          this.localStore = e, this.persistence = t;
+        }
+        async ie(e = 50) {
+          return this.persistence.runTransaction("Backfill Indexes", "readwrite-primary", ((t) => this.se(t, e)));
+        }
+        /** Writes index entries until the cap is reached. Returns the number of documents processed. */
+        se(e, t) {
+          const n = /* @__PURE__ */ new Set();
+          let r = t, i = true;
+          return PersistencePromise.doWhile((() => true === i && r > 0), (() => this.localStore.indexManager.getNextCollectionGroupToUpdate(e).next(((t2) => {
+            if (null !== t2 && !n.has(t2)) return __PRIVATE_logDebug(q, `Processing collection: ${t2}`), this._e(e, t2, r).next(((e2) => {
+              r -= e2, n.add(t2);
+            }));
+            i = false;
+          })))).next((() => t - r));
+        }
+        /**
+         * Writes entries for the provided collection group. Returns the number of documents processed.
+         */
+        _e(e, t, n) {
+          return this.localStore.indexManager.getMinOffsetFromCollectionGroup(e, t).next(((r) => this.localStore.localDocuments.getNextDocuments(e, t, r, n).next(((n2) => {
+            const i = n2.changes;
+            return this.localStore.indexManager.updateIndexEntries(e, i).next((() => this.oe(r, n2))).next(((n3) => (__PRIVATE_logDebug(q, `Updating offset: ${n3}`), this.localStore.indexManager.updateCollectionGroup(e, t, n3)))).next((() => i.size));
+          }))));
+        }
+        /** Returns the next offset based on the provided documents. */
+        oe(e, t) {
+          let n = e;
+          return t.changes.forEach(((e2, t2) => {
+            const r = __PRIVATE_newIndexOffsetFromDocument(t2);
+            __PRIVATE_indexOffsetComparator(r, n) > 0 && (n = r);
+          })), new IndexOffset(n.readTime, n.documentKey, Math.max(t.batchId, e.largestBatchId));
+        }
+      };
       __PRIVATE_ListenSequence = class {
         constructor(e, t) {
           this.previousValue = e, t && (t.sequenceNumberHandler = (e2) => this.ae(e2), this.ue = (e2) => t.writeSequenceNumber(e2));
@@ -21032,29 +22177,73 @@
       K = "";
       W = "remoteDocuments";
       Q = "owner";
+      G = "owner";
       z = "mutationQueues";
+      j = "userId";
       H = "mutations";
+      J = "batchId";
+      Y = "userMutationsIndex";
+      Z = ["userId", "batchId"];
+      X = {};
       ee = "documentMutations";
       te = "remoteDocumentsV14";
+      ne = ["prefixPath", "collectionGroup", "readTime", "documentId"];
+      re = "documentKeyIndex";
+      ie = ["prefixPath", "collectionGroup", "documentId"];
+      se = "collectionGroupIndex";
+      _e = ["collectionGroup", "readTime", "prefixPath", "documentId"];
       oe = "remoteDocumentGlobal";
+      ae = "remoteDocumentGlobalKey";
       ue = "targets";
+      ce = "queryTargetsIndex";
+      le = ["canonicalId", "targetId"];
       Ee = "targetDocuments";
+      he = ["targetId", "path"];
+      Te = "documentTargetsIndex";
+      Pe = ["path", "targetId"];
+      Re = "targetGlobalKey";
       Ie = "targetGlobal";
       Ae = "collectionParents";
+      Ve = ["collectionId", "parent"];
       de = "clientMetadata";
+      fe = "clientId";
       me = "bundles";
+      pe = "bundleId";
       ge = "namedQueries";
+      ye = "name";
       we = "indexConfiguration";
+      be = "indexId";
+      ve = "collectionGroupIndex";
+      Se = "collectionGroup";
       De = "indexState";
+      xe = ["indexId", "uid"];
+      Ce = "sequenceNumberIndex";
+      Fe = ["uid", "sequenceNumber"];
       Oe = "indexEntries";
+      Me = ["indexId", "uid", "arrayValue", "directionalValue", "orderedDocumentKey", "documentKey"];
+      Ne = "documentKeyIndex";
+      Le = ["indexId", "uid", "orderedDocumentKey"];
       Be = "documentOverlays";
+      Ue = ["userId", "collectionPath", "documentId"];
+      ke = "collectionPathOverlayIndex";
+      qe = ["userId", "collectionPath", "largestBatchId"];
+      $e = "collectionGroupOverlayIndex";
+      Ke = ["userId", "collectionGroup", "largestBatchId"];
       We = "globals";
+      Qe = "name";
       Ge = [...[...[...[...[z, H, ee, W, ue, Q, Ie, Ee], de], oe], Ae], me, ge];
       ze = [...Ge, Be];
       je = [z, H, ee, te, ue, Q, Ie, Ee, de, oe, Ae, me, ge, Be];
       He = je;
       Je = [...He, we, De, Oe];
+      Ye = Je;
       Ze = [...Je, We];
+      Xe = Ze;
+      __PRIVATE_IndexedDbTransaction = class extends PersistenceTransaction {
+        constructor(e, t) {
+          super(), this.le = e, this.currentSequenceNumber = t;
+        }
+      };
       SortedMap = class _SortedMap {
         constructor(e, t) {
           this.comparator = e, this.root = t || LLRBNode.EMPTY;
@@ -24139,6 +25328,23 @@ Total Duration: ${a - u}ms`);
         }
         isEqual(e) {
           return e instanceof ___PRIVATE_ArrayUnionFieldValueImpl && deepEqual(this.Tr, e.Tr);
+        }
+      };
+      __PRIVATE_ArrayRemoveFieldValueImpl = class ___PRIVATE_ArrayRemoveFieldValueImpl extends FieldValue {
+        constructor(e, t) {
+          super(e), this.Tr = t;
+        }
+        _toFieldTransform(e) {
+          const t = __PRIVATE_createSentinelChildContext(
+            this,
+            e,
+            /*array=*/
+            true
+          ), n = this.Tr.map(((e2) => __PRIVATE_parseData(e2, t))), r = new __PRIVATE_ArrayRemoveTransformOperation(n);
+          return new FieldTransform(e.path, r);
+        }
+        isEqual(e) {
+          return e instanceof ___PRIVATE_ArrayRemoveFieldValueImpl && deepEqual(this.Tr, e.Tr);
         }
       };
       Kt = new RegExp("[~\\*/\\[\\]]");
@@ -27911,6 +29117,162 @@ Total Duration: ${a - u}ms`);
           this.zr = e;
         }
       };
+      __PRIVATE_IndexedDbBundleCache = class {
+        getBundleMetadata(e, t) {
+          return __PRIVATE_bundlesStore(e).get(t).next(((e2) => {
+            if (e2) return (function __PRIVATE_fromDbBundle(e3) {
+              return {
+                id: e3.bundleId,
+                createTime: __PRIVATE_fromDbTimestamp(e3.createTime),
+                version: e3.version
+              };
+            })(e2);
+          }));
+        }
+        saveBundleMetadata(e, t) {
+          return __PRIVATE_bundlesStore(e).put((function __PRIVATE_toDbBundle(e2) {
+            return {
+              bundleId: e2.id,
+              createTime: __PRIVATE_toDbTimestamp(__PRIVATE_fromVersion(e2.createTime)),
+              version: e2.version
+            };
+          })(t));
+        }
+        getNamedQuery(e, t) {
+          return __PRIVATE_namedQueriesStore(e).get(t).next(((e2) => {
+            if (e2) return (function __PRIVATE_fromDbNamedQuery(e3) {
+              return {
+                name: e3.name,
+                query: __PRIVATE_fromBundledQuery(e3.bundledQuery),
+                readTime: __PRIVATE_fromDbTimestamp(e3.readTime)
+              };
+            })(e2);
+          }));
+        }
+        saveNamedQuery(e, t) {
+          return __PRIVATE_namedQueriesStore(e).put((function __PRIVATE_toDbNamedQuery(e2) {
+            return {
+              name: e2.name,
+              readTime: __PRIVATE_toDbTimestamp(__PRIVATE_fromVersion(e2.readTime)),
+              bundledQuery: e2.bundledQuery
+            };
+          })(t));
+        }
+      };
+      __PRIVATE_IndexedDbDocumentOverlayCache = class ___PRIVATE_IndexedDbDocumentOverlayCache {
+        /**
+         * @param serializer - The document serializer.
+         * @param userId - The userId for which we are accessing overlays.
+         */
+        constructor(e, t) {
+          this.serializer = e, this.userId = t;
+        }
+        static jr(e, t) {
+          const n = t.uid || "";
+          return new ___PRIVATE_IndexedDbDocumentOverlayCache(e, n);
+        }
+        getOverlay(e, t) {
+          return __PRIVATE_documentOverlayStore(e).get(__PRIVATE_toDbDocumentOverlayKey(this.userId, t)).next(((e2) => e2 ? __PRIVATE_fromDbDocumentOverlay(this.serializer, e2) : null));
+        }
+        getOverlays(e, t) {
+          const n = __PRIVATE_newOverlayMap();
+          return PersistencePromise.forEach(t, ((t2) => this.getOverlay(e, t2).next(((e2) => {
+            null !== e2 && n.set(t2, e2);
+          })))).next((() => n));
+        }
+        getAllOverlays(e, t) {
+          const n = __PRIVATE_newOverlayMap();
+          return __PRIVATE_documentOverlayStore(e).ee(((e2, r) => {
+            const i = __PRIVATE_fromDbDocumentOverlay(this.serializer, r);
+            i.largestBatchId > t && n.set(i.getKey(), i);
+          })).next((() => n));
+        }
+        saveOverlays(e, t, n) {
+          const r = [];
+          return n.forEach(((n2, i) => {
+            const s = new Overlay(t, i);
+            r.push(this.Hr(e, s));
+          })), PersistencePromise.waitFor(r);
+        }
+        removeOverlaysForBatchId(e, t, n) {
+          const r = /* @__PURE__ */ new Set();
+          t.forEach(((e2) => r.add(__PRIVATE_encodeResourcePath(e2.getCollectionPath()))));
+          const i = [];
+          return r.forEach(((t2) => {
+            const r2 = IDBKeyRange.bound(
+              [this.userId, t2, n],
+              [this.userId, t2, n + 1],
+              /*lowerOpen=*/
+              false,
+              /*upperOpen=*/
+              true
+            );
+            i.push(__PRIVATE_documentOverlayStore(e).Z(ke, r2));
+          })), PersistencePromise.waitFor(i);
+        }
+        getOverlaysForCollection(e, t, n) {
+          const r = __PRIVATE_newOverlayMap(), i = __PRIVATE_encodeResourcePath(t), s = IDBKeyRange.bound(
+            [this.userId, i, n],
+            [this.userId, i, Number.POSITIVE_INFINITY],
+            /*lowerOpen=*/
+            true
+          );
+          return __PRIVATE_documentOverlayStore(e).H(ke, s).next(((e2) => {
+            for (const t2 of e2) {
+              const e3 = __PRIVATE_fromDbDocumentOverlay(this.serializer, t2);
+              r.set(e3.getKey(), e3);
+            }
+            return r;
+          }));
+        }
+        getOverlaysForCollectionGroup(e, t, n, r) {
+          const i = __PRIVATE_newOverlayMap();
+          let s;
+          const _ = IDBKeyRange.bound(
+            [this.userId, t, n],
+            [this.userId, t, Number.POSITIVE_INFINITY],
+            /*lowerOpen=*/
+            true
+          );
+          return __PRIVATE_documentOverlayStore(e).ee({
+            index: $e,
+            range: _
+          }, ((e2, t2, n2) => {
+            const _2 = __PRIVATE_fromDbDocumentOverlay(this.serializer, t2);
+            i.size() < r || _2.largestBatchId === s ? (i.set(_2.getKey(), _2), s = _2.largestBatchId) : n2.done();
+          })).next((() => i));
+        }
+        Hr(e, t) {
+          return __PRIVATE_documentOverlayStore(e).put((function __PRIVATE_toDbDocumentOverlay(e2, t2, n) {
+            const [r, i, s] = __PRIVATE_toDbDocumentOverlayKey(t2, n.mutation.key);
+            return {
+              userId: t2,
+              collectionPath: i,
+              documentId: s,
+              collectionGroup: n.mutation.key.getCollectionGroup(),
+              largestBatchId: n.largestBatchId,
+              overlayMutation: toMutation(e2.zr, n.mutation)
+            };
+          })(this.serializer, this.userId, t));
+        }
+      };
+      __PRIVATE_IndexedDbGlobalsCache = class {
+        Jr(e) {
+          return __PRIVATE_getStore(e, We);
+        }
+        getSessionToken(e) {
+          return this.Jr(e).get("sessionToken").next(((e2) => {
+            const t = e2?.value;
+            return t ? ByteString.fromUint8Array(t) : ByteString.EMPTY_BYTE_STRING;
+          }));
+        }
+        setSessionToken(e, t) {
+          return this.Jr(e).put({
+            name: "sessionToken",
+            value: t.toUint8Array()
+          });
+        }
+      };
       __PRIVATE_FirestoreIndexValueWriter = class {
         constructor() {
         }
@@ -27986,6 +29348,325 @@ Total Duration: ${a - u}ms`);
         }
       };
       __PRIVATE_FirestoreIndexValueWriter.Ei = new __PRIVATE_FirestoreIndexValueWriter();
+      en = 255;
+      __PRIVATE_OrderedCodeWriter = class {
+        constructor() {
+          this.buffer = new Uint8Array(1024), this.position = 0;
+        }
+        hi(e) {
+          const t = e[Symbol.iterator]();
+          let n = t.next();
+          for (; !n.done; ) this.Ti(n.value), n = t.next();
+          this.Pi();
+        }
+        Ri(e) {
+          const t = e[Symbol.iterator]();
+          let n = t.next();
+          for (; !n.done; ) this.Ii(n.value), n = t.next();
+          this.Ai();
+        }
+        /** Writes utf8 bytes into this byte sequence, ascending. */
+        Vi(e) {
+          for (const t of e) {
+            const e2 = t.charCodeAt(0);
+            if (e2 < 128) this.Ti(e2);
+            else if (e2 < 2048) this.Ti(960 | e2 >>> 6), this.Ti(128 | 63 & e2);
+            else if (t < "\uD800" || "\uDBFF" < t) this.Ti(480 | e2 >>> 12), this.Ti(128 | 63 & e2 >>> 6), this.Ti(128 | 63 & e2);
+            else {
+              const e3 = t.codePointAt(0);
+              this.Ti(240 | e3 >>> 18), this.Ti(128 | 63 & e3 >>> 12), this.Ti(128 | 63 & e3 >>> 6), this.Ti(128 | 63 & e3);
+            }
+          }
+          this.Pi();
+        }
+        /** Writes utf8 bytes into this byte sequence, descending */
+        di(e) {
+          for (const t of e) {
+            const e2 = t.charCodeAt(0);
+            if (e2 < 128) this.Ii(e2);
+            else if (e2 < 2048) this.Ii(960 | e2 >>> 6), this.Ii(128 | 63 & e2);
+            else if (t < "\uD800" || "\uDBFF" < t) this.Ii(480 | e2 >>> 12), this.Ii(128 | 63 & e2 >>> 6), this.Ii(128 | 63 & e2);
+            else {
+              const e3 = t.codePointAt(0);
+              this.Ii(240 | e3 >>> 18), this.Ii(128 | 63 & e3 >>> 12), this.Ii(128 | 63 & e3 >>> 6), this.Ii(128 | 63 & e3);
+            }
+          }
+          this.Ai();
+        }
+        fi(e) {
+          const t = this.mi(e), n = __PRIVATE_unsignedNumLength(t);
+          this.pi(1 + n), this.buffer[this.position++] = 255 & n;
+          for (let e2 = t.length - n; e2 < t.length; ++e2) this.buffer[this.position++] = 255 & t[e2];
+        }
+        gi(e) {
+          const t = this.mi(e), n = __PRIVATE_unsignedNumLength(t);
+          this.pi(1 + n), this.buffer[this.position++] = ~(255 & n);
+          for (let e2 = t.length - n; e2 < t.length; ++e2) this.buffer[this.position++] = ~(255 & t[e2]);
+        }
+        /**
+         * Writes the "infinity" byte sequence that sorts after all other byte
+         * sequences written in ascending order.
+         */
+        yi() {
+          this.wi(en), this.wi(255);
+        }
+        /**
+         * Writes the "infinity" byte sequence that sorts before all other byte
+         * sequences written in descending order.
+         */
+        bi() {
+          this.Si(en), this.Si(255);
+        }
+        /**
+         * Resets the buffer such that it is the same as when it was newly
+         * constructed.
+         */
+        reset() {
+          this.position = 0;
+        }
+        seed(e) {
+          this.pi(e.length), this.buffer.set(e, this.position), this.position += e.length;
+        }
+        /** Makes a copy of the encoded bytes in this buffer.  */
+        Di() {
+          return this.buffer.slice(0, this.position);
+        }
+        /**
+         * Encodes `val` into an encoding so that the order matches the IEEE 754
+         * floating-point comparison results with the following exceptions:
+         *   -0.0 < 0.0
+         *   all non-NaN < NaN
+         *   NaN = NaN
+         */
+        mi(e) {
+          const t = (
+            /** Converts a JavaScript number to a byte array (using big endian encoding). */
+            (function __PRIVATE_doubleToLongBits(e2) {
+              const t2 = new DataView(new ArrayBuffer(8));
+              return t2.setFloat64(
+                0,
+                e2,
+                /* littleEndian= */
+                false
+              ), new Uint8Array(t2.buffer);
+            })(e)
+          ), n = !!(128 & t[0]);
+          t[0] ^= n ? 255 : 128;
+          for (let e2 = 1; e2 < t.length; ++e2) t[e2] ^= n ? 255 : 0;
+          return t;
+        }
+        /** Writes a single byte ascending to the buffer. */
+        Ti(e) {
+          const t = 255 & e;
+          0 === t ? (this.wi(0), this.wi(255)) : t === en ? (this.wi(en), this.wi(0)) : this.wi(t);
+        }
+        /** Writes a single byte descending to the buffer.  */
+        Ii(e) {
+          const t = 255 & e;
+          0 === t ? (this.Si(0), this.Si(255)) : t === en ? (this.Si(en), this.Si(0)) : this.Si(e);
+        }
+        Pi() {
+          this.wi(0), this.wi(1);
+        }
+        Ai() {
+          this.Si(0), this.Si(1);
+        }
+        wi(e) {
+          this.pi(1), this.buffer[this.position++] = e;
+        }
+        Si(e) {
+          this.pi(1), this.buffer[this.position++] = ~e;
+        }
+        pi(e) {
+          const t = e + this.position;
+          if (t <= this.buffer.length) return;
+          let n = 2 * this.buffer.length;
+          n < t && (n = t);
+          const r = new Uint8Array(n);
+          r.set(this.buffer), // copy old data
+          this.buffer = r;
+        }
+      };
+      __PRIVATE_AscendingIndexByteEncoder = class {
+        constructor(e) {
+          this.xi = e;
+        }
+        si(e) {
+          this.xi.hi(e);
+        }
+        ni(e) {
+          this.xi.Vi(e);
+        }
+        ti(e) {
+          this.xi.fi(e);
+        }
+        Xr() {
+          this.xi.yi();
+        }
+      };
+      __PRIVATE_DescendingIndexByteEncoder = class {
+        constructor(e) {
+          this.xi = e;
+        }
+        si(e) {
+          this.xi.Ri(e);
+        }
+        ni(e) {
+          this.xi.di(e);
+        }
+        ti(e) {
+          this.xi.gi(e);
+        }
+        Xr() {
+          this.xi.bi();
+        }
+      };
+      __PRIVATE_IndexByteEncoder = class {
+        constructor() {
+          this.xi = new __PRIVATE_OrderedCodeWriter(), this.ascending = new __PRIVATE_AscendingIndexByteEncoder(this.xi), this.descending = new __PRIVATE_DescendingIndexByteEncoder(this.xi);
+        }
+        seed(e) {
+          this.xi.seed(e);
+        }
+        Ci(e) {
+          return 0 === e ? this.ascending : this.descending;
+        }
+        Di() {
+          return this.xi.Di();
+        }
+        reset() {
+          this.xi.reset();
+        }
+      };
+      __PRIVATE_IndexEntry = class ___PRIVATE_IndexEntry {
+        constructor(e, t, n, r) {
+          this.Fi = e, this.Oi = t, this.Mi = n, this.Ni = r;
+        }
+        /**
+         * Returns an IndexEntry entry that sorts immediately after the current
+         * directional value.
+         */
+        Li() {
+          const e = this.Ni.length, t = 0 === e || 255 === this.Ni[e - 1] ? e + 1 : e, n = new Uint8Array(t);
+          return n.set(this.Ni, 0), t !== e ? n.set([0], this.Ni.length) : ++n[n.length - 1], new ___PRIVATE_IndexEntry(this.Fi, this.Oi, this.Mi, n);
+        }
+        // Create a representation of the Index Entry as a DbIndexEntry
+        Bi(e, t, n) {
+          return {
+            indexId: this.Fi,
+            uid: e,
+            arrayValue: __PRIVATE_encodeKeySafeBytes(this.Mi),
+            directionalValue: __PRIVATE_encodeKeySafeBytes(this.Ni),
+            orderedDocumentKey: __PRIVATE_encodeKeySafeBytes(t),
+            documentKey: n.path.toArray()
+          };
+        }
+        // Create a representation of the Index Entry as a DbIndexEntryKey
+        Ui(e, t, n) {
+          const r = this.Bi(e, t, n);
+          return [r.indexId, r.uid, r.arrayValue, r.directionalValue, r.orderedDocumentKey, r.documentKey];
+        }
+      };
+      __PRIVATE_TargetIndexMatcher = class {
+        constructor(e) {
+          this.ki = new SortedSet(((e2, t) => FieldPath$1.comparator(e2.field, t.field))), this.collectionId = null != e.collectionGroup ? e.collectionGroup : e.path.lastSegment(), this.qi = e.orderBy, this.$i = [];
+          for (const t of e.filters) {
+            const e2 = t;
+            e2.isInequality() ? this.ki = this.ki.add(e2) : this.$i.push(e2);
+          }
+        }
+        get Ki() {
+          return this.ki.size > 1;
+        }
+        /**
+         * Returns whether the index can be used to serve the TargetIndexMatcher's
+         * target.
+         *
+         * An index is considered capable of serving the target when:
+         * - The target uses all index segments for its filters and orderBy clauses.
+         *   The target can have additional filter and orderBy clauses, but not
+         *   fewer.
+         * - If an ArrayContains/ArrayContainsAnyfilter is used, the index must also
+         *   have a corresponding `CONTAINS` segment.
+         * - All directional index segments can be mapped to the target as a series of
+         *   equality filters, a single inequality filter and a series of orderBy
+         *   clauses.
+         * - The segments that represent the equality filters may appear out of order.
+         * - The optional segment for the inequality filter must appear after all
+         *   equality segments.
+         * - The segments that represent that orderBy clause of the target must appear
+         *   in order after all equality and inequality segments. Single orderBy
+         *   clauses cannot be skipped, but a continuous orderBy suffix may be
+         *   omitted.
+         */
+        Wi(e) {
+          if (__PRIVATE_hardAssert(e.collectionGroup === this.collectionId, 49279), this.Ki)
+            return false;
+          const t = __PRIVATE_fieldIndexGetArraySegment(e);
+          if (void 0 !== t && !this.Qi(t)) return false;
+          const n = __PRIVATE_fieldIndexGetDirectionalSegments(e);
+          let r = /* @__PURE__ */ new Set(), i = 0, s = 0;
+          for (; i < n.length && this.Qi(n[i]); ++i) r = r.add(n[i].fieldPath.canonicalString());
+          if (i === n.length) return true;
+          if (this.ki.size > 0) {
+            const e2 = this.ki.getIterator().getNext();
+            if (!r.has(e2.field.canonicalString())) {
+              const t2 = n[i];
+              if (!this.Gi(e2, t2) || !this.zi(this.qi[s++], t2)) return false;
+            }
+            ++i;
+          }
+          for (; i < n.length; ++i) {
+            const e2 = n[i];
+            if (s >= this.qi.length || !this.zi(this.qi[s++], e2)) return false;
+          }
+          return true;
+        }
+        /**
+         * Returns a full matched field index for this target. Currently multiple
+         * inequality query is not supported so function returns null.
+         */
+        ji() {
+          if (this.Ki) return null;
+          let e = new SortedSet(FieldPath$1.comparator);
+          const t = [];
+          for (const n of this.$i) {
+            if (n.field.isKeyField()) continue;
+            if ("array-contains" === n.op || "array-contains-any" === n.op) t.push(new IndexSegment(
+              n.field,
+              2
+              /* IndexKind.CONTAINS */
+            ));
+            else {
+              if (e.has(n.field)) continue;
+              e = e.add(n.field), t.push(new IndexSegment(
+                n.field,
+                0
+                /* IndexKind.ASCENDING */
+              ));
+            }
+          }
+          for (const n of this.qi)
+            n.field.isKeyField() || e.has(n.field) || (e = e.add(n.field), t.push(new IndexSegment(
+              n.field,
+              "asc" === n.dir ? 0 : 1
+              /* IndexKind.DESCENDING */
+            )));
+          return new FieldIndex(FieldIndex.UNKNOWN_ID, this.collectionId, t, IndexState.empty());
+        }
+        Qi(e) {
+          for (const t of this.$i) if (this.Gi(t, e)) return true;
+          return false;
+        }
+        Gi(e, t) {
+          if (void 0 === e || !e.field.isEqual(t.fieldPath)) return false;
+          const n = "array-contains" === e.op || "array-contains-any" === e.op;
+          return 2 === t.kind === n;
+        }
+        zi(e, t) {
+          return !!e.field.isEqual(t.fieldPath) && (0 === t.kind && "asc" === e.dir || 1 === t.kind && "desc" === e.dir);
+        }
+      };
       __PRIVATE_MemoryIndexManager = class {
         constructor() {
           this.Hi = new __PRIVATE_MemoryCollectionParentIndex();
@@ -28053,7 +29734,710 @@ Total Duration: ${a - u}ms`);
           return (this.index[e] || new SortedSet(ResourcePath.comparator)).toArray();
         }
       };
+      tn = "IndexedDbIndexManager";
       nn = new Uint8Array(0);
+      __PRIVATE_IndexedDbIndexManager = class {
+        constructor(e, t) {
+          this.databaseId = t, /**
+           * An in-memory copy of the index entries we've already written since the SDK
+           * launched. Used to avoid re-writing the same entry repeatedly.
+           *
+           * This is *NOT* a complete cache of what's in persistence and so can never be
+           * used to satisfy reads.
+           */
+          this.Ji = new __PRIVATE_MemoryCollectionParentIndex(), /**
+           * Maps from a target to its equivalent list of sub-targets. Each sub-target
+           * contains only one term from the target's disjunctive normal form (DNF).
+           */
+          this.Yi = new ObjectMap(((e2) => __PRIVATE_canonifyTarget(e2)), ((e2, t2) => __PRIVATE_targetEquals(e2, t2))), this.uid = e.uid || "";
+        }
+        /**
+         * Adds a new entry to the collection parent index.
+         *
+         * Repeated calls for the same collectionPath should be avoided within a
+         * transaction as IndexedDbIndexManager only caches writes once a transaction
+         * has been committed.
+         */
+        addToCollectionParentIndex(e, t) {
+          if (!this.Ji.has(t)) {
+            const n = t.lastSegment(), r = t.popLast();
+            e.addOnCommittedListener((() => {
+              this.Ji.add(t);
+            }));
+            const i = {
+              collectionId: n,
+              parent: __PRIVATE_encodeResourcePath(r)
+            };
+            return __PRIVATE_collectionParentsStore(e).put(i);
+          }
+          return PersistencePromise.resolve();
+        }
+        getCollectionParents(e, t) {
+          const n = [], r = IDBKeyRange.bound(
+            [t, ""],
+            [__PRIVATE_immediateSuccessor(t), ""],
+            /*lowerOpen=*/
+            false,
+            /*upperOpen=*/
+            true
+          );
+          return __PRIVATE_collectionParentsStore(e).H(r).next(((e2) => {
+            for (const r2 of e2) {
+              if (r2.collectionId !== t) break;
+              n.push(__PRIVATE_decodeResourcePath(r2.parent));
+            }
+            return n;
+          }));
+        }
+        addFieldIndex(e, t) {
+          const n = __PRIVATE_indexConfigurationStore(e), r = (function __PRIVATE_toDbIndexConfiguration(e2) {
+            return {
+              indexId: e2.indexId,
+              collectionGroup: e2.collectionGroup,
+              fields: e2.fields.map(((e3) => [e3.fieldPath.canonicalString(), e3.kind]))
+            };
+          })(t);
+          delete r.indexId;
+          const i = n.add(r);
+          if (t.indexState) {
+            const n2 = __PRIVATE_indexStateStore(e);
+            return i.next(((e2) => {
+              n2.put(__PRIVATE_toDbIndexState(e2, this.uid, t.indexState.sequenceNumber, t.indexState.offset));
+            }));
+          }
+          return i.next();
+        }
+        deleteFieldIndex(e, t) {
+          const n = __PRIVATE_indexConfigurationStore(e), r = __PRIVATE_indexStateStore(e), i = __PRIVATE_indexEntriesStore(e);
+          return n.delete(t.indexId).next((() => r.delete(IDBKeyRange.bound(
+            [t.indexId],
+            [t.indexId + 1],
+            /*lowerOpen=*/
+            false,
+            /*upperOpen=*/
+            true
+          )))).next((() => i.delete(IDBKeyRange.bound(
+            [t.indexId],
+            [t.indexId + 1],
+            /*lowerOpen=*/
+            false,
+            /*upperOpen=*/
+            true
+          ))));
+        }
+        deleteAllFieldIndexes(e) {
+          const t = __PRIVATE_indexConfigurationStore(e), n = __PRIVATE_indexEntriesStore(e), r = __PRIVATE_indexStateStore(e);
+          return t.Z().next((() => n.Z())).next((() => r.Z()));
+        }
+        createTargetIndexes(e, t) {
+          return PersistencePromise.forEach(this.Zi(t), ((t2) => this.getIndexType(e, t2).next(((n) => {
+            if (0 === n || 1 === n) {
+              const n2 = new __PRIVATE_TargetIndexMatcher(t2).ji();
+              if (null != n2) return this.addFieldIndex(e, n2);
+            }
+          }))));
+        }
+        getDocumentsMatchingTarget(e, t) {
+          const n = __PRIVATE_indexEntriesStore(e);
+          let r = true;
+          const i = /* @__PURE__ */ new Map();
+          return PersistencePromise.forEach(this.Zi(t), ((t2) => this.Xi(e, t2).next(((e2) => {
+            r && (r = !!e2), i.set(t2, e2);
+          })))).next((() => {
+            if (r) {
+              let e2 = __PRIVATE_documentKeySet();
+              const r2 = [];
+              return PersistencePromise.forEach(i, ((i2, s) => {
+                __PRIVATE_logDebug(tn, `Using index ${(function __PRIVATE_fieldIndexToString(e3) {
+                  return `id=${e3.indexId}|cg=${e3.collectionGroup}|f=${e3.fields.map(((e4) => `${e4.fieldPath}:${e4.kind}`)).join(",")}`;
+                })(i2)} to execute ${__PRIVATE_canonifyTarget(t)}`);
+                const _ = (function __PRIVATE_targetGetArrayValues(e3, t2) {
+                  const n2 = __PRIVATE_fieldIndexGetArraySegment(t2);
+                  if (void 0 === n2) return null;
+                  for (const t3 of __PRIVATE_targetGetFieldFiltersForPath(e3, n2.fieldPath)) switch (t3.op) {
+                    case "array-contains-any":
+                      return t3.value.arrayValue.values || [];
+                    case "array-contains":
+                      return [t3.value];
+                  }
+                  return null;
+                })(s, i2), o = (function __PRIVATE_targetGetNotInValues(e3, t2) {
+                  const n2 = /* @__PURE__ */ new Map();
+                  for (const r3 of __PRIVATE_fieldIndexGetDirectionalSegments(t2)) for (const t3 of __PRIVATE_targetGetFieldFiltersForPath(e3, r3.fieldPath)) switch (t3.op) {
+                    case "==":
+                    case "in":
+                      n2.set(r3.fieldPath.canonicalString(), t3.value);
+                      break;
+                    case "not-in":
+                    case "!=":
+                      return n2.set(r3.fieldPath.canonicalString(), t3.value), Array.from(n2.values());
+                  }
+                  return null;
+                })(s, i2), a = (function __PRIVATE_targetGetLowerBound(e3, t2) {
+                  const n2 = [];
+                  let r3 = true;
+                  for (const i3 of __PRIVATE_fieldIndexGetDirectionalSegments(t2)) {
+                    const t3 = 0 === i3.kind ? __PRIVATE_targetGetAscendingBound(e3, i3.fieldPath, e3.startAt) : __PRIVATE_targetGetDescendingBound(e3, i3.fieldPath, e3.startAt);
+                    n2.push(t3.value), r3 && (r3 = t3.inclusive);
+                  }
+                  return new Bound(n2, r3);
+                })(s, i2), u = (function __PRIVATE_targetGetUpperBound(e3, t2) {
+                  const n2 = [];
+                  let r3 = true;
+                  for (const i3 of __PRIVATE_fieldIndexGetDirectionalSegments(t2)) {
+                    const t3 = 0 === i3.kind ? __PRIVATE_targetGetDescendingBound(e3, i3.fieldPath, e3.endAt) : __PRIVATE_targetGetAscendingBound(e3, i3.fieldPath, e3.endAt);
+                    n2.push(t3.value), r3 && (r3 = t3.inclusive);
+                  }
+                  return new Bound(n2, r3);
+                })(s, i2), c = this.es(i2, s, a), l = this.es(i2, s, u), E = this.ts(i2, s, o), h = this.ns(i2.indexId, _, c, a.inclusive, l, u.inclusive, E);
+                return PersistencePromise.forEach(h, ((i3) => n.Y(i3, t.limit).next(((t2) => {
+                  t2.forEach(((t3) => {
+                    const n2 = DocumentKey.fromSegments(t3.documentKey);
+                    e2.has(n2) || (e2 = e2.add(n2), r2.push(n2));
+                  }));
+                }))));
+              })).next((() => r2));
+            }
+            return PersistencePromise.resolve(null);
+          }));
+        }
+        Zi(e) {
+          let t = this.Yi.get(e);
+          if (t) return t;
+          if (0 === e.filters.length) t = [e];
+          else {
+            t = __PRIVATE_getDnfTerms(CompositeFilter.create(
+              e.filters,
+              "and"
+              /* CompositeOperator.AND */
+            )).map(((t2) => __PRIVATE_newTarget(e.path, e.collectionGroup, e.orderBy, t2.getFilters(), e.limit, e.startAt, e.endAt)));
+          }
+          return this.Yi.set(e, t), t;
+        }
+        /**
+         * Constructs a key range query on `DbIndexEntryStore` that unions all
+         * bounds.
+         */
+        ns(e, t, n, r, i, s, _) {
+          const o = (null != t ? t.length : 1) * Math.max(n.length, i.length), a = o / (null != t ? t.length : 1), u = [];
+          for (let c = 0; c < o; ++c) {
+            const o2 = t ? this.rs(t[c / a]) : nn, l = this.ss(e, o2, n[c % a], r), E = this._s(e, o2, i[c % a], s), h = _.map(((t2) => this.ss(
+              e,
+              o2,
+              t2,
+              /* inclusive= */
+              true
+            )));
+            u.push(...this.createRange(l, E, h));
+          }
+          return u;
+        }
+        /** Generates the lower bound for `arrayValue` and `directionalValue`. */
+        ss(e, t, n, r) {
+          const i = new __PRIVATE_IndexEntry(e, DocumentKey.empty(), t, n);
+          return r ? i : i.Li();
+        }
+        /** Generates the upper bound for `arrayValue` and `directionalValue`. */
+        _s(e, t, n, r) {
+          const i = new __PRIVATE_IndexEntry(e, DocumentKey.empty(), t, n);
+          return r ? i.Li() : i;
+        }
+        Xi(e, t) {
+          const n = new __PRIVATE_TargetIndexMatcher(t), r = null != t.collectionGroup ? t.collectionGroup : t.path.lastSegment();
+          return this.getFieldIndexes(e, r).next(((e2) => {
+            let t2 = null;
+            for (const r2 of e2) {
+              n.Wi(r2) && (!t2 || r2.fields.length > t2.fields.length) && (t2 = r2);
+            }
+            return t2;
+          }));
+        }
+        getIndexType(e, t) {
+          let n = 2;
+          const r = this.Zi(t);
+          return PersistencePromise.forEach(r, ((t2) => this.Xi(e, t2).next(((e2) => {
+            e2 ? 0 !== n && e2.fields.length < (function __PRIVATE_targetGetSegmentCount(e3) {
+              let t3 = new SortedSet(FieldPath$1.comparator), n2 = false;
+              for (const r2 of e3.filters) for (const e4 of r2.getFlattenedFilters())
+                e4.field.isKeyField() || // ARRAY_CONTAINS or ARRAY_CONTAINS_ANY filters must be counted separately.
+                // For instance, it is possible to have an index for "a ARRAY a ASC". Even
+                // though these are on the same field, they should be counted as two
+                // separate segments in an index.
+                ("array-contains" === e4.op || "array-contains-any" === e4.op ? n2 = true : t3 = t3.add(e4.field));
+              for (const n3 of e3.orderBy)
+                n3.field.isKeyField() || (t3 = t3.add(n3.field));
+              return t3.size + (n2 ? 1 : 0);
+            })(t2) && (n = 1) : n = 0;
+          })))).next((() => (
+            // OR queries have more than one sub-target (one sub-target per DNF term). We currently consider
+            // OR queries that have a `limit` to have a partial index. For such queries we perform sorting
+            // and apply the limit in memory as a post-processing step.
+            (function __PRIVATE_targetHasLimit(e2) {
+              return null !== e2.limit;
+            })(t) && r.length > 1 && 2 === n ? 1 : n
+          )));
+        }
+        /**
+         * Returns the byte encoded form of the directional values in the field index.
+         * Returns `null` if the document does not have all fields specified in the
+         * index.
+         */
+        us(e, t) {
+          const n = new __PRIVATE_IndexByteEncoder();
+          for (const r of __PRIVATE_fieldIndexGetDirectionalSegments(e)) {
+            const e2 = t.data.field(r.fieldPath);
+            if (null == e2) return null;
+            const i = n.Ci(r.kind);
+            __PRIVATE_FirestoreIndexValueWriter.Ei.Yr(e2, i);
+          }
+          return n.Di();
+        }
+        /** Encodes a single value to the ascending index format. */
+        rs(e) {
+          const t = new __PRIVATE_IndexByteEncoder();
+          return __PRIVATE_FirestoreIndexValueWriter.Ei.Yr(e, t.Ci(
+            0
+            /* IndexKind.ASCENDING */
+          )), t.Di();
+        }
+        /**
+         * Returns an encoded form of the document key that sorts based on the key
+         * ordering of the field index.
+         */
+        cs(e, t) {
+          const n = new __PRIVATE_IndexByteEncoder();
+          return __PRIVATE_FirestoreIndexValueWriter.Ei.Yr(__PRIVATE_refValue(this.databaseId, t), n.Ci((function __PRIVATE_fieldIndexGetKeyOrder(e2) {
+            const t2 = __PRIVATE_fieldIndexGetDirectionalSegments(e2);
+            return 0 === t2.length ? 0 : t2[t2.length - 1].kind;
+          })(e))), n.Di();
+        }
+        /**
+         * Encodes the given field values according to the specification in `target`.
+         * For IN queries, a list of possible values is returned.
+         */
+        ts(e, t, n) {
+          if (null === n) return [];
+          let r = [];
+          r.push(new __PRIVATE_IndexByteEncoder());
+          let i = 0;
+          for (const s of __PRIVATE_fieldIndexGetDirectionalSegments(e)) {
+            const e2 = n[i++];
+            for (const n2 of r) if (this.ls(t, s.fieldPath) && isArray(e2)) r = this.Es(r, s, e2);
+            else {
+              const t2 = n2.Ci(s.kind);
+              __PRIVATE_FirestoreIndexValueWriter.Ei.Yr(e2, t2);
+            }
+          }
+          return this.hs(r);
+        }
+        /**
+         * Encodes the given bounds according to the specification in `target`. For IN
+         * queries, a list of possible values is returned.
+         */
+        es(e, t, n) {
+          return this.ts(e, t, n.position);
+        }
+        /** Returns the byte representation for the provided encoders. */
+        hs(e) {
+          const t = [];
+          for (let n = 0; n < e.length; ++n) t[n] = e[n].Di();
+          return t;
+        }
+        /**
+         * Creates a separate encoder for each element of an array.
+         *
+         * The method appends each value to all existing encoders (e.g. filter("a",
+         * "==", "a1").filter("b", "in", ["b1", "b2"]) becomes ["a1,b1", "a1,b2"]). A
+         * list of new encoders is returned.
+         */
+        Es(e, t, n) {
+          const r = [...e], i = [];
+          for (const e2 of n.arrayValue.values || []) for (const n2 of r) {
+            const r2 = new __PRIVATE_IndexByteEncoder();
+            r2.seed(n2.Di()), __PRIVATE_FirestoreIndexValueWriter.Ei.Yr(e2, r2.Ci(t.kind)), i.push(r2);
+          }
+          return i;
+        }
+        ls(e, t) {
+          return !!e.filters.find(((e2) => e2 instanceof FieldFilter && e2.field.isEqual(t) && ("in" === e2.op || "not-in" === e2.op)));
+        }
+        getFieldIndexes(e, t) {
+          const n = __PRIVATE_indexConfigurationStore(e), r = __PRIVATE_indexStateStore(e);
+          return (t ? n.H(ve, IDBKeyRange.bound(t, t)) : n.H()).next(((e2) => {
+            const t2 = [];
+            return PersistencePromise.forEach(e2, ((e3) => r.get([e3.indexId, this.uid]).next(((n2) => {
+              t2.push((function __PRIVATE_fromDbIndexConfiguration(e4, t3) {
+                const n3 = t3 ? new IndexState(t3.sequenceNumber, new IndexOffset(__PRIVATE_fromDbTimestamp(t3.readTime), new DocumentKey(__PRIVATE_decodeResourcePath(t3.documentKey)), t3.largestBatchId)) : IndexState.empty(), r2 = e4.fields.map((([e5, t4]) => new IndexSegment(FieldPath$1.fromServerFormat(e5), t4)));
+                return new FieldIndex(e4.indexId, e4.collectionGroup, r2, n3);
+              })(e3, n2));
+            })))).next((() => t2));
+          }));
+        }
+        getNextCollectionGroupToUpdate(e) {
+          return this.getFieldIndexes(e).next(((e2) => 0 === e2.length ? null : (e2.sort(((e3, t) => {
+            const n = e3.indexState.sequenceNumber - t.indexState.sequenceNumber;
+            return 0 !== n ? n : __PRIVATE_primitiveComparator(e3.collectionGroup, t.collectionGroup);
+          })), e2[0].collectionGroup)));
+        }
+        updateCollectionGroup(e, t, n) {
+          const r = __PRIVATE_indexConfigurationStore(e), i = __PRIVATE_indexStateStore(e);
+          return this.Ts(e).next(((e2) => r.H(ve, IDBKeyRange.bound(t, t)).next(((t2) => PersistencePromise.forEach(t2, ((t3) => i.put(__PRIVATE_toDbIndexState(t3.indexId, this.uid, e2, n))))))));
+        }
+        updateIndexEntries(e, t) {
+          const n = /* @__PURE__ */ new Map();
+          return PersistencePromise.forEach(t, ((t2, r) => {
+            const i = n.get(t2.collectionGroup);
+            return (i ? PersistencePromise.resolve(i) : this.getFieldIndexes(e, t2.collectionGroup)).next(((i2) => (n.set(t2.collectionGroup, i2), PersistencePromise.forEach(i2, ((n2) => this.Ps(e, t2, n2).next(((t3) => {
+              const i3 = this.Rs(r, n2);
+              return t3.isEqual(i3) ? PersistencePromise.resolve() : this.Is(e, r, n2, t3, i3);
+            })))))));
+          }));
+        }
+        As(e, t, n, r) {
+          return __PRIVATE_indexEntriesStore(e).put(r.Bi(this.uid, this.cs(n, t.key), t.key));
+        }
+        Vs(e, t, n, r) {
+          return __PRIVATE_indexEntriesStore(e).delete(r.Ui(this.uid, this.cs(n, t.key), t.key));
+        }
+        Ps(e, t, n) {
+          const r = __PRIVATE_indexEntriesStore(e);
+          let i = new SortedSet(__PRIVATE_indexEntryComparator);
+          return r.ee({
+            index: Ne,
+            range: IDBKeyRange.only([n.indexId, this.uid, __PRIVATE_encodeKeySafeBytes(this.cs(n, t))])
+          }, ((e2, r2) => {
+            i = i.add(new __PRIVATE_IndexEntry(n.indexId, t, __PRIVATE_decodeKeySafeBytes(r2.arrayValue), __PRIVATE_decodeKeySafeBytes(r2.directionalValue)));
+          })).next((() => i));
+        }
+        /** Creates the index entries for the given document. */
+        Rs(e, t) {
+          let n = new SortedSet(__PRIVATE_indexEntryComparator);
+          const r = this.us(t, e);
+          if (null == r) return n;
+          const i = __PRIVATE_fieldIndexGetArraySegment(t);
+          if (null != i) {
+            const s = e.data.field(i.fieldPath);
+            if (isArray(s)) for (const i2 of s.arrayValue.values || []) n = n.add(new __PRIVATE_IndexEntry(t.indexId, e.key, this.rs(i2), r));
+          } else n = n.add(new __PRIVATE_IndexEntry(t.indexId, e.key, nn, r));
+          return n;
+        }
+        /**
+         * Updates the index entries for the provided document by deleting entries
+         * that are no longer referenced in `newEntries` and adding all newly added
+         * entries.
+         */
+        Is(e, t, n, r, i) {
+          __PRIVATE_logDebug(tn, "Updating index entries for document '%s'", t.key);
+          const s = [];
+          return (function __PRIVATE_diffSortedSets(e2, t2, n2, r2, i2) {
+            const s2 = e2.getIterator(), _ = t2.getIterator();
+            let o = __PRIVATE_advanceIterator(s2), a = __PRIVATE_advanceIterator(_);
+            for (; o || a; ) {
+              let e3 = false, t3 = false;
+              if (o && a) {
+                const r3 = n2(o, a);
+                r3 < 0 ? (
+                  // The element was removed if the next element in our ordered
+                  // walkthrough is only in `before`.
+                  t3 = true
+                ) : r3 > 0 && // The element was added if the next element in our ordered walkthrough
+                // is only in `after`.
+                (e3 = true);
+              } else null != o ? t3 = true : e3 = true;
+              e3 ? (r2(a), a = __PRIVATE_advanceIterator(_)) : t3 ? (i2(o), o = __PRIVATE_advanceIterator(s2)) : (o = __PRIVATE_advanceIterator(s2), a = __PRIVATE_advanceIterator(_));
+            }
+          })(
+            r,
+            i,
+            __PRIVATE_indexEntryComparator,
+            /* onAdd= */
+            ((r2) => {
+              s.push(this.As(e, t, n, r2));
+            }),
+            /* onRemove= */
+            ((r2) => {
+              s.push(this.Vs(e, t, n, r2));
+            })
+          ), PersistencePromise.waitFor(s);
+        }
+        Ts(e) {
+          let t = 1;
+          return __PRIVATE_indexStateStore(e).ee({
+            index: Ce,
+            reverse: true,
+            range: IDBKeyRange.upperBound([this.uid, Number.MAX_SAFE_INTEGER])
+          }, ((e2, n, r) => {
+            r.done(), t = n.sequenceNumber + 1;
+          })).next((() => t));
+        }
+        /**
+         * Returns a new set of IDB ranges that splits the existing range and excludes
+         * any values that match the `notInValue` from these ranges. As an example,
+         * '[foo > 2 && foo != 3]` becomes  `[foo > 2 && < 3, foo > 3]`.
+         */
+        createRange(e, t, n) {
+          n = n.sort(((e2, t2) => __PRIVATE_indexEntryComparator(e2, t2))).filter(((e2, t2, n2) => !t2 || 0 !== __PRIVATE_indexEntryComparator(e2, n2[t2 - 1])));
+          const r = [];
+          r.push(e);
+          for (const i2 of n) {
+            const n2 = __PRIVATE_indexEntryComparator(i2, e), s = __PRIVATE_indexEntryComparator(i2, t);
+            if (0 === n2)
+              r[0] = e.Li();
+            else if (n2 > 0 && s < 0)
+              r.push(i2), r.push(i2.Li());
+            else if (s > 0)
+              break;
+          }
+          r.push(t);
+          const i = [];
+          for (let e2 = 0; e2 < r.length; e2 += 2) {
+            if (this.ds(r[e2], r[e2 + 1])) return [];
+            const t2 = r[e2].Ui(this.uid, nn, DocumentKey.empty()), n2 = r[e2 + 1].Ui(this.uid, nn, DocumentKey.empty());
+            i.push(IDBKeyRange.bound(t2, n2));
+          }
+          return i;
+        }
+        ds(e, t) {
+          return __PRIVATE_indexEntryComparator(e, t) > 0;
+        }
+        getMinOffsetFromCollectionGroup(e, t) {
+          return this.getFieldIndexes(e, t).next(__PRIVATE_getMinOffsetFromFieldIndexes);
+        }
+        getMinOffset(e, t) {
+          return PersistencePromise.mapArray(this.Zi(t), ((t2) => this.Xi(e, t2).next(((e2) => e2 || fail(44426))))).next(__PRIVATE_getMinOffsetFromFieldIndexes);
+        }
+      };
+      __PRIVATE_IndexedDbMutationQueue = class ___PRIVATE_IndexedDbMutationQueue {
+        constructor(e, t, n, r) {
+          this.userId = e, this.serializer = t, this.indexManager = n, this.referenceDelegate = r, /**
+           * Caches the document keys for pending mutation batches. If the mutation
+           * has been removed from IndexedDb, the cached value may continue to
+           * be used to retrieve the batch's document keys. To remove a cached value
+           * locally, `removeCachedMutationKeys()` should be invoked either directly
+           * or through `removeMutationBatches()`.
+           *
+           * With multi-tab, when the primary client acknowledges or rejects a mutation,
+           * this cache is used by secondary clients to invalidate the local
+           * view of the documents that were previously affected by the mutation.
+           */
+          // PORTING NOTE: Multi-tab only.
+          this.fs = {};
+        }
+        /**
+         * Creates a new mutation queue for the given user.
+         * @param user - The user for which to create a mutation queue.
+         * @param serializer - The serializer to use when persisting to IndexedDb.
+         */
+        static jr(e, t, n, r) {
+          __PRIVATE_hardAssert("" !== e.uid, 64387);
+          const i = e.isAuthenticated() ? e.uid : "";
+          return new ___PRIVATE_IndexedDbMutationQueue(i, t, n, r);
+        }
+        checkEmpty(e) {
+          let t = true;
+          const n = IDBKeyRange.bound([this.userId, Number.NEGATIVE_INFINITY], [this.userId, Number.POSITIVE_INFINITY]);
+          return __PRIVATE_mutationsStore(e).ee({
+            index: Y,
+            range: n
+          }, ((e2, n2, r) => {
+            t = false, r.done();
+          })).next((() => t));
+        }
+        addMutationBatch(e, t, n, r) {
+          const i = __PRIVATE_documentMutationsStore(e), s = __PRIVATE_mutationsStore(e);
+          return s.add({}).next(((_) => {
+            __PRIVATE_hardAssert("number" == typeof _, 49019);
+            const o = new MutationBatch(_, t, n, r), a = (function __PRIVATE_toDbMutationBatch(e2, t2, n2) {
+              const r2 = n2.baseMutations.map(((t3) => toMutation(e2.zr, t3))), i2 = n2.mutations.map(((t3) => toMutation(e2.zr, t3)));
+              return {
+                userId: t2,
+                batchId: n2.batchId,
+                localWriteTimeMs: n2.localWriteTime.toMillis(),
+                baseMutations: r2,
+                mutations: i2
+              };
+            })(this.serializer, this.userId, o), u = [];
+            let c = new SortedSet(((e2, t2) => __PRIVATE_primitiveComparator(e2.canonicalString(), t2.canonicalString())));
+            for (const e2 of r) {
+              const t2 = __PRIVATE_newDbDocumentMutationKey(this.userId, e2.key.path, _);
+              c = c.add(e2.key.path.popLast()), u.push(s.put(a)), u.push(i.put(t2, X));
+            }
+            return c.forEach(((t2) => {
+              u.push(this.indexManager.addToCollectionParentIndex(e, t2));
+            })), e.addOnCommittedListener((() => {
+              this.fs[_] = o.keys();
+            })), PersistencePromise.waitFor(u).next((() => o));
+          }));
+        }
+        lookupMutationBatch(e, t) {
+          return __PRIVATE_mutationsStore(e).get(t).next(((e2) => e2 ? (__PRIVATE_hardAssert(e2.userId === this.userId, 48, "Unexpected user for mutation batch", {
+            userId: e2.userId,
+            batchId: t
+          }), __PRIVATE_fromDbMutationBatch(this.serializer, e2)) : null));
+        }
+        /**
+         * Returns the document keys for the mutation batch with the given batchId.
+         * For primary clients, this method returns `null` after
+         * `removeMutationBatches()` has been called. Secondary clients return a
+         * cached result until `removeCachedMutationKeys()` is invoked.
+         */
+        // PORTING NOTE: Multi-tab only.
+        ps(e, t) {
+          return this.fs[t] ? PersistencePromise.resolve(this.fs[t]) : this.lookupMutationBatch(e, t).next(((e2) => {
+            if (e2) {
+              const n = e2.keys();
+              return this.fs[t] = n, n;
+            }
+            return null;
+          }));
+        }
+        getNextMutationBatchAfterBatchId(e, t) {
+          const n = t + 1, r = IDBKeyRange.lowerBound([this.userId, n]);
+          let i = null;
+          return __PRIVATE_mutationsStore(e).ee({
+            index: Y,
+            range: r
+          }, ((e2, t2, r2) => {
+            t2.userId === this.userId && (__PRIVATE_hardAssert(t2.batchId >= n, 47524, {
+              gs: n
+            }), i = __PRIVATE_fromDbMutationBatch(this.serializer, t2)), r2.done();
+          })).next((() => i));
+        }
+        getHighestUnacknowledgedBatchId(e) {
+          const t = IDBKeyRange.upperBound([this.userId, Number.POSITIVE_INFINITY]);
+          let n = $;
+          return __PRIVATE_mutationsStore(e).ee({
+            index: Y,
+            range: t,
+            reverse: true
+          }, ((e2, t2, r) => {
+            n = t2.batchId, r.done();
+          })).next((() => n));
+        }
+        getAllMutationBatches(e) {
+          const t = IDBKeyRange.bound([this.userId, $], [this.userId, Number.POSITIVE_INFINITY]);
+          return __PRIVATE_mutationsStore(e).H(Y, t).next(((e2) => e2.map(((e3) => __PRIVATE_fromDbMutationBatch(this.serializer, e3)))));
+        }
+        getAllMutationBatchesAffectingDocumentKey(e, t) {
+          const n = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, t.path), r = IDBKeyRange.lowerBound(n), i = [];
+          return __PRIVATE_documentMutationsStore(e).ee({
+            range: r
+          }, ((n2, r2, s) => {
+            const [_, o, a] = n2, u = __PRIVATE_decodeResourcePath(o);
+            if (_ === this.userId && t.path.isEqual(u))
+              return __PRIVATE_mutationsStore(e).get(a).next(((e2) => {
+                if (!e2) throw fail(61480, {
+                  ys: n2,
+                  batchId: a
+                });
+                __PRIVATE_hardAssert(e2.userId === this.userId, 10503, "Unexpected user for mutation batch", {
+                  userId: e2.userId,
+                  batchId: a
+                }), i.push(__PRIVATE_fromDbMutationBatch(this.serializer, e2));
+              }));
+            s.done();
+          })).next((() => i));
+        }
+        getAllMutationBatchesAffectingDocumentKeys(e, t) {
+          let n = new SortedSet(__PRIVATE_primitiveComparator);
+          const r = [];
+          return t.forEach(((t2) => {
+            const i = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, t2.path), s = IDBKeyRange.lowerBound(i), _ = __PRIVATE_documentMutationsStore(e).ee({
+              range: s
+            }, ((e2, r2, i2) => {
+              const [s2, _2, o] = e2, a = __PRIVATE_decodeResourcePath(_2);
+              s2 === this.userId && t2.path.isEqual(a) ? n = n.add(o) : i2.done();
+            }));
+            r.push(_);
+          })), PersistencePromise.waitFor(r).next((() => this.ws(e, n)));
+        }
+        getAllMutationBatchesAffectingQuery(e, t) {
+          const n = t.path, r = n.length + 1, i = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, n), s = IDBKeyRange.lowerBound(i);
+          let _ = new SortedSet(__PRIVATE_primitiveComparator);
+          return __PRIVATE_documentMutationsStore(e).ee({
+            range: s
+          }, ((e2, t2, i2) => {
+            const [s2, o, a] = e2, u = __PRIVATE_decodeResourcePath(o);
+            s2 === this.userId && n.isPrefixOf(u) ? (
+              // Rows with document keys more than one segment longer than the
+              // query path can't be matches. For example, a query on 'rooms'
+              // can't match the document /rooms/abc/messages/xyx.
+              // TODO(mcg): we'll need a different scanner when we implement
+              // ancestor queries.
+              u.length === r && (_ = _.add(a))
+            ) : i2.done();
+          })).next((() => this.ws(e, _)));
+        }
+        ws(e, t) {
+          const n = [], r = [];
+          return t.forEach(((t2) => {
+            r.push(__PRIVATE_mutationsStore(e).get(t2).next(((e2) => {
+              if (null === e2) throw fail(35274, {
+                batchId: t2
+              });
+              __PRIVATE_hardAssert(e2.userId === this.userId, 9748, "Unexpected user for mutation batch", {
+                userId: e2.userId,
+                batchId: t2
+              }), n.push(__PRIVATE_fromDbMutationBatch(this.serializer, e2));
+            })));
+          })), PersistencePromise.waitFor(r).next((() => n));
+        }
+        removeMutationBatch(e, t) {
+          return removeMutationBatch(e.le, this.userId, t).next(((n) => (e.addOnCommittedListener((() => {
+            this.bs(t.batchId);
+          })), PersistencePromise.forEach(n, ((t2) => this.referenceDelegate.markPotentiallyOrphaned(e, t2))))));
+        }
+        /**
+         * Clears the cached keys for a mutation batch. This method should be
+         * called by secondary clients after they process mutation updates.
+         *
+         * Note that this method does not have to be called from primary clients as
+         * the corresponding cache entries are cleared when an acknowledged or
+         * rejected batch is removed from the mutation queue.
+         */
+        // PORTING NOTE: Multi-tab only
+        bs(e) {
+          delete this.fs[e];
+        }
+        performConsistencyCheck(e) {
+          return this.checkEmpty(e).next(((t) => {
+            if (!t) return PersistencePromise.resolve();
+            const n = IDBKeyRange.lowerBound(
+              /**
+              * Creates a [userId] key for use in the DbDocumentMutations index to iterate
+              * over all of a user's document mutations.
+              */
+              /* @__PURE__ */ (function __PRIVATE_newDbDocumentMutationPrefixForUser(e2) {
+                return [e2];
+              })(this.userId)
+            ), r = [];
+            return __PRIVATE_documentMutationsStore(e).ee({
+              range: n
+            }, ((e2, t2, n2) => {
+              if (e2[0] === this.userId) {
+                const t3 = __PRIVATE_decodeResourcePath(e2[1]);
+                r.push(t3);
+              } else n2.done();
+            })).next((() => {
+              __PRIVATE_hardAssert(0 === r.length, 56720, {
+                vs: r.map(((e2) => e2.canonicalString()))
+              });
+            }));
+          }));
+        }
+        containsKey(e, t) {
+          return __PRIVATE_mutationQueueContainsKey(e, this.userId, t);
+        }
+        // PORTING NOTE: Multi-tab only (state is held in memory in other clients).
+        /** Returns the mutation queue's metadata from IndexedDb. */
+        Ss(e) {
+          return __PRIVATE_mutationQueuesStore(e).get(this.userId).next(((e2) => e2 || {
+            userId: this.userId,
+            lastAcknowledgedBatchId: $,
+            lastStreamToken: ""
+          }));
+        }
+      };
       __PRIVATE_TargetIdGenerator = class ___PRIVATE_TargetIdGenerator {
         constructor(e) {
           this.Ds = e;
@@ -28066,6 +30450,269 @@ Total Duration: ${a - u}ms`);
         }
         static Cs() {
           return new ___PRIVATE_TargetIdGenerator(-1);
+        }
+      };
+      __PRIVATE_IndexedDbTargetCache = class {
+        constructor(e, t) {
+          this.referenceDelegate = e, this.serializer = t;
+        }
+        // PORTING NOTE: We don't cache global metadata for the target cache, since
+        // some of it (in particular `highestTargetId`) can be modified by secondary
+        // tabs. We could perhaps be more granular (and e.g. still cache
+        // `lastRemoteSnapshotVersion` in memory) but for simplicity we currently go
+        // to IndexedDb whenever we need to read metadata. We can revisit if it turns
+        // out to have a meaningful performance impact.
+        allocateTargetId(e) {
+          return this.Fs(e).next(((t) => {
+            const n = new __PRIVATE_TargetIdGenerator(t.highestTargetId);
+            return t.highestTargetId = n.next(), this.Os(e, t).next((() => t.highestTargetId));
+          }));
+        }
+        getLastRemoteSnapshotVersion(e) {
+          return this.Fs(e).next(((e2) => SnapshotVersion.fromTimestamp(new Timestamp(e2.lastRemoteSnapshotVersion.seconds, e2.lastRemoteSnapshotVersion.nanoseconds))));
+        }
+        getHighestSequenceNumber(e) {
+          return this.Fs(e).next(((e2) => e2.highestListenSequenceNumber));
+        }
+        setTargetsMetadata(e, t, n) {
+          return this.Fs(e).next(((r) => (r.highestListenSequenceNumber = t, n && (r.lastRemoteSnapshotVersion = n.toTimestamp()), t > r.highestListenSequenceNumber && (r.highestListenSequenceNumber = t), this.Os(e, r))));
+        }
+        addTargetData(e, t) {
+          return this.Ms(e, t).next((() => this.Fs(e).next(((n) => (n.targetCount += 1, this.Ns(t, n), this.Os(e, n))))));
+        }
+        updateTargetData(e, t) {
+          return this.Ms(e, t);
+        }
+        removeTargetData(e, t) {
+          return this.removeMatchingKeysForTargetId(e, t.targetId).next((() => __PRIVATE_targetsStore(e).delete(t.targetId))).next((() => this.Fs(e))).next(((t2) => (__PRIVATE_hardAssert(t2.targetCount > 0, 8065), t2.targetCount -= 1, this.Os(e, t2))));
+        }
+        /**
+         * Drops any targets with sequence number less than or equal to the upper bound, excepting those
+         * present in `activeTargetIds`. Document associations for the removed targets are also removed.
+         * Returns the number of targets removed.
+         */
+        removeTargets(e, t, n) {
+          let r = 0;
+          const i = [];
+          return __PRIVATE_targetsStore(e).ee(((s, _) => {
+            const o = __PRIVATE_fromDbTarget(this.serializer, _);
+            o.sequenceNumber <= t && null === n.get(o.targetId) && (r++, i.push(this.removeTargetData(e, o)));
+          })).next((() => PersistencePromise.waitFor(i))).next((() => r));
+        }
+        /**
+         * Call provided function with each `TargetData` that we have cached.
+         */
+        forEachTarget(e, t) {
+          return __PRIVATE_targetsStore(e).ee(((e2, n) => {
+            const r = __PRIVATE_fromDbTarget(this.serializer, n);
+            t(r);
+          }));
+        }
+        Fs(e) {
+          return __PRIVATE_globalTargetStore(e).get(Re).next(((e2) => (__PRIVATE_hardAssert(null !== e2, 2888), e2)));
+        }
+        Os(e, t) {
+          return __PRIVATE_globalTargetStore(e).put(Re, t);
+        }
+        Ms(e, t) {
+          return __PRIVATE_targetsStore(e).put(__PRIVATE_toDbTarget(this.serializer, t));
+        }
+        /**
+         * In-place updates the provided metadata to account for values in the given
+         * TargetData. Saving is done separately. Returns true if there were any
+         * changes to the metadata.
+         */
+        Ns(e, t) {
+          let n = false;
+          return e.targetId > t.highestTargetId && (t.highestTargetId = e.targetId, n = true), e.sequenceNumber > t.highestListenSequenceNumber && (t.highestListenSequenceNumber = e.sequenceNumber, n = true), n;
+        }
+        getTargetCount(e) {
+          return this.Fs(e).next(((e2) => e2.targetCount));
+        }
+        getTargetData(e, t) {
+          const n = __PRIVATE_canonifyTargetOrPipeline(t), r = IDBKeyRange.bound([n, Number.NEGATIVE_INFINITY], [n, Number.POSITIVE_INFINITY]);
+          let i = null;
+          return __PRIVATE_targetsStore(e).ee({
+            range: r,
+            index: ce
+          }, ((e2, n2, r2) => {
+            const s = __PRIVATE_fromDbTarget(this.serializer, n2);
+            __PRIVATE_targetOrPipelineEqual(t, s.target) && (i = s, r2.done());
+          })).next((() => i));
+        }
+        addMatchingKeys(e, t, n) {
+          const r = [], i = __PRIVATE_documentTargetStore(e);
+          return t.forEach(((t2) => {
+            const s = __PRIVATE_encodeResourcePath(t2.path);
+            r.push(i.put({
+              targetId: n,
+              path: s
+            })), r.push(this.referenceDelegate.addReference(e, n, t2));
+          })), PersistencePromise.waitFor(r);
+        }
+        removeMatchingKeys(e, t, n) {
+          const r = __PRIVATE_documentTargetStore(e);
+          return PersistencePromise.forEach(t, ((t2) => {
+            const i = __PRIVATE_encodeResourcePath(t2.path);
+            return PersistencePromise.waitFor([r.delete([n, i]), this.referenceDelegate.removeReference(e, n, t2)]);
+          }));
+        }
+        removeMatchingKeysForTargetId(e, t) {
+          const n = __PRIVATE_documentTargetStore(e), r = IDBKeyRange.bound(
+            [t],
+            [t + 1],
+            /*lowerOpen=*/
+            false,
+            /*upperOpen=*/
+            true
+          );
+          return n.delete(r);
+        }
+        getMatchingKeysForTargetId(e, t) {
+          const n = IDBKeyRange.bound(
+            [t],
+            [t + 1],
+            /*lowerOpen=*/
+            false,
+            /*upperOpen=*/
+            true
+          ), r = __PRIVATE_documentTargetStore(e);
+          let i = __PRIVATE_documentKeySet();
+          return r.ee({
+            range: n,
+            X: true
+          }, ((e2, t2, n2) => {
+            const r2 = __PRIVATE_decodeResourcePath(e2[1]), s = new DocumentKey(r2);
+            i = i.add(s);
+          })).next((() => i));
+        }
+        containsKey(e, t) {
+          const n = __PRIVATE_encodeResourcePath(t.path), r = IDBKeyRange.bound(
+            [n],
+            [__PRIVATE_immediateSuccessor(n)],
+            /*lowerOpen=*/
+            false,
+            /*upperOpen=*/
+            true
+          );
+          let i = 0;
+          return __PRIVATE_documentTargetStore(e).ee({
+            index: Te,
+            X: true,
+            range: r
+          }, (([e2, t2], n2, r2) => {
+            0 !== e2 && (i++, r2.done());
+          })).next((() => i > 0));
+        }
+        /**
+         * Looks up a TargetData entry by target ID.
+         *
+         * @param targetId - The target ID of the TargetData entry to look up.
+         * @returns The cached TargetData entry, or null if the cache has no entry for
+         * the target.
+         */
+        // PORTING NOTE: Multi-tab only.
+        dt(e, t) {
+          return __PRIVATE_targetsStore(e).get(t).next(((e2) => e2 ? __PRIVATE_fromDbTarget(this.serializer, e2) : null));
+        }
+      };
+      __PRIVATE_IndexedDbLruDelegateImpl = class {
+        constructor(e, t) {
+          this.db = e, this.garbageCollector = __PRIVATE_newLruGarbageCollector(this, t);
+        }
+        lr(e) {
+          const t = this.Ls(e);
+          return this.db.getTargetCache().getTargetCount(e).next(((e2) => t.next(((t2) => e2 + t2))));
+        }
+        Ls(e) {
+          let t = 0;
+          return this.Er(e, ((e2) => {
+            t++;
+          })).next((() => t));
+        }
+        forEachTarget(e, t) {
+          return this.db.getTargetCache().forEachTarget(e, t);
+        }
+        Er(e, t) {
+          return this.Bs(e, ((e2, n) => t(n)));
+        }
+        addReference(e, t, n) {
+          return __PRIVATE_writeSentinelKey(e, n);
+        }
+        removeReference(e, t, n) {
+          return __PRIVATE_writeSentinelKey(e, n);
+        }
+        removeTargets(e, t, n) {
+          return this.db.getTargetCache().removeTargets(e, t, n);
+        }
+        markPotentiallyOrphaned(e, t) {
+          return __PRIVATE_writeSentinelKey(e, t);
+        }
+        /**
+         * Returns true if anything would prevent this document from being garbage
+         * collected, given that the document in question is not present in any
+         * targets and has a sequence number less than or equal to the upper bound for
+         * the collection run.
+         */
+        Us(e, t) {
+          return (function __PRIVATE_mutationQueuesContainKey(e2, t2) {
+            let n = false;
+            return __PRIVATE_mutationQueuesStore(e2).te(((r) => __PRIVATE_mutationQueueContainsKey(e2, r, t2).next(((e3) => (e3 && (n = true), PersistencePromise.resolve(!e3)))))).next((() => n));
+          })(e, t);
+        }
+        removeOrphanedDocuments(e, t) {
+          const n = this.db.getRemoteDocumentCache().newChangeBuffer(), r = [];
+          let i = 0;
+          return this.Bs(e, ((s, _) => {
+            if (_ <= t) {
+              const t2 = this.Us(e, s).next(((t3) => {
+                if (!t3)
+                  return i++, n.getEntry(e, s).next((() => (n.removeEntry(s, SnapshotVersion.min()), __PRIVATE_documentTargetStore(e).delete((function __PRIVATE_sentinelKey$1(e2) {
+                    return [0, __PRIVATE_encodeResourcePath(e2.path)];
+                  })(s)))));
+              }));
+              r.push(t2);
+            }
+          })).next((() => PersistencePromise.waitFor(r))).next((() => n.apply(e))).next((() => i));
+        }
+        removeTarget(e, t) {
+          const n = t.withSequenceNumber(e.currentSequenceNumber);
+          return this.db.getTargetCache().updateTargetData(e, n);
+        }
+        updateLimboDocument(e, t) {
+          return __PRIVATE_writeSentinelKey(e, t);
+        }
+        /**
+         * Call provided function for each document in the cache that is 'orphaned'. Orphaned
+         * means not a part of any target, so the only entry in the target-document index for
+         * that document will be the sentinel row (targetId 0), which will also have the sequence
+         * number for the last time the document was accessed.
+         */
+        Bs(e, t) {
+          const n = __PRIVATE_documentTargetStore(e);
+          let r, i = __PRIVATE_ListenSequence.ce;
+          return n.ee({
+            index: Te
+          }, (([e2, n2], { path: s, sequenceNumber: _ }) => {
+            0 === e2 ? (
+              // if nextToReport is valid, report it, this is a new key so the
+              // last one must not be a member of any targets.
+              (i !== __PRIVATE_ListenSequence.ce && t(new DocumentKey(__PRIVATE_decodeResourcePath(r)), i), // set nextToReport to be this sequence number. It's the next one we
+              // might report, if we don't find any targets for this document.
+              // Note that the sequence number must be defined when the targetId
+              // is 0.
+              i = _, r = s)
+            ) : (
+              // set nextToReport to be invalid, we know we don't need to report
+              // this one since we found a target for it.
+              i = __PRIVATE_ListenSequence.ce
+            );
+          })).next((() => {
+            i !== __PRIVATE_ListenSequence.ce && t(new DocumentKey(__PRIVATE_decodeResourcePath(r)), i);
+          }));
+        }
+        getCacheSize(e) {
+          return this.db.getRemoteDocumentCache().getSize(e);
         }
       };
       RemoteDocumentChangeBuffer = class {
@@ -28128,6 +30775,234 @@ Total Duration: ${a - u}ms`);
         }
         /** Helper to assert this.changes is not null  */
         assertNotApplied() {
+        }
+      };
+      __PRIVATE_IndexedDbRemoteDocumentCacheImpl = class {
+        constructor(e) {
+          this.serializer = e;
+        }
+        setIndexManager(e) {
+          this.indexManager = e;
+        }
+        /**
+         * Adds the supplied entries to the cache.
+         *
+         * All calls of `addEntry` are required to go through the RemoteDocumentChangeBuffer
+         * returned by `newChangeBuffer()` to ensure proper accounting of metadata.
+         */
+        addEntry(e, t, n) {
+          return __PRIVATE_remoteDocumentsStore(e).put(n);
+        }
+        /**
+         * Removes a document from the cache.
+         *
+         * All calls of `removeEntry`  are required to go through the RemoteDocumentChangeBuffer
+         * returned by `newChangeBuffer()` to ensure proper accounting of metadata.
+         */
+        removeEntry(e, t, n) {
+          return __PRIVATE_remoteDocumentsStore(e).delete(
+            /**
+            * Returns a key that can be used for document lookups via the primary key of
+            * the DbRemoteDocument object store.
+            */
+            (function __PRIVATE_dbReadTimeKey(e2, t2) {
+              const n2 = e2.path.toArray();
+              return [
+                /* prefix path */
+                n2.slice(0, n2.length - 2),
+                /* collection id */
+                n2[n2.length - 2],
+                __PRIVATE_toDbTimestampKey(t2),
+                /* document id */
+                n2[n2.length - 1]
+              ];
+            })(t, n)
+          );
+        }
+        /**
+         * Updates the current cache size.
+         *
+         * Callers to `addEntry()` and `removeEntry()` *must* call this afterwards to update the
+         * cache's metadata.
+         */
+        updateMetadata(e, t) {
+          return this.getMetadata(e).next(((n) => (n.byteSize += t, this.qs(e, n))));
+        }
+        getEntry(e, t) {
+          let n = MutableDocument.newInvalidDocument(t);
+          return __PRIVATE_remoteDocumentsStore(e).ee({
+            index: re,
+            range: IDBKeyRange.only(__PRIVATE_dbKey(t))
+          }, ((e2, r) => {
+            n = this.$s(t, r);
+          })).next((() => n));
+        }
+        /**
+         * Looks up an entry in the cache.
+         *
+         * @param documentKey - The key of the entry to look up.
+         * @returns The cached document entry and its size.
+         */
+        Ks(e, t) {
+          let n = {
+            size: 0,
+            document: MutableDocument.newInvalidDocument(t)
+          };
+          return __PRIVATE_remoteDocumentsStore(e).ee({
+            index: re,
+            range: IDBKeyRange.only(__PRIVATE_dbKey(t))
+          }, ((e2, r) => {
+            n = {
+              document: this.$s(t, r),
+              size: __PRIVATE_dbDocumentSize(r)
+            };
+          })).next((() => n));
+        }
+        getEntries(e, t) {
+          let n = __PRIVATE_mutableDocumentMap();
+          return this.Ws(e, t, ((e2, t2) => {
+            const r = this.$s(e2, t2);
+            n = n.insert(e2, r);
+          })).next((() => n));
+        }
+        getAllEntries(e) {
+          let t = __PRIVATE_mutableDocumentMap();
+          return __PRIVATE_remoteDocumentsStore(e).ee(((e2, n) => {
+            const r = this.$s(DocumentKey.fromSegments(n.prefixPath.concat(n.collectionGroup, n.documentId)), n);
+            t = t.insert(r.key, r);
+          })).next((() => t));
+        }
+        /**
+         * Looks up several entries in the cache.
+         *
+         * @param documentKeys - The set of keys entries to look up.
+         * @returns A map of documents indexed by key and a map of sizes indexed by
+         *     key (zero if the document does not exist).
+         */
+        Qs(e, t) {
+          let n = __PRIVATE_mutableDocumentMap(), r = new SortedMap(DocumentKey.comparator);
+          return this.Ws(e, t, ((e2, t2) => {
+            const i = this.$s(e2, t2);
+            n = n.insert(e2, i), r = r.insert(e2, __PRIVATE_dbDocumentSize(t2));
+          })).next((() => ({
+            documents: n,
+            Gs: r
+          })));
+        }
+        Ws(e, t, n) {
+          if (t.isEmpty()) return PersistencePromise.resolve();
+          let r = new SortedSet(__PRIVATE_dbKeyComparator);
+          t.forEach(((e2) => r = r.add(e2)));
+          const i = IDBKeyRange.bound(__PRIVATE_dbKey(r.first()), __PRIVATE_dbKey(r.last())), s = r.getIterator();
+          let _ = s.getNext();
+          return __PRIVATE_remoteDocumentsStore(e).ee({
+            index: re,
+            range: i
+          }, ((e2, t2, r2) => {
+            const i2 = DocumentKey.fromSegments([...t2.prefixPath, t2.collectionGroup, t2.documentId]);
+            for (; _ && __PRIVATE_dbKeyComparator(_, i2) < 0; ) n(_, null), _ = s.getNext();
+            _ && _.isEqual(i2) && // Key found in cache.
+            (n(_, t2), _ = s.hasNext() ? s.getNext() : null), // Skip to the next key (if there is one).
+            _ ? r2.j(__PRIVATE_dbKey(_)) : r2.done();
+          })).next((() => {
+            for (; _; ) n(_, null), _ = s.hasNext() ? s.getNext() : null;
+          }));
+        }
+        getDocumentsMatchingQuery(e, t, n, r, i) {
+          const s = __PRIVATE_isPipeline(t) ? ResourcePath.fromString(getPipelineCollection(t)) : t.path, _ = [s.popLast().toArray(), s.lastSegment(), __PRIVATE_toDbTimestampKey(n.readTime), n.documentKey.path.isEmpty() ? "" : n.documentKey.path.lastSegment()], o = [s.popLast().toArray(), s.lastSegment(), [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER], ""];
+          return __PRIVATE_remoteDocumentsStore(e).H(IDBKeyRange.bound(_, o, true)).next(((e2) => {
+            i?.incrementDocumentReadCount(e2.length);
+            let n2 = __PRIVATE_mutableDocumentMap();
+            for (const i2 of e2) {
+              const e3 = this.$s(DocumentKey.fromSegments(i2.prefixPath.concat(i2.collectionGroup, i2.documentId)), i2);
+              e3.isFoundDocument() && (__PRIVATE_queryOrPipelineMatches(t, e3) || r.has(e3.key)) && // Either the document matches the given query, or it is mutated.
+              (n2 = n2.insert(e3.key, e3));
+            }
+            return n2;
+          }));
+        }
+        getAllFromCollectionGroup(e, t, n, r) {
+          let i = __PRIVATE_mutableDocumentMap();
+          const s = __PRIVATE_dbCollectionGroupKey(t, n), _ = __PRIVATE_dbCollectionGroupKey(t, IndexOffset.max());
+          return __PRIVATE_remoteDocumentsStore(e).ee({
+            index: se,
+            range: IDBKeyRange.bound(s, _, true)
+          }, ((e2, t2, n2) => {
+            const s2 = this.$s(DocumentKey.fromSegments(t2.prefixPath.concat(t2.collectionGroup, t2.documentId)), t2);
+            i = i.insert(s2.key, s2), i.size === r && n2.done();
+          })).next((() => i));
+        }
+        newChangeBuffer(e) {
+          return new __PRIVATE_IndexedDbRemoteDocumentChangeBuffer(this, !!e && e.trackRemovals);
+        }
+        getSize(e) {
+          return this.getMetadata(e).next(((e2) => e2.byteSize));
+        }
+        getMetadata(e) {
+          return __PRIVATE_documentGlobalStore(e).get(ae).next(((e2) => (__PRIVATE_hardAssert(!!e2, 20021), e2)));
+        }
+        qs(e, t) {
+          return __PRIVATE_documentGlobalStore(e).put(ae, t);
+        }
+        /**
+         * Decodes `dbRemoteDoc` and returns the document (or an invalid document if
+         * the document corresponds to the format used for sentinel deletes).
+         */
+        $s(e, t) {
+          if (t) {
+            const e2 = __PRIVATE_fromDbRemoteDocument(this.serializer, t);
+            if (!(e2.isNoDocument() && e2.version.isEqual(SnapshotVersion.min()))) return e2;
+          }
+          return MutableDocument.newInvalidDocument(e);
+        }
+      };
+      __PRIVATE_IndexedDbRemoteDocumentChangeBuffer = class extends RemoteDocumentChangeBuffer {
+        /**
+         * @param documentCache - The IndexedDbRemoteDocumentCache to apply the changes to.
+         * @param trackRemovals - Whether to create sentinel deletes that can be tracked by
+         * `getNewDocumentChanges()`.
+         */
+        constructor(e, t) {
+          super(), this.zs = e, this.trackRemovals = t, // A map of document sizes and read times prior to applying the changes in
+          // this buffer.
+          this.js = new ObjectMap(((e2) => e2.toString()), ((e2, t2) => e2.isEqual(t2)));
+        }
+        applyChanges(e) {
+          const t = [];
+          let n = 0, r = new SortedSet(((e2, t2) => __PRIVATE_primitiveComparator(e2.canonicalString(), t2.canonicalString())));
+          return this.changes.forEach(((i, s) => {
+            const _ = this.js.get(i);
+            if (t.push(this.zs.removeEntry(e, i, _.readTime)), s.isValidDocument()) {
+              const o = __PRIVATE_toDbRemoteDocument(this.zs.serializer, s);
+              r = r.add(i.path.popLast());
+              const a = __PRIVATE_dbDocumentSize(o);
+              n += a - _.size, t.push(this.zs.addEntry(e, i, o));
+            } else if (n -= _.size, this.trackRemovals) {
+              const n2 = __PRIVATE_toDbRemoteDocument(this.zs.serializer, s.convertToNoDocument(SnapshotVersion.min()));
+              t.push(this.zs.addEntry(e, i, n2));
+            }
+          })), r.forEach(((n2) => {
+            t.push(this.zs.indexManager.addToCollectionParentIndex(e, n2));
+          })), t.push(this.zs.updateMetadata(e, n)), PersistencePromise.waitFor(t);
+        }
+        getFromCache(e, t) {
+          return this.zs.Ks(e, t).next(((e2) => (this.js.set(t, {
+            size: e2.size,
+            readTime: e2.document.readTime
+          }), e2.document)));
+        }
+        getAllFromCache(e, t) {
+          return this.zs.Qs(e, t).next((({ documents: e2, Gs: t2 }) => (
+            // Note: `getAllFromCache` returns two maps instead of a single map from
+            // keys to `DocumentSizeEntry`s. This is to allow returning the
+            // `MutableDocumentMap` directly, without a conversion.
+            (t2.forEach(((t3, n) => {
+              this.js.set(t3, {
+                size: n,
+                readTime: e2.get(t3).readTime
+              });
+            })), e2)
+          )));
         }
       };
       OverlayedDocument = class {
@@ -29065,6 +31940,584 @@ Total Duration: ${a - u}ms`);
         }
         getCacheSize(e) {
           return this.persistence.getRemoteDocumentCache().getSize(e);
+        }
+      };
+      __PRIVATE_SchemaConverter = class {
+        constructor(e) {
+          this.serializer = e;
+        }
+        /**
+         * Performs database creation and schema upgrades.
+         *
+         * Note that in production, this method is only ever used to upgrade the schema
+         * to SCHEMA_VERSION. Different values of toVersion are only used for testing
+         * and local feature development.
+         */
+        U(e, t, n, r) {
+          const i = new __PRIVATE_SimpleDbTransaction("createOrUpgrade", t);
+          n < 1 && r >= 1 && (!(function __PRIVATE_createPrimaryClientStore(e2) {
+            e2.createObjectStore(Q);
+          })(e), (function __PRIVATE_createMutationQueue(e2) {
+            e2.createObjectStore(z, {
+              keyPath: j
+            });
+            const t2 = e2.createObjectStore(H, {
+              keyPath: J,
+              autoIncrement: true
+            });
+            t2.createIndex(Y, Z, {
+              unique: true
+            }), e2.createObjectStore(ee);
+          })(e), __PRIVATE_createQueryCache(e), (function __PRIVATE_createLegacyRemoteDocumentCache(e2) {
+            e2.createObjectStore(W);
+          })(e));
+          let s = PersistencePromise.resolve();
+          return n < 3 && r >= 3 && // Brand new clients don't need to drop and recreate--only clients that
+          // potentially have corrupt data.
+          (0 !== n && (!(function __PRIVATE_dropQueryCache(e2) {
+            e2.deleteObjectStore(Ee), e2.deleteObjectStore(ue), e2.deleteObjectStore(Ie);
+          })(e), __PRIVATE_createQueryCache(e)), s = s.next((() => (
+            /**
+            * Creates the target global singleton row.
+            *
+            * @param txn - The version upgrade transaction for indexeddb
+            */
+            (function __PRIVATE_writeEmptyTargetGlobalEntry(e2) {
+              const t2 = e2.store(Ie), n2 = {
+                highestTargetId: 0,
+                highestListenSequenceNumber: 0,
+                lastRemoteSnapshotVersion: SnapshotVersion.min().toTimestamp(),
+                targetCount: 0
+              };
+              return t2.put(Re, n2);
+            })(i)
+          )))), n < 4 && r >= 4 && (0 !== n && // Schema version 3 uses auto-generated keys to generate globally unique
+          // mutation batch IDs (this was previously ensured internally by the
+          // client). To migrate to the new schema, we have to read all mutations
+          // and write them back out. We preserve the existing batch IDs to guarantee
+          // consistency with other object stores. Any further mutation batch IDs will
+          // be auto-generated.
+          (s = s.next((() => (function __PRIVATE_upgradeMutationBatchSchemaAndMigrateData(e2, t2) {
+            const n2 = t2.store(H);
+            return n2.H().next(((n3) => {
+              e2.deleteObjectStore(H);
+              e2.createObjectStore(H, {
+                keyPath: J,
+                autoIncrement: true
+              }).createIndex(Y, Z, {
+                unique: true
+              });
+              const r2 = t2.store(H), i2 = n3.map(((e3) => r2.put(e3)));
+              return PersistencePromise.waitFor(i2);
+            }));
+          })(e, i)))), s = s.next((() => {
+            !(function __PRIVATE_createClientMetadataStore(e2) {
+              e2.createObjectStore(de, {
+                keyPath: fe
+              });
+            })(e);
+          }))), n < 5 && r >= 5 && (s = s.next((() => this.N_(i)))), n < 6 && r >= 6 && (s = s.next((() => ((function __PRIVATE_createDocumentGlobalStore(e2) {
+            e2.createObjectStore(oe);
+          })(e), this.L_(i))))), n < 7 && r >= 7 && (s = s.next((() => this.B_(i)))), n < 8 && r >= 8 && (s = s.next((() => this.U_(e, i)))), n < 9 && r >= 9 && (s = s.next((() => {
+            !(function __PRIVATE_dropRemoteDocumentChangesStore(e2) {
+              e2.objectStoreNames.contains("remoteDocumentChanges") && e2.deleteObjectStore("remoteDocumentChanges");
+            })(e);
+          }))), n < 10 && r >= 10 && (s = s.next((() => this.k_(i)))), n < 11 && r >= 11 && (s = s.next((() => {
+            !(function __PRIVATE_createBundlesStore(e2) {
+              e2.createObjectStore(me, {
+                keyPath: pe
+              });
+            })(e), (function __PRIVATE_createNamedQueriesStore(e2) {
+              e2.createObjectStore(ge, {
+                keyPath: ye
+              });
+            })(e);
+          }))), n < 12 && r >= 12 && (s = s.next((() => {
+            !(function __PRIVATE_createDocumentOverlayStore(e2) {
+              const t2 = e2.createObjectStore(Be, {
+                keyPath: Ue
+              });
+              t2.createIndex(ke, qe, {
+                unique: false
+              }), t2.createIndex($e, Ke, {
+                unique: false
+              });
+            })(e);
+          }))), n < 13 && r >= 13 && (s = s.next((() => (function __PRIVATE_createRemoteDocumentCache(e2) {
+            const t2 = e2.createObjectStore(te, {
+              keyPath: ne
+            });
+            t2.createIndex(re, ie), t2.createIndex(se, _e);
+          })(e))).next((() => this.q_(e, i))).next((() => e.deleteObjectStore(W)))), n < 14 && r >= 14 && (s = s.next((() => this.K_(e, i)))), n < 15 && r >= 15 && (s = s.next((() => (function __PRIVATE_createFieldIndex(e2) {
+            const t2 = e2.createObjectStore(we, {
+              keyPath: be,
+              autoIncrement: true
+            });
+            t2.createIndex(ve, Se, {
+              unique: false
+            });
+            const n2 = e2.createObjectStore(De, {
+              keyPath: xe
+            });
+            n2.createIndex(Ce, Fe, {
+              unique: false
+            });
+            const r2 = e2.createObjectStore(Oe, {
+              keyPath: Me
+            });
+            r2.createIndex(Ne, Le, {
+              unique: false
+            });
+          })(e)))), n < 16 && r >= 16 && // Clear the object stores to remove possibly corrupted index entries
+          (s = s.next((() => {
+            t.objectStore(De).clear();
+          })).next((() => {
+            t.objectStore(Oe).clear();
+          }))), n < 17 && r >= 17 && (s = s.next((() => {
+            !(function __PRIVATE_createGlobalsStore(e2) {
+              e2.createObjectStore(We, {
+                keyPath: Qe
+              });
+            })(e);
+          }))), n < 18 && r >= 18 && isSafariOrWebkit() && (s = s.next((() => {
+            t.objectStore(De).clear();
+          })).next((() => {
+            t.objectStore(Oe).clear();
+          }))), s;
+        }
+        L_(e) {
+          let t = 0;
+          return e.store(W).ee(((e2, n) => {
+            t += __PRIVATE_dbDocumentSize(n);
+          })).next((() => {
+            const n = {
+              byteSize: t
+            };
+            return e.store(oe).put(ae, n);
+          }));
+        }
+        N_(e) {
+          const t = e.store(z), n = e.store(H);
+          return t.H().next(((t2) => PersistencePromise.forEach(t2, ((t3) => {
+            const r = IDBKeyRange.bound([t3.userId, $], [t3.userId, t3.lastAcknowledgedBatchId]);
+            return n.H(Y, r).next(((n2) => PersistencePromise.forEach(n2, ((n3) => {
+              __PRIVATE_hardAssert(n3.userId === t3.userId, 18650, "Cannot process batch from unexpected user", {
+                batchId: n3.batchId
+              });
+              const r2 = __PRIVATE_fromDbMutationBatch(this.serializer, n3);
+              return removeMutationBatch(e, t3.userId, r2).next((() => {
+              }));
+            }))));
+          }))));
+        }
+        /**
+         * Ensures that every document in the remote document cache has a corresponding sentinel row
+         * with a sequence number. Missing rows are given the most recently used sequence number.
+         */
+        B_(e) {
+          const t = e.store(Ee), n = e.store(W);
+          return e.store(Ie).get(Re).next(((e2) => {
+            const r = [];
+            return n.ee(((n2, i) => {
+              const s = new ResourcePath(n2), _ = (function __PRIVATE_sentinelKey(e3) {
+                return [0, __PRIVATE_encodeResourcePath(e3)];
+              })(s);
+              r.push(t.get(_).next(((n3) => n3 ? PersistencePromise.resolve() : ((n4) => t.put({
+                targetId: 0,
+                path: __PRIVATE_encodeResourcePath(n4),
+                sequenceNumber: e2.highestListenSequenceNumber
+              }))(s))));
+            })).next((() => PersistencePromise.waitFor(r)));
+          }));
+        }
+        U_(e, t) {
+          e.createObjectStore(Ae, {
+            keyPath: Ve
+          });
+          const n = t.store(Ae), r = new __PRIVATE_MemoryCollectionParentIndex(), addEntry = (e2) => {
+            if (r.add(e2)) {
+              const t2 = e2.lastSegment(), r2 = e2.popLast();
+              return n.put({
+                collectionId: t2,
+                parent: __PRIVATE_encodeResourcePath(r2)
+              });
+            }
+          };
+          return t.store(W).ee({
+            X: true
+          }, ((e2, t2) => {
+            const n2 = new ResourcePath(e2);
+            return addEntry(n2.popLast());
+          })).next((() => t.store(ee).ee({
+            X: true
+          }, (([e2, t2, n2], r2) => {
+            const i = __PRIVATE_decodeResourcePath(t2);
+            return addEntry(i.popLast());
+          }))));
+        }
+        k_(e) {
+          const t = e.store(ue);
+          return t.ee(((e2, n) => {
+            const r = __PRIVATE_fromDbTarget(this.serializer, n), i = __PRIVATE_toDbTarget(this.serializer, r);
+            return t.put(i);
+          }));
+        }
+        q_(e, t) {
+          const n = t.store(W), r = [];
+          return n.ee(((e2, n2) => {
+            const i = t.store(te), s = (function __PRIVATE_extractKey(e3) {
+              return e3.document ? new DocumentKey(ResourcePath.fromString(e3.document.name).popFirst(5)) : e3.noDocument ? DocumentKey.fromSegments(e3.noDocument.path) : e3.unknownDocument ? DocumentKey.fromSegments(e3.unknownDocument.path) : fail(36783);
+            })(n2).path.toArray(), _ = {
+              prefixPath: s.slice(0, s.length - 2),
+              collectionGroup: s[s.length - 2],
+              documentId: s[s.length - 1],
+              readTime: n2.readTime || [0, 0],
+              unknownDocument: n2.unknownDocument,
+              noDocument: n2.noDocument,
+              document: n2.document,
+              hasCommittedMutations: !!n2.hasCommittedMutations
+            };
+            r.push(i.put(_));
+          })).next((() => PersistencePromise.waitFor(r)));
+        }
+        K_(e, t) {
+          const n = t.store(H), r = __PRIVATE_newIndexedDbRemoteDocumentCache(this.serializer), i = new __PRIVATE_MemoryPersistence(__PRIVATE_MemoryEagerDelegate.C_, this.serializer.zr);
+          return n.H().next(((e2) => {
+            const n2 = /* @__PURE__ */ new Map();
+            return e2.forEach(((e3) => {
+              let t2 = n2.get(e3.userId) ?? __PRIVATE_documentKeySet();
+              __PRIVATE_fromDbMutationBatch(this.serializer, e3).keys().forEach(((e4) => t2 = t2.add(e4))), n2.set(e3.userId, t2);
+            })), PersistencePromise.forEach(n2, ((e3, n3) => {
+              const s = new User(n3), _ = __PRIVATE_IndexedDbDocumentOverlayCache.jr(this.serializer, s), o = i.getIndexManager(s), a = __PRIVATE_IndexedDbMutationQueue.jr(s, this.serializer, o, i.referenceDelegate);
+              return new LocalDocumentsView(r, a, _, o).recalculateAndSaveOverlaysForDocumentKeys(new __PRIVATE_IndexedDbTransaction(t, __PRIVATE_ListenSequence.ce), e3).next();
+            }));
+          }));
+        }
+      };
+      rn = "IndexedDbPersistence";
+      sn = 18e5;
+      _n = 5e3;
+      on = "Failed to obtain exclusive access to the persistence layer. To allow shared access, multi-tab synchronization has to be enabled in all tabs. If you are using `experimentalForceOwningTab:true`, make sure that only one tab has persistence enabled at any given time.";
+      an = "main";
+      __PRIVATE_IndexedDbPersistence = class ___PRIVATE_IndexedDbPersistence {
+        constructor(e, t, n, r, i, s, _, o, a, u, c = 18) {
+          if (this.allowTabSynchronization = e, this.persistenceKey = t, this.clientId = n, this.Tn = i, this.window = s, this.document = _, this.W_ = a, this.Q_ = u, this.G_ = c, this.f_ = null, this.m_ = false, this.isPrimary = false, this.networkEnabled = true, /** Our window.unload handler, if registered. */
+          this.z_ = null, this.inForeground = false, /** Our 'visibilitychange' listener if registered. */
+          this.j_ = null, /** The client metadata refresh task. */
+          this.H_ = null, /** The last time we garbage collected the client metadata object store. */
+          this.J_ = Number.NEGATIVE_INFINITY, /** A listener to notify on primary state changes. */
+          this.Y_ = (e2) => Promise.resolve(), !___PRIVATE_IndexedDbPersistence.C()) throw new FirestoreError(D.UNIMPLEMENTED, "This platform is either missing IndexedDB or is known to have an incomplete implementation. Offline persistence has been disabled.");
+          this.referenceDelegate = new __PRIVATE_IndexedDbLruDelegateImpl(this, r), this.Z_ = t + an, this.serializer = new __PRIVATE_LocalSerializer(o), this.X_ = new __PRIVATE_SimpleDb(this.Z_, this.G_, new __PRIVATE_SchemaConverter(this.serializer)), this.p_ = new __PRIVATE_IndexedDbGlobalsCache(), this.g_ = new __PRIVATE_IndexedDbTargetCache(this.referenceDelegate, this.serializer), this.remoteDocumentCache = __PRIVATE_newIndexedDbRemoteDocumentCache(this.serializer), this.w_ = new __PRIVATE_IndexedDbBundleCache(), this.window && this.window.localStorage ? this.eo = this.window.localStorage : (this.eo = null, false === u && __PRIVATE_logError(rn, "LocalStorage is unavailable. As a result, persistence may not work reliably. In particular enablePersistence() could fail immediately after refreshing the page."));
+        }
+        /**
+         * Attempt to start IndexedDb persistence.
+         *
+         * @returns Whether persistence was enabled.
+         */
+        start() {
+          return this.no().then((() => {
+            if (!this.isPrimary && !this.allowTabSynchronization)
+              throw new FirestoreError(D.FAILED_PRECONDITION, on);
+            return this.ro(), this.io(), this.so(), this.runTransaction("getHighestListenSequenceNumber", "readonly", ((e) => this.g_.getHighestSequenceNumber(e)));
+          })).then(((e) => {
+            this.f_ = new __PRIVATE_ListenSequence(e, this.W_);
+          })).then((() => {
+            this.m_ = true;
+          })).catch(((e) => (this.X_ && this.X_.close(), Promise.reject(e))));
+        }
+        /**
+         * Registers a listener that gets called when the primary state of the
+         * instance changes. Upon registering, this listener is invoked immediately
+         * with the current primary state.
+         *
+         * PORTING NOTE: This is only used for Web multi-tab.
+         */
+        _o(e) {
+          return this.Y_ = async (t) => {
+            if (this.started) return e(t);
+          }, e(this.isPrimary);
+        }
+        /**
+         * Registers a listener that gets called when the database receives a
+         * version change event indicating that it has deleted.
+         *
+         * PORTING NOTE: This is only used for Web multi-tab.
+         */
+        setDatabaseDeletedListener(e) {
+          this.X_.q((async (t) => {
+            null === t.newVersion && await e();
+          }));
+        }
+        /**
+         * Adjusts the current network state in the client's metadata, potentially
+         * affecting the primary lease.
+         *
+         * PORTING NOTE: This is only used for Web multi-tab.
+         */
+        setNetworkEnabled(e) {
+          this.networkEnabled !== e && (this.networkEnabled = e, // Schedule a primary lease refresh for immediate execution. The eventual
+          // lease update will be propagated via `primaryStateListener`.
+          this.Tn.enqueueAndForget((async () => {
+            this.started && await this.no();
+          })));
+        }
+        /**
+         * Updates the client metadata in IndexedDb and attempts to either obtain or
+         * extend the primary lease for the local client. Asynchronously notifies the
+         * primary state listener if the client either newly obtained or released its
+         * primary lease.
+         */
+        no() {
+          return this.runTransaction("updateClientMetadataAndTryBecomePrimary", "readwrite", ((e) => __PRIVATE_clientMetadataStore(e).put({
+            clientId: this.clientId,
+            updateTimeMs: Date.now(),
+            networkEnabled: this.networkEnabled,
+            inForeground: this.inForeground
+          }).next((() => {
+            if (this.isPrimary) return this.oo(e).next(((e2) => {
+              e2 || (this.isPrimary = false, this.Tn.enqueueRetryable((() => this.Y_(false))));
+            }));
+          })).next((() => this.ao(e))).next(((t) => this.isPrimary && !t ? this.uo(e).next((() => false)) : !!t && this.co(e).next((() => true)))))).catch(((e) => {
+            if (__PRIVATE_isIndexedDbTransactionError(e))
+              return __PRIVATE_logDebug(rn, "Failed to extend owner lease: ", e), this.isPrimary;
+            if (!this.allowTabSynchronization) throw e;
+            return __PRIVATE_logDebug(rn, "Releasing owner lease after error during lease refresh", e), /* isPrimary= */
+            false;
+          })).then(((e) => {
+            this.isPrimary !== e && this.Tn.enqueueRetryable((() => this.Y_(e))), this.isPrimary = e;
+          }));
+        }
+        oo(e) {
+          return __PRIVATE_primaryClientStore(e).get(G).next(((e2) => PersistencePromise.resolve(this.lo(e2))));
+        }
+        Eo(e) {
+          return __PRIVATE_clientMetadataStore(e).delete(this.clientId);
+        }
+        /**
+         * If the garbage collection threshold has passed, prunes the
+         * RemoteDocumentChanges and the ClientMetadata store based on the last update
+         * time of all clients.
+         */
+        async ho() {
+          if (this.isPrimary && !this.To(this.J_, sn)) {
+            this.J_ = Date.now();
+            const e = await this.runTransaction("maybeGarbageCollectMultiClientState", "readwrite-primary", ((e2) => {
+              const t = __PRIVATE_getStore(e2, de);
+              return t.H().next(((e3) => {
+                const n = this.Po(e3, sn), r = e3.filter(((e4) => -1 === n.indexOf(e4)));
+                return PersistencePromise.forEach(r, ((e4) => t.delete(e4.clientId))).next((() => r));
+              }));
+            })).catch((() => []));
+            if (this.eo) for (const t of e) this.eo.removeItem(this.Ro(t.clientId));
+          }
+        }
+        /**
+         * Schedules a recurring timer to update the client metadata and to either
+         * extend or acquire the primary lease if the client is eligible.
+         */
+        so() {
+          this.H_ = this.Tn.enqueueAfterDelay("client_metadata_refresh", 4e3, (() => this.no().then((() => this.ho())).then((() => this.so()))));
+        }
+        /** Checks whether `client` is the local client. */
+        lo(e) {
+          return !!e && e.ownerId === this.clientId;
+        }
+        /**
+         * Evaluate the state of all active clients and determine whether the local
+         * client is or can act as the holder of the primary lease. Returns whether
+         * the client is eligible for the lease, but does not actually acquire it.
+         * May return 'false' even if there is no active leaseholder and another
+         * (foreground) client should become leaseholder instead.
+         */
+        ao(e) {
+          if (this.Q_) return PersistencePromise.resolve(true);
+          return __PRIVATE_primaryClientStore(e).get(G).next(((t) => {
+            if (null !== t && this.To(t.leaseTimestampMs, _n) && !this.Io(t.ownerId)) {
+              if (this.lo(t) && this.networkEnabled) return true;
+              if (!this.lo(t)) {
+                if (!t.allowTabSynchronization)
+                  throw new FirestoreError(D.FAILED_PRECONDITION, on);
+                return false;
+              }
+            }
+            return !(!this.networkEnabled || !this.inForeground) || __PRIVATE_clientMetadataStore(e).H().next(((e2) => void 0 === this.Po(e2, _n).find(((e3) => {
+              if (this.clientId !== e3.clientId) {
+                const t2 = !this.networkEnabled && e3.networkEnabled, n = !this.inForeground && e3.inForeground, r = this.networkEnabled === e3.networkEnabled;
+                if (t2 || n && r) return true;
+              }
+              return false;
+            }))));
+          })).next(((e2) => (this.isPrimary !== e2 && __PRIVATE_logDebug(rn, `Client ${e2 ? "is" : "is not"} eligible for a primary lease.`), e2)));
+        }
+        async shutdown() {
+          this.m_ = false, this.Ao(), this.H_ && (this.H_.cancel(), this.H_ = null), this.Vo(), this.fo(), // Use `SimpleDb.runTransaction` directly to avoid failing if another tab
+          // has obtained the primary lease.
+          await this.X_.runTransaction("shutdown", "readwrite", [Q, de], ((e) => {
+            const t = new __PRIVATE_IndexedDbTransaction(e, __PRIVATE_ListenSequence.ce);
+            return this.uo(t).next((() => this.Eo(t)));
+          })), this.X_.close(), // Remove the entry marking the client as zombied from LocalStorage since
+          // we successfully deleted its metadata from IndexedDb.
+          this.mo();
+        }
+        /**
+         * Returns clients that are not zombied and have an updateTime within the
+         * provided threshold.
+         */
+        Po(e, t) {
+          return e.filter(((e2) => this.To(e2.updateTimeMs, t) && !this.Io(e2.clientId)));
+        }
+        /**
+         * Returns the IDs of the clients that are currently active. If multi-tab
+         * is not supported, returns an array that only contains the local client's
+         * ID.
+         *
+         * PORTING NOTE: This is only used for Web multi-tab.
+         */
+        po() {
+          return this.runTransaction("getActiveClients", "readonly", ((e) => __PRIVATE_clientMetadataStore(e).H().next(((e2) => this.Po(e2, sn).map(((e3) => e3.clientId))))));
+        }
+        get started() {
+          return this.m_;
+        }
+        getGlobalsCache() {
+          return this.p_;
+        }
+        getMutationQueue(e, t) {
+          return __PRIVATE_IndexedDbMutationQueue.jr(e, this.serializer, t, this.referenceDelegate);
+        }
+        getTargetCache() {
+          return this.g_;
+        }
+        getRemoteDocumentCache() {
+          return this.remoteDocumentCache;
+        }
+        getIndexManager(e) {
+          return new __PRIVATE_IndexedDbIndexManager(e, this.serializer.zr.databaseId);
+        }
+        getDocumentOverlayCache(e) {
+          return __PRIVATE_IndexedDbDocumentOverlayCache.jr(this.serializer, e);
+        }
+        getBundleCache() {
+          return this.w_;
+        }
+        runTransaction(e, t, n) {
+          __PRIVATE_logDebug(rn, "Starting transaction:", e);
+          const r = "readonly" === t ? "readonly" : "readwrite", i = (
+            /** Returns the object stores for the provided schema. */
+            (function __PRIVATE_getObjectStores(e2) {
+              return 18 === e2 ? Xe : 17 === e2 ? Ze : 16 === e2 ? Ye : 15 === e2 ? Je : 14 === e2 ? He : 13 === e2 ? je : 12 === e2 ? ze : 11 === e2 ? Ge : void fail(60245);
+            })(this.G_)
+          );
+          let s;
+          return this.X_.runTransaction(e, r, i, ((r2) => (s = new __PRIVATE_IndexedDbTransaction(r2, this.f_ ? this.f_.next() : __PRIVATE_ListenSequence.ce), "readwrite-primary" === t ? this.oo(s).next(((e2) => !!e2 || this.ao(s))).next(((t2) => {
+            if (!t2) throw __PRIVATE_logError(`Failed to obtain primary lease for action '${e}'.`), this.isPrimary = false, this.Tn.enqueueRetryable((() => this.Y_(false))), new FirestoreError(D.FAILED_PRECONDITION, B);
+            return n(s);
+          })).next(((e2) => this.co(s).next((() => e2)))) : this.yo(s).next((() => n(s)))))).then(((e2) => (s.raiseOnCommittedEvent(), e2)));
+        }
+        /**
+         * Verifies that the current tab is the primary leaseholder or alternatively
+         * that the leaseholder has opted into multi-tab synchronization.
+         */
+        // TODO(b/114226234): Remove this check when `synchronizeTabs` can no longer
+        // be turned off.
+        yo(e) {
+          return __PRIVATE_primaryClientStore(e).get(G).next(((e2) => {
+            if (null !== e2 && this.To(e2.leaseTimestampMs, _n) && !this.Io(e2.ownerId) && !this.lo(e2) && !(this.Q_ || this.allowTabSynchronization && e2.allowTabSynchronization)) throw new FirestoreError(D.FAILED_PRECONDITION, on);
+          }));
+        }
+        /**
+         * Obtains or extends the new primary lease for the local client. This
+         * method does not verify that the client is eligible for this lease.
+         */
+        co(e) {
+          const t = {
+            ownerId: this.clientId,
+            allowTabSynchronization: this.allowTabSynchronization,
+            leaseTimestampMs: Date.now()
+          };
+          return __PRIVATE_primaryClientStore(e).put(G, t);
+        }
+        static C() {
+          return __PRIVATE_SimpleDb.C();
+        }
+        /** Checks the primary lease and removes it if we are the current primary. */
+        uo(e) {
+          const t = __PRIVATE_primaryClientStore(e);
+          return t.get(G).next(((e2) => this.lo(e2) ? (__PRIVATE_logDebug(rn, "Releasing primary lease."), t.delete(G)) : PersistencePromise.resolve()));
+        }
+        /** Verifies that `updateTimeMs` is within `maxAgeMs`. */
+        To(e, t) {
+          const n = Date.now();
+          return !(e < n - t) && (!(e > n) || (__PRIVATE_logError(`Detected an update time that is in the future: ${e} > ${n}`), false));
+        }
+        ro() {
+          null !== this.document && "function" == typeof this.document.addEventListener && (this.j_ = () => {
+            this.Tn.enqueueAndForget((() => (this.inForeground = "visible" === this.document.visibilityState, this.no())));
+          }, this.document.addEventListener("visibilitychange", this.j_), this.inForeground = "visible" === this.document.visibilityState);
+        }
+        Vo() {
+          this.j_ && (this.document.removeEventListener("visibilitychange", this.j_), this.j_ = null);
+        }
+        /**
+         * Attaches a window.unload handler that will synchronously write our
+         * clientId to a "zombie client id" location in LocalStorage. This can be used
+         * by tabs trying to acquire the primary lease to determine that the lease
+         * is no longer valid even if the timestamp is recent. This is particularly
+         * important for the refresh case (so the tab correctly re-acquires the
+         * primary lease). LocalStorage is used for this rather than IndexedDb because
+         * it is a synchronous API and so can be used reliably from  an unload
+         * handler.
+         */
+        io() {
+          "function" == typeof this.window?.addEventListener && (this.z_ = () => {
+            this.Ao();
+            const e = /(?:Version|Mobile)\/1[456]/;
+            isSafari() && (navigator.appVersion.match(e) || navigator.userAgent.match(e)) && // On Safari 14, 15, and 16, we do not run any cleanup actions as it might
+            // trigger a bug that prevents Safari from re-opening IndexedDB during
+            // the next page load.
+            // See https://bugs.webkit.org/show_bug.cgi?id=226547
+            this.Tn.enterRestrictedMode(
+              /* purgeExistingTasks= */
+              true
+            ), this.Tn.enqueueAndForget((() => this.shutdown()));
+          }, this.window.addEventListener("pagehide", this.z_));
+        }
+        fo() {
+          this.z_ && (this.window.removeEventListener("pagehide", this.z_), this.z_ = null);
+        }
+        /**
+         * Returns whether a client is "zombied" based on its LocalStorage entry.
+         * Clients become zombied when their tab closes without running all of the
+         * cleanup logic in `shutdown()`.
+         */
+        Io(e) {
+          try {
+            const t = null !== this.eo?.getItem(this.Ro(e));
+            return __PRIVATE_logDebug(rn, `Client '${e}' ${t ? "is" : "is not"} zombied in LocalStorage`), t;
+          } catch (e2) {
+            return __PRIVATE_logError(rn, "Failed to get zombied client id.", e2), false;
+          }
+        }
+        /**
+         * Record client as zombied (a client that had its tab closed). Zombied
+         * clients are ignored during primary tab selection.
+         */
+        Ao() {
+          if (this.eo) try {
+            this.eo.setItem(this.Ro(this.clientId), String(Date.now()));
+          } catch (e) {
+            __PRIVATE_logError("Failed to set zombie client id.", e);
+          }
+        }
+        /** Removes the zombied client entry if it exists. */
+        mo() {
+          if (this.eo) try {
+            this.eo.removeItem(this.Ro(this.clientId));
+          } catch (e) {
+          }
+        }
+        Ro(e) {
+          return `firestore_zombie_${this.persistenceKey}_${e}`;
         }
       };
       __PRIVATE_LocalViewChanges = class ___PRIVATE_LocalViewChanges {
@@ -30132,6 +33585,35 @@ This typically indicates that your device does not have a healthy Internet conne
           return new __PRIVATE_MemoryPersistence(((e2) => __PRIVATE_MemoryLruDelegate.C_(e2, t)), this.serializer);
         }
       };
+      __PRIVATE_IndexedDbOfflineComponentProvider = class extends __PRIVATE_MemoryOfflineComponentProvider {
+        constructor(e, t, n) {
+          super(), this.fc = e, this.cacheSizeBytes = t, this.forceOwnership = n, this.kind = "persistent", this.synchronizeTabs = false;
+        }
+        async initialize(e) {
+          await super.initialize(e), await this.fc.initialize(this, e), // Enqueue writes from a previous session
+          await __PRIVATE_syncEngineEnsureWriteCallbacks(this.fc.syncEngine), await __PRIVATE_fillWritePipeline(this.fc.remoteStore), // NOTE: This will immediately call the listener, so we make sure to
+          // set it after localStore / remoteStore are started.
+          await this.persistence._o((() => (this.gcScheduler && !this.gcScheduler.started && this.gcScheduler.start(), this.indexBackfillerScheduler && !this.indexBackfillerScheduler.started && this.indexBackfillerScheduler.start(), Promise.resolve())));
+        }
+        Ac(e) {
+          return __PRIVATE_newLocalStore(this.persistence, new __PRIVATE_QueryEngine(), e.initialUser, this.serializer);
+        }
+        Vc(e, t) {
+          const n = this.persistence.referenceDelegate.garbageCollector;
+          return new __PRIVATE_LruScheduler(n, e.asyncQueue, t);
+        }
+        dc(e, t) {
+          const n = new __PRIVATE_IndexBackfiller(t, this.persistence);
+          return new __PRIVATE_IndexBackfillerScheduler(e.asyncQueue, n);
+        }
+        Ic(e) {
+          const t = __PRIVATE_indexedDbStoragePrefix(e.databaseInfo.databaseId, e.databaseInfo.persistenceKey), n = void 0 !== this.cacheSizeBytes ? LruParams.withCacheSize(this.cacheSizeBytes) : LruParams.DEFAULT;
+          return new __PRIVATE_IndexedDbPersistence(this.synchronizeTabs, t, e.clientId, n, e.asyncQueue, __PRIVATE_getWindow(), getDocument(), this.serializer, this.sharedClientState, !!this.forceOwnership);
+        }
+        Rc(e) {
+          return new __PRIVATE_MemorySharedClientState();
+        }
+      };
       OnlineComponentProvider = class {
         async initialize(e, t) {
           this.localStore || (this.localStore = e.localStore, this.sharedClientState = e.sharedClientState, this.datastore = this.createDatastore(t), this.remoteStore = this.createRemoteStore(t), this.eventManager = this.createEventManager(t), this.syncEngine = this.createSyncEngine(
@@ -30534,6 +34016,12 @@ This typically indicates that your device does not have a healthy Internet conne
     let r;
     return r = t ? n && (n.merge || n.mergeFields) ? t.toFirestore(e, n) : t.toFirestore(e) : e, r;
   }
+  function persistentLocalCache(t) {
+    return new __PRIVATE_PersistentLocalCacheImpl(t);
+  }
+  function persistentSingleTabManager(t) {
+    return new __PRIVATE_SingleTabManagerImpl(t?.forceOwnership);
+  }
   function __PRIVATE_resultChangeType(t) {
     switch (t) {
       case 0:
@@ -30621,7 +34109,7 @@ This typically indicates that your device does not have a healthy Internet conne
     const r = n.docs.get(e._key), s = new __PRIVATE_ExpUserDataWriter(t);
     return new DocumentSnapshot(t, s, e._key, r, new SnapshotMetadata(n.hasPendingWrites, n.fromCache), e.converter);
   }
-  var Yt2, Kt2, DocumentSnapshot$1, QueryDocumentSnapshot$1, SnapshotMetadata, DocumentSnapshot, QueryDocumentSnapshot, QuerySnapshot;
+  var Yt2, Kt2, DocumentSnapshot$1, QueryDocumentSnapshot$1, __PRIVATE_PersistentLocalCacheImpl, __PRIVATE_SingleTabManagerImpl, SnapshotMetadata, DocumentSnapshot, QueryDocumentSnapshot, QuerySnapshot;
   var init_index_esm8 = __esm({
     "node_modules/@firebase/firestore/dist/index.esm.js"() {
       init_index_esm4();
@@ -30725,6 +34213,35 @@ This typically indicates that your device does not have a healthy Internet conne
          */
         data() {
           return super.data();
+        }
+      };
+      __PRIVATE_PersistentLocalCacheImpl = class {
+        constructor(t) {
+          let e;
+          this.kind = "persistent", t?.tabManager ? (t.tabManager._initialize(t), e = t.tabManager) : (e = persistentSingleTabManager(void 0), e._initialize(t)), this._onlineComponentProvider = e._onlineComponentProvider, this._offlineComponentProvider = e._offlineComponentProvider;
+        }
+        toJSON() {
+          return {
+            kind: this.kind
+          };
+        }
+      };
+      __PRIVATE_SingleTabManagerImpl = class {
+        constructor(t) {
+          this.forceOwnership = t, this.kind = "persistentSingleTab";
+        }
+        toJSON() {
+          return {
+            kind: this.kind
+          };
+        }
+        /**
+         * @internal
+         */
+        _initialize(t) {
+          this._onlineComponentProvider = OnlineComponentProvider.provider, this._offlineComponentProvider = {
+            build: (e) => new __PRIVATE_IndexedDbOfflineComponentProvider(e, t?.cacheSizeBytes, this.forceOwnership)
+          };
         }
       };
       SnapshotMetadata = class {
@@ -30961,7 +34478,7 @@ This typically indicates that your device does not have a healthy Internet conne
   });
 
   // node_modules/@capacitor/core/dist/index.js
-  var ExceptionCode, CapacitorException, getPlatformId, createCapacitor, initCapacitorGlobal, Capacitor, registerPlugin, WebPlugin, encode, decode, CapacitorCookiesPluginWeb, CapacitorCookies, readBlobAsBase64, normalizeHttpHeaders, buildUrlParams, buildRequestInit, CapacitorHttpPluginWeb, CapacitorHttp, SystemBarsStyle, SystemBarType, SystemBarsPluginWeb, SystemBars;
+  var ExceptionCode, CapacitorException, getPlatformId, createCapacitor, initCapacitorGlobal, Capacitor, registerPlugin, WebPlugin, encode, decode2, CapacitorCookiesPluginWeb, CapacitorCookies, readBlobAsBase64, normalizeHttpHeaders, buildUrlParams, buildRequestInit, CapacitorHttpPluginWeb, CapacitorHttp, SystemBarsStyle, SystemBarType, SystemBarsPluginWeb, SystemBars;
   var init_dist = __esm({
     "node_modules/@capacitor/core/dist/index.js"() {
       (function(ExceptionCode2) {
@@ -31232,7 +34749,7 @@ This typically indicates that your device does not have a healthy Internet conne
         }
       };
       encode = (str) => encodeURIComponent(str).replace(/%(2[346B]|5E|60|7C)/g, decodeURIComponent).replace(/[()]/g, escape);
-      decode = (str) => str.replace(/(%[\dA-F]{2})+/gi, decodeURIComponent);
+      decode2 = (str) => str.replace(/(%[\dA-F]{2})+/gi, decodeURIComponent);
       CapacitorCookiesPluginWeb = class extends WebPlugin {
         async getCookies() {
           const cookies = document.cookie;
@@ -31241,8 +34758,8 @@ This typically indicates that your device does not have a healthy Internet conne
             if (cookie.length <= 0)
               return;
             let [key, value] = cookie.replace(/=/, "CAP_COOKIE").split("CAP_COOKIE");
-            key = decode(key).trim();
-            value = decode(value).trim();
+            key = decode2(key).trim();
+            value = decode2(value).trim();
             cookieMap[key] = value;
           });
           return cookieMap;
@@ -31298,7 +34815,7 @@ This typically indicates that your device does not have a healthy Internet conne
       });
       normalizeHttpHeaders = (headers = {}) => {
         const originalKeys = Object.keys(headers);
-        const loweredKeys = Object.keys(headers).map((k) => k.toLocaleLowerCase());
+        const loweredKeys = Object.keys(headers).map((k2) => k2.toLocaleLowerCase());
         const normalized = loweredKeys.reduce((acc, key, index) => {
           acc[key] = headers[originalKeys[index]];
           return acc;
@@ -32102,6 +35619,1270 @@ This typically indicates that your device does not have a healthy Internet conne
     }
   });
 
+  // node_modules/@capacitor-firebase/app-check/dist/esm/definitions.js
+  var init_definitions2 = __esm({
+    "node_modules/@capacitor-firebase/app-check/dist/esm/definitions.js"() {
+    }
+  });
+
+  // node_modules/@firebase/app-check/dist/esm/index.esm.js
+  function getStateReference(app) {
+    return APP_CHECK_STATES.get(app) || { ...DEFAULT_STATE };
+  }
+  function setInitialState(app, state) {
+    APP_CHECK_STATES.set(app, state);
+    return APP_CHECK_STATES.get(app);
+  }
+  function getDebugState() {
+    return DEBUG_STATE;
+  }
+  function sleep(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+  function getRecaptcha(isEnterprise2 = false) {
+    if (isEnterprise2) {
+      return self.grecaptcha?.enterprise;
+    }
+    return self.grecaptcha;
+  }
+  function ensureActivated(app) {
+    if (!getStateReference(app).activated) {
+      throw ERROR_FACTORY2.create("use-before-activation", {
+        appName: app.name
+      });
+    }
+  }
+  function getDurationString(durationInMillis) {
+    const totalSeconds = Math.round(durationInMillis / 1e3);
+    const days = Math.floor(totalSeconds / (3600 * 24));
+    const hours = Math.floor((totalSeconds - days * 3600 * 24) / 3600);
+    const minutes = Math.floor((totalSeconds - days * 3600 * 24 - hours * 3600) / 60);
+    const seconds = totalSeconds - days * 3600 * 24 - hours * 3600 - minutes * 60;
+    let result = "";
+    if (days) {
+      result += pad(days) + "d:";
+    }
+    if (hours) {
+      result += pad(hours) + "h:";
+    }
+    result += pad(minutes) + "m:" + pad(seconds) + "s";
+    return result;
+  }
+  function pad(value) {
+    if (value === 0) {
+      return "00";
+    }
+    return value >= 10 ? value.toString() : "0" + value;
+  }
+  async function exchangeToken({ url, body }, heartbeatServiceProvider) {
+    const headers = {
+      "Content-Type": "application/json"
+    };
+    const heartbeatService = heartbeatServiceProvider.getImmediate({
+      optional: true
+    });
+    if (heartbeatService) {
+      const heartbeatsHeader = await heartbeatService.getHeartbeatsHeader();
+      if (heartbeatsHeader) {
+        headers["X-Firebase-Client"] = heartbeatsHeader;
+      }
+    }
+    const options = {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers
+    };
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (originalError) {
+      throw ERROR_FACTORY2.create("fetch-network-error", {
+        originalErrorMessage: originalError?.message
+      });
+    }
+    if (response.status !== 200) {
+      throw ERROR_FACTORY2.create("fetch-status-error", {
+        httpStatus: response.status
+      });
+    }
+    let responseBody;
+    try {
+      responseBody = await response.json();
+    } catch (originalError) {
+      throw ERROR_FACTORY2.create("fetch-parse-error", {
+        originalErrorMessage: originalError?.message
+      });
+    }
+    const match = responseBody.ttl.match(/^([\d.]+)(s)$/);
+    if (!match || !match[2] || isNaN(Number(match[1]))) {
+      throw ERROR_FACTORY2.create("fetch-parse-error", {
+        originalErrorMessage: `ttl field (timeToLive) is not in standard Protobuf Duration format: ${responseBody.ttl}`
+      });
+    }
+    const timeToLiveAsNumber = Number(match[1]) * 1e3;
+    const now = Date.now();
+    return {
+      token: responseBody.token,
+      expireTimeMillis: now + timeToLiveAsNumber,
+      issuedAtTimeMillis: now
+    };
+  }
+  function getExchangeRecaptchaV3TokenRequest(app, reCAPTCHAToken) {
+    const { projectId, appId, apiKey } = app.options;
+    return {
+      url: `${BASE_ENDPOINT}/projects/${projectId}/apps/${appId}:${EXCHANGE_RECAPTCHA_TOKEN_METHOD}?key=${apiKey}`,
+      body: {
+        "recaptcha_v3_token": reCAPTCHAToken
+      }
+    };
+  }
+  function getExchangeRecaptchaEnterpriseTokenRequest(app, reCAPTCHAToken) {
+    const { projectId, appId, apiKey } = app.options;
+    return {
+      url: `${BASE_ENDPOINT}/projects/${projectId}/apps/${appId}:${EXCHANGE_RECAPTCHA_ENTERPRISE_TOKEN_METHOD}?key=${apiKey}`,
+      body: {
+        "recaptcha_enterprise_token": reCAPTCHAToken
+      }
+    };
+  }
+  function getExchangeDebugTokenRequest(app, debugToken) {
+    const { projectId, appId, apiKey } = app.options;
+    return {
+      url: `${BASE_ENDPOINT}/projects/${projectId}/apps/${appId}:${EXCHANGE_DEBUG_TOKEN_METHOD}?key=${apiKey}`,
+      body: {
+        // eslint-disable-next-line
+        debug_token: debugToken
+      }
+    };
+  }
+  function getDBPromise() {
+    if (dbPromise2) {
+      return dbPromise2;
+    }
+    dbPromise2 = new Promise((resolve, reject) => {
+      try {
+        const request = indexedDB.open(DB_NAME3, DB_VERSION3);
+        request.onsuccess = (event) => {
+          resolve(event.target.result);
+        };
+        request.onerror = (event) => {
+          reject(ERROR_FACTORY2.create("storage-open", {
+            originalErrorMessage: event.target.error?.message
+          }));
+        };
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          switch (event.oldVersion) {
+            case 0:
+              db.createObjectStore(STORE_NAME2, {
+                keyPath: "compositeKey"
+              });
+          }
+        };
+      } catch (e) {
+        reject(ERROR_FACTORY2.create("storage-open", {
+          originalErrorMessage: e?.message
+        }));
+      }
+    });
+    return dbPromise2;
+  }
+  function readTokenFromIndexedDB(app) {
+    return read(computeKey2(app));
+  }
+  function writeTokenToIndexedDB(app, token) {
+    return write(computeKey2(app), token);
+  }
+  function writeDebugTokenToIndexedDB(token) {
+    return write(DEBUG_TOKEN_KEY, token);
+  }
+  function readDebugTokenFromIndexedDB() {
+    return read(DEBUG_TOKEN_KEY);
+  }
+  async function write(key, value) {
+    const db = await getDBPromise();
+    const transaction = db.transaction(STORE_NAME2, "readwrite");
+    const store = transaction.objectStore(STORE_NAME2);
+    const request = store.put({
+      compositeKey: key,
+      value
+    });
+    return new Promise((resolve, reject) => {
+      request.onsuccess = (_event) => {
+        resolve();
+      };
+      transaction.onerror = (event) => {
+        reject(ERROR_FACTORY2.create("storage-set", {
+          originalErrorMessage: event.target.error?.message
+        }));
+      };
+    });
+  }
+  async function read(key) {
+    const db = await getDBPromise();
+    const transaction = db.transaction(STORE_NAME2, "readonly");
+    const store = transaction.objectStore(STORE_NAME2);
+    const request = store.get(key);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = (event) => {
+        const result = event.target.result;
+        if (result) {
+          resolve(result.value);
+        } else {
+          resolve(void 0);
+        }
+      };
+      transaction.onerror = (event) => {
+        reject(ERROR_FACTORY2.create("storage-get", {
+          originalErrorMessage: event.target.error?.message
+        }));
+      };
+    });
+  }
+  function computeKey2(app) {
+    return `${app.options.appId}-${app.name}`;
+  }
+  async function readTokenFromStorage(app) {
+    if (isIndexedDBAvailable()) {
+      let token = void 0;
+      try {
+        token = await readTokenFromIndexedDB(app);
+      } catch (e) {
+        logger2.warn(`Failed to read token from IndexedDB. Error: ${e}`);
+      }
+      return token;
+    }
+    return void 0;
+  }
+  function writeTokenToStorage(app, token) {
+    if (isIndexedDBAvailable()) {
+      return writeTokenToIndexedDB(app, token).catch((e) => {
+        logger2.warn(`Failed to write token to IndexedDB. Error: ${e}`);
+      });
+    }
+    return Promise.resolve();
+  }
+  async function readOrCreateDebugTokenFromStorage() {
+    let existingDebugToken = void 0;
+    try {
+      existingDebugToken = await readDebugTokenFromIndexedDB();
+    } catch (_e2) {
+    }
+    if (!existingDebugToken) {
+      const newToken = crypto.randomUUID();
+      writeDebugTokenToIndexedDB(newToken).catch((e) => logger2.warn(`Failed to persist debug token to IndexedDB. Error: ${e}`));
+      return newToken;
+    } else {
+      return existingDebugToken;
+    }
+  }
+  function isDebugMode() {
+    const debugState = getDebugState();
+    return debugState.enabled;
+  }
+  async function getDebugToken() {
+    const state = getDebugState();
+    if (state.enabled && state.token) {
+      return state.token.promise;
+    } else {
+      throw Error(`
+            Can't get debug token in production mode.
+        `);
+    }
+  }
+  function initializeDebugMode() {
+    const globals = getGlobal();
+    const debugState = getDebugState();
+    debugState.initialized = true;
+    if (typeof globals.FIREBASE_APPCHECK_DEBUG_TOKEN !== "string" && globals.FIREBASE_APPCHECK_DEBUG_TOKEN !== true) {
+      return;
+    }
+    debugState.enabled = true;
+    const deferredToken = new Deferred();
+    debugState.token = deferredToken;
+    if (typeof globals.FIREBASE_APPCHECK_DEBUG_TOKEN === "string") {
+      deferredToken.resolve(globals.FIREBASE_APPCHECK_DEBUG_TOKEN);
+    } else {
+      deferredToken.resolve(readOrCreateDebugTokenFromStorage());
+    }
+  }
+  function formatDummyToken(tokenErrorData) {
+    return base64.encodeString(
+      JSON.stringify(tokenErrorData),
+      /* webSafe= */
+      false
+    );
+  }
+  async function getToken$2(appCheck, forceRefresh = false, shouldLogErrors = false) {
+    const app = appCheck.app;
+    ensureActivated(app);
+    const state = getStateReference(app);
+    let token = state.token;
+    let error = void 0;
+    if (token && !isValid(token)) {
+      state.token = void 0;
+      token = void 0;
+    }
+    if (!token) {
+      const cachedToken = await state.cachedTokenPromise;
+      if (cachedToken) {
+        if (isValid(cachedToken)) {
+          token = cachedToken;
+        } else {
+          await writeTokenToStorage(app, void 0);
+        }
+      }
+    }
+    if (!forceRefresh && token && isValid(token)) {
+      return {
+        token: token.token
+      };
+    }
+    let shouldCallListeners = false;
+    if (isDebugMode()) {
+      try {
+        const debugToken = await getDebugToken();
+        if (!state.exchangeTokenPromise) {
+          state.exchangeTokenPromise = exchangeToken(getExchangeDebugTokenRequest(app, debugToken), appCheck.heartbeatServiceProvider).finally(() => {
+            state.exchangeTokenPromise = void 0;
+          });
+          shouldCallListeners = true;
+        }
+        const tokenFromDebugExchange = await state.exchangeTokenPromise;
+        await writeTokenToStorage(app, tokenFromDebugExchange);
+        state.token = tokenFromDebugExchange;
+        return { token: tokenFromDebugExchange.token };
+      } catch (e) {
+        if (e.code === `appCheck/${"throttled"}` || e.code === `appCheck/${"initial-throttle"}`) {
+          logger2.warn(e.message);
+        } else if (shouldLogErrors) {
+          logger2.error(e);
+        }
+        return makeDummyTokenResult(e);
+      }
+    }
+    try {
+      if (!state.exchangeTokenPromise) {
+        state.exchangeTokenPromise = state.provider.getToken().finally(() => {
+          state.exchangeTokenPromise = void 0;
+        });
+        shouldCallListeners = true;
+      }
+      token = await getStateReference(app).exchangeTokenPromise;
+    } catch (e) {
+      if (e.code === `appCheck/${"throttled"}` || e.code === `appCheck/${"initial-throttle"}`) {
+        logger2.warn(e.message);
+      } else if (shouldLogErrors) {
+        logger2.error(e);
+      }
+      error = e;
+    }
+    let interopTokenResult;
+    if (!token) {
+      interopTokenResult = makeDummyTokenResult(error);
+    } else if (error) {
+      if (isValid(token)) {
+        interopTokenResult = {
+          token: token.token,
+          internalError: error
+        };
+      } else {
+        interopTokenResult = makeDummyTokenResult(error);
+      }
+    } else {
+      interopTokenResult = {
+        token: token.token
+      };
+      state.token = token;
+      await writeTokenToStorage(app, token);
+    }
+    if (shouldCallListeners) {
+      notifyTokenListeners(app, interopTokenResult);
+    }
+    return interopTokenResult;
+  }
+  async function getLimitedUseToken$1(appCheck) {
+    const app = appCheck.app;
+    ensureActivated(app);
+    const { provider } = getStateReference(app);
+    if (isDebugMode()) {
+      const debugToken = await getDebugToken();
+      const request = getExchangeDebugTokenRequest(app, debugToken);
+      request.body["limited_use"] = true;
+      const { token } = await exchangeToken(request, appCheck.heartbeatServiceProvider);
+      return { token };
+    } else {
+      const { token } = await provider.getToken(
+        true
+        /* isLimitedUse */
+      );
+      return { token };
+    }
+  }
+  function addTokenListener(appCheck, type, listener, onError) {
+    const { app } = appCheck;
+    const state = getStateReference(app);
+    const tokenObserver = {
+      next: listener,
+      error: onError,
+      type
+    };
+    state.tokenObservers = [...state.tokenObservers, tokenObserver];
+    if (state.token && isValid(state.token)) {
+      const validToken = state.token;
+      Promise.resolve().then(() => {
+        listener({ token: validToken.token });
+        initTokenRefresher(appCheck);
+      }).catch(() => {
+      });
+    }
+    void state.cachedTokenPromise.then(() => initTokenRefresher(appCheck));
+  }
+  function removeTokenListener(app, listener) {
+    const state = getStateReference(app);
+    const newObservers = state.tokenObservers.filter((tokenObserver) => tokenObserver.next !== listener);
+    if (newObservers.length === 0 && state.tokenRefresher && state.tokenRefresher.isRunning()) {
+      state.tokenRefresher.stop();
+    }
+    state.tokenObservers = newObservers;
+  }
+  function initTokenRefresher(appCheck) {
+    const { app } = appCheck;
+    const state = getStateReference(app);
+    let refresher = state.tokenRefresher;
+    if (!refresher) {
+      refresher = createTokenRefresher(appCheck);
+      state.tokenRefresher = refresher;
+    }
+    if (!refresher.isRunning() && state.isTokenAutoRefreshEnabled) {
+      refresher.start();
+    }
+  }
+  function createTokenRefresher(appCheck) {
+    const { app } = appCheck;
+    return new Refresher(
+      // Keep in mind when this fails for any reason other than the ones
+      // for which we should retry, it will effectively stop the proactive refresh.
+      async () => {
+        const state = getStateReference(app);
+        let result;
+        if (!state.token) {
+          result = await getToken$2(appCheck);
+        } else {
+          result = await getToken$2(appCheck, true);
+        }
+        if (result.error) {
+          throw result.error;
+        }
+        if (result.internalError) {
+          throw result.internalError;
+        }
+      },
+      () => {
+        return true;
+      },
+      () => {
+        const state = getStateReference(app);
+        if (state.token) {
+          let nextRefreshTimeMillis = state.token.issuedAtTimeMillis + (state.token.expireTimeMillis - state.token.issuedAtTimeMillis) * 0.5 + 5 * 60 * 1e3;
+          const latestAllowableRefresh = state.token.expireTimeMillis - 5 * 60 * 1e3;
+          nextRefreshTimeMillis = Math.min(nextRefreshTimeMillis, latestAllowableRefresh);
+          return Math.max(0, nextRefreshTimeMillis - Date.now());
+        } else {
+          return 0;
+        }
+      },
+      TOKEN_REFRESH_TIME.RETRIAL_MIN_WAIT,
+      TOKEN_REFRESH_TIME.RETRIAL_MAX_WAIT
+    );
+  }
+  function notifyTokenListeners(app, token) {
+    const observers = getStateReference(app).tokenObservers;
+    for (const observer of observers) {
+      try {
+        if (observer.type === "EXTERNAL" && token.error != null) {
+          observer.error(token.error);
+        } else {
+          observer.next(token);
+        }
+      } catch (e) {
+      }
+    }
+  }
+  function isValid(token) {
+    return token.expireTimeMillis - Date.now() > 0;
+  }
+  function makeDummyTokenResult(error) {
+    return {
+      token: formatDummyToken(defaultTokenErrorData),
+      error
+    };
+  }
+  function factory(app, heartbeatServiceProvider) {
+    return new AppCheckService(app, heartbeatServiceProvider);
+  }
+  function internalFactory(appCheck) {
+    return {
+      getToken: (forceRefresh) => getToken$2(appCheck, forceRefresh),
+      getLimitedUseToken: () => getLimitedUseToken$1(appCheck),
+      addTokenListener: (listener) => addTokenListener(appCheck, "INTERNAL", listener),
+      removeTokenListener: (listener) => removeTokenListener(appCheck.app, listener)
+    };
+  }
+  function initializeV3(app, siteKey) {
+    const initialized = new Deferred();
+    const state = getStateReference(app);
+    state.reCAPTCHAState = { initialized };
+    const divId = makeDiv(app);
+    const grecaptcha = getRecaptcha(false);
+    if (!grecaptcha) {
+      loadReCAPTCHAV3Script(() => {
+        const grecaptcha2 = getRecaptcha(false);
+        if (!grecaptcha2) {
+          throw new Error("no recaptcha");
+        }
+        queueWidgetRender(app, siteKey, grecaptcha2, divId, initialized);
+      });
+    } else {
+      queueWidgetRender(app, siteKey, grecaptcha, divId, initialized);
+    }
+    return initialized.promise;
+  }
+  function initializeEnterprise(app, siteKey) {
+    const initialized = new Deferred();
+    const state = getStateReference(app);
+    state.reCAPTCHAState = { initialized };
+    const divId = makeDiv(app);
+    const grecaptcha = getRecaptcha(true);
+    if (!grecaptcha) {
+      loadReCAPTCHAEnterpriseScript(() => {
+        const grecaptcha2 = getRecaptcha(true);
+        if (!grecaptcha2) {
+          throw new Error("no recaptcha");
+        }
+        queueWidgetRender(app, siteKey, grecaptcha2, divId, initialized);
+      });
+    } else {
+      queueWidgetRender(app, siteKey, grecaptcha, divId, initialized);
+    }
+    return initialized.promise;
+  }
+  function queueWidgetRender(app, siteKey, grecaptcha, container, initialized) {
+    grecaptcha.ready(() => {
+      renderInvisibleWidget(app, siteKey, grecaptcha, container);
+      initialized.resolve(grecaptcha);
+    });
+  }
+  function makeDiv(app) {
+    const divId = `fire_app_check_${app.name}`;
+    const invisibleDiv = document.createElement("div");
+    invisibleDiv.id = divId;
+    invisibleDiv.style.display = "none";
+    document.body.appendChild(invisibleDiv);
+    return divId;
+  }
+  async function getToken$1(app) {
+    ensureActivated(app);
+    const reCAPTCHAState = getStateReference(app).reCAPTCHAState;
+    const recaptcha = await reCAPTCHAState.initialized.promise;
+    return new Promise((resolve, _reject) => {
+      const reCAPTCHAState2 = getStateReference(app).reCAPTCHAState;
+      recaptcha.ready(() => {
+        resolve(
+          // widgetId is guaranteed to be available if reCAPTCHAState.initialized.promise resolved.
+          recaptcha.execute(reCAPTCHAState2.widgetId, {
+            action: "fire_app_check"
+          })
+        );
+      });
+    });
+  }
+  function renderInvisibleWidget(app, siteKey, grecaptcha, container) {
+    const widgetId = grecaptcha.render(container, {
+      sitekey: siteKey,
+      size: "invisible",
+      // Success callback - set state
+      callback: () => {
+        getStateReference(app).reCAPTCHAState.succeeded = true;
+      },
+      // Failure callback - set state
+      "error-callback": () => {
+        getStateReference(app).reCAPTCHAState.succeeded = false;
+      }
+    });
+    const state = getStateReference(app);
+    state.reCAPTCHAState = {
+      ...state.reCAPTCHAState,
+      // state.reCAPTCHAState is set in the initialize()
+      widgetId
+    };
+  }
+  function loadReCAPTCHAV3Script(onload) {
+    const script = document.createElement("script");
+    script.src = RECAPTCHA_URL;
+    script.onload = onload;
+    document.head.appendChild(script);
+  }
+  function loadReCAPTCHAEnterpriseScript(onload) {
+    const script = document.createElement("script");
+    script.src = RECAPTCHA_ENTERPRISE_URL + "?render=explicit";
+    script.onload = onload;
+    document.head.appendChild(script);
+  }
+  function setBackoff(httpStatus, throttleData) {
+    if (httpStatus === 404 || httpStatus === 403) {
+      return {
+        backoffCount: 1,
+        allowRequestsAfter: Date.now() + ONE_DAY,
+        httpStatus
+      };
+    } else {
+      const backoffCount = throttleData ? throttleData.backoffCount : 0;
+      const backoffMillis = calculateBackoffMillis(backoffCount, 1e3, 2);
+      return {
+        backoffCount: backoffCount + 1,
+        allowRequestsAfter: Date.now() + backoffMillis,
+        httpStatus
+      };
+    }
+  }
+  function throwIfThrottled(throttleData) {
+    if (throttleData) {
+      if (Date.now() - throttleData.allowRequestsAfter <= 0) {
+        throw ERROR_FACTORY2.create("throttled", {
+          time: getDurationString(throttleData.allowRequestsAfter - Date.now()),
+          httpStatus: throttleData.httpStatus
+        });
+      }
+    }
+  }
+  function initializeAppCheck(app = getApp(), options) {
+    app = getModularInstance(app);
+    if (!getDebugState().initialized) {
+      initializeDebugMode();
+    }
+    if (isDebugMode()) {
+      void getDebugToken().then((token) => (
+        // Not using logger because I don't think we ever want this accidentally hidden.
+        console.log(`App Check debug token: ${token}. You will need to add it to your app's App Check settings in the Firebase console for it to work.`)
+      ));
+    }
+    let defaultProvider;
+    if (!options?.provider && app.options.recaptchaSiteKey) {
+      defaultProvider = new ReCaptchaEnterpriseProvider(app.options.recaptchaSiteKey);
+    }
+    if (!options?.provider && !defaultProvider) {
+      throw ERROR_FACTORY2.create(
+        "no-provider"
+        /* AppCheckError.NO_PROVIDER */
+      );
+    }
+    const initOptions = {
+      ...options,
+      provider: options?.provider || defaultProvider
+    };
+    const componentProvider = _getProvider(app, "app-check");
+    if (componentProvider.isInitialized()) {
+      const existingInstance = componentProvider.getImmediate();
+      const existingOptions = componentProvider.getOptions();
+      if (existingOptions.isTokenAutoRefreshEnabled === initOptions.isTokenAutoRefreshEnabled && existingOptions.provider?.isEqual(initOptions.provider)) {
+        return existingInstance;
+      } else {
+        if (typeof getStateReference(app).internallyInitializedBy === "string") {
+          throw ERROR_FACTORY2.create("already-internally-initialized", {
+            initializerName: getStateReference(app).internallyInitializedBy
+          });
+        }
+        throw ERROR_FACTORY2.create("already-initialized", {
+          appName: app.name
+        });
+      }
+    }
+    const appCheck = componentProvider.initialize({ options: initOptions });
+    _activate(app, initOptions.provider, initOptions.isTokenAutoRefreshEnabled);
+    if (getStateReference(app).isTokenAutoRefreshEnabled) {
+      addTokenListener(appCheck, "INTERNAL", () => {
+      });
+    }
+    return appCheck;
+  }
+  function _initializeAppCheckInternal(initializerName, app = getApp(), options) {
+    const componentProvider = _getProvider(app, "app-check");
+    const previouslyInitialized = componentProvider.isInitialized();
+    if (previouslyInitialized) {
+      return componentProvider.getImmediate();
+    } else {
+      const appCheck = initializeAppCheck(app, options);
+      getStateReference(app).internallyInitializedBy = initializerName;
+      return appCheck;
+    }
+  }
+  function _activate(app, provider, isTokenAutoRefreshEnabled = false) {
+    const state = setInitialState(app, { ...DEFAULT_STATE });
+    state.activated = true;
+    state.provider = provider;
+    state.cachedTokenPromise = readTokenFromStorage(app).then((cachedToken) => {
+      if (cachedToken && isValid(cachedToken)) {
+        state.token = cachedToken;
+        notifyTokenListeners(app, { token: cachedToken.token });
+      }
+      return cachedToken;
+    });
+    state.isTokenAutoRefreshEnabled = isTokenAutoRefreshEnabled && app.automaticDataCollectionEnabled;
+    if (!app.automaticDataCollectionEnabled && isTokenAutoRefreshEnabled) {
+      logger2.warn("`isTokenAutoRefreshEnabled` is true but `automaticDataCollectionEnabled` was set to false during `initializeApp()`. This blocks automatic token refresh.");
+    }
+    state.provider.initialize(app);
+  }
+  function setTokenAutoRefreshEnabled(appCheckInstance, isTokenAutoRefreshEnabled) {
+    const app = appCheckInstance.app;
+    const state = getStateReference(app);
+    if (state.tokenRefresher) {
+      if (isTokenAutoRefreshEnabled === true) {
+        state.tokenRefresher.start();
+      } else {
+        state.tokenRefresher.stop();
+      }
+    }
+    state.isTokenAutoRefreshEnabled = isTokenAutoRefreshEnabled;
+  }
+  async function getToken(appCheckInstance, forceRefresh) {
+    const result = await getToken$2(appCheckInstance, forceRefresh);
+    if (result.error) {
+      throw result.error;
+    }
+    if (result.internalError) {
+      throw result.internalError;
+    }
+    return { token: result.token };
+  }
+  function getLimitedUseToken(appCheckInstance) {
+    return getLimitedUseToken$1(appCheckInstance);
+  }
+  function onTokenChanged(appCheckInstance, onNextOrObserver, onError, onCompletion) {
+    let nextFn = () => {
+    };
+    let errorFn = () => {
+    };
+    if (onNextOrObserver.next != null) {
+      nextFn = onNextOrObserver.next.bind(onNextOrObserver);
+    } else {
+      nextFn = onNextOrObserver;
+    }
+    if (onNextOrObserver.error != null) {
+      errorFn = onNextOrObserver.error.bind(onNextOrObserver);
+    } else if (onError) {
+      errorFn = onError;
+    }
+    addTokenListener(appCheckInstance, "EXTERNAL", nextFn, errorFn);
+    return () => removeTokenListener(appCheckInstance.app, nextFn);
+  }
+  function registerAppCheck() {
+    _registerComponent(new Component(
+      APP_CHECK_NAME,
+      (container) => {
+        const app = container.getProvider("app").getImmediate();
+        const heartbeatServiceProvider = container.getProvider("heartbeat");
+        return factory(app, heartbeatServiceProvider);
+      },
+      "PUBLIC"
+      /* ComponentType.PUBLIC */
+    ).setInstantiationMode(
+      "EXPLICIT"
+      /* InstantiationMode.EXPLICIT */
+    ).setInstanceCreatedCallback((container, _identifier, _appcheckService) => {
+      container.getProvider(APP_CHECK_NAME_INTERNAL).initialize();
+    }));
+    _registerComponent(new Component(
+      APP_CHECK_NAME_INTERNAL,
+      (container) => {
+        const appCheck = container.getProvider("app-check").getImmediate();
+        return internalFactory(appCheck);
+      },
+      "PUBLIC"
+      /* ComponentType.PUBLIC */
+    ).setInstantiationMode(
+      "EXPLICIT"
+      /* InstantiationMode.EXPLICIT */
+    ));
+    registerVersion(name4, version4);
+  }
+  var APP_CHECK_STATES, DEFAULT_STATE, DEBUG_STATE, BASE_ENDPOINT, EXCHANGE_RECAPTCHA_TOKEN_METHOD, EXCHANGE_RECAPTCHA_ENTERPRISE_TOKEN_METHOD, EXCHANGE_DEBUG_TOKEN_METHOD, TOKEN_REFRESH_TIME, ONE_DAY, Refresher, ERRORS2, ERROR_FACTORY2, DB_NAME3, DB_VERSION3, STORE_NAME2, DEBUG_TOKEN_KEY, dbPromise2, logger2, defaultTokenErrorData, AppCheckService, name4, version4, RECAPTCHA_URL, RECAPTCHA_ENTERPRISE_URL, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider, CustomProvider, APP_CHECK_NAME, APP_CHECK_NAME_INTERNAL;
+  var init_index_esm10 = __esm({
+    "node_modules/@firebase/app-check/dist/esm/index.esm.js"() {
+      init_index_esm4();
+      init_index_esm2();
+      init_index_esm();
+      init_index_esm3();
+      APP_CHECK_STATES = /* @__PURE__ */ new Map();
+      DEFAULT_STATE = {
+        activated: false,
+        tokenObservers: []
+      };
+      DEBUG_STATE = {
+        initialized: false,
+        enabled: false
+      };
+      BASE_ENDPOINT = "https://content-firebaseappcheck.googleapis.com/v1";
+      EXCHANGE_RECAPTCHA_TOKEN_METHOD = "exchangeRecaptchaV3Token";
+      EXCHANGE_RECAPTCHA_ENTERPRISE_TOKEN_METHOD = "exchangeRecaptchaEnterpriseToken";
+      EXCHANGE_DEBUG_TOKEN_METHOD = "exchangeDebugToken";
+      TOKEN_REFRESH_TIME = {
+        /**
+         * The offset time before token natural expiration to run the refresh.
+         * This is currently 5 minutes.
+         */
+        OFFSET_DURATION: 5 * 60 * 1e3,
+        /**
+         * This is the first retrial wait after an error. This is currently
+         * 30 seconds.
+         */
+        RETRIAL_MIN_WAIT: 30 * 1e3,
+        /**
+         * This is the maximum retrial wait, currently 16 minutes.
+         */
+        RETRIAL_MAX_WAIT: 16 * 60 * 1e3
+      };
+      ONE_DAY = 24 * 60 * 60 * 1e3;
+      Refresher = class {
+        constructor(operation, retryPolicy, getWaitDuration, lowerBound, upperBound) {
+          this.operation = operation;
+          this.retryPolicy = retryPolicy;
+          this.getWaitDuration = getWaitDuration;
+          this.lowerBound = lowerBound;
+          this.upperBound = upperBound;
+          this.pending = null;
+          this.nextErrorWaitInterval = lowerBound;
+          if (lowerBound > upperBound) {
+            throw new Error("Proactive refresh lower bound greater than upper bound!");
+          }
+        }
+        start() {
+          this.nextErrorWaitInterval = this.lowerBound;
+          this.process(true).catch(() => {
+          });
+        }
+        stop() {
+          if (this.pending) {
+            this.pending.reject("cancelled");
+            this.pending = null;
+          }
+        }
+        isRunning() {
+          return !!this.pending;
+        }
+        async process(hasSucceeded) {
+          this.stop();
+          try {
+            this.pending = new Deferred();
+            this.pending.promise.catch((_e2) => {
+            });
+            await sleep(this.getNextRun(hasSucceeded));
+            this.pending.resolve();
+            await this.pending.promise;
+            this.pending = new Deferred();
+            this.pending.promise.catch((_e2) => {
+            });
+            await this.operation();
+            this.pending.resolve();
+            await this.pending.promise;
+            this.process(true).catch(() => {
+            });
+          } catch (error) {
+            if (this.retryPolicy(error)) {
+              this.process(false).catch(() => {
+              });
+            } else {
+              this.stop();
+            }
+          }
+        }
+        getNextRun(hasSucceeded) {
+          if (hasSucceeded) {
+            this.nextErrorWaitInterval = this.lowerBound;
+            return this.getWaitDuration();
+          } else {
+            const currentErrorWaitInterval = this.nextErrorWaitInterval;
+            this.nextErrorWaitInterval *= 2;
+            if (this.nextErrorWaitInterval > this.upperBound) {
+              this.nextErrorWaitInterval = this.upperBound;
+            }
+            return currentErrorWaitInterval;
+          }
+        }
+      };
+      ERRORS2 = {
+        [
+          "already-initialized"
+          /* AppCheckError.ALREADY_INITIALIZED */
+        ]: "You have already called initializeAppCheck() for FirebaseApp {$appName} with different options. To avoid this error, call initializeAppCheck() with the same options as when it was originally called. This will return the already initialized instance.",
+        [
+          "already-internally-initialized"
+          /* AppCheckError.ALREADY_INTERNALLY_INITIALIZED */
+        ]: "App Check has already been automatically initialized by {$initializerName} with default options. If you want to initialize App Check with custom options, call initializeAppCheck() with those options before initializing {$initializerName}.",
+        [
+          "use-before-activation"
+          /* AppCheckError.USE_BEFORE_ACTIVATION */
+        ]: "App Check is being used before initializeAppCheck() is called for FirebaseApp {$appName}. Call initializeAppCheck() before instantiating other Firebase services.",
+        [
+          "fetch-network-error"
+          /* AppCheckError.FETCH_NETWORK_ERROR */
+        ]: "Fetch failed to connect to a network. Check Internet connection. Original error: {$originalErrorMessage}.",
+        [
+          "fetch-parse-error"
+          /* AppCheckError.FETCH_PARSE_ERROR */
+        ]: "Fetch client could not parse response. Original error: {$originalErrorMessage}.",
+        [
+          "fetch-status-error"
+          /* AppCheckError.FETCH_STATUS_ERROR */
+        ]: "Fetch server returned an HTTP error status. HTTP status: {$httpStatus}.",
+        [
+          "storage-open"
+          /* AppCheckError.STORAGE_OPEN */
+        ]: "Error thrown when opening storage. Original error: {$originalErrorMessage}.",
+        [
+          "storage-get"
+          /* AppCheckError.STORAGE_GET */
+        ]: "Error thrown when reading from storage. Original error: {$originalErrorMessage}.",
+        [
+          "storage-set"
+          /* AppCheckError.STORAGE_WRITE */
+        ]: "Error thrown when writing to storage. Original error: {$originalErrorMessage}.",
+        [
+          "recaptcha-error"
+          /* AppCheckError.RECAPTCHA_ERROR */
+        ]: "ReCAPTCHA error.",
+        [
+          "no-provider"
+          /* AppCheckError.NO_PROVIDER */
+        ]: "No attestation provider was passed to initializeAppCheck() and no ReCAPTCHA Enterprise site key was found in the Firebase config.",
+        [
+          "initial-throttle"
+          /* AppCheckError.INITIAL_THROTTLE */
+        ]: `{$httpStatus} error. Attempts allowed again after {$time}`,
+        [
+          "throttled"
+          /* AppCheckError.THROTTLED */
+        ]: `Requests throttled due to previous {$httpStatus} error. Attempts allowed again after {$time}`
+      };
+      ERROR_FACTORY2 = new ErrorFactory("appCheck", "AppCheck", ERRORS2);
+      DB_NAME3 = "firebase-app-check-database";
+      DB_VERSION3 = 1;
+      STORE_NAME2 = "firebase-app-check-store";
+      DEBUG_TOKEN_KEY = "debug-token";
+      dbPromise2 = null;
+      logger2 = new Logger("@firebase/app-check");
+      defaultTokenErrorData = { error: "UNKNOWN_ERROR" };
+      AppCheckService = class {
+        constructor(app, heartbeatServiceProvider) {
+          this.app = app;
+          this.heartbeatServiceProvider = heartbeatServiceProvider;
+        }
+        _delete() {
+          const { tokenObservers } = getStateReference(this.app);
+          for (const tokenObserver of tokenObservers) {
+            removeTokenListener(this.app, tokenObserver.next);
+          }
+          return Promise.resolve();
+        }
+      };
+      name4 = "@firebase/app-check";
+      version4 = "0.12.0";
+      RECAPTCHA_URL = "https://www.google.com/recaptcha/api.js";
+      RECAPTCHA_ENTERPRISE_URL = "https://www.google.com/recaptcha/enterprise.js";
+      ReCaptchaV3Provider = class _ReCaptchaV3Provider {
+        /**
+         * Create a ReCaptchaV3Provider instance.
+         * @param siteKey - ReCAPTCHA V3 siteKey.
+         */
+        constructor(_siteKey) {
+          this._siteKey = _siteKey;
+          this._throttleData = null;
+        }
+        /**
+         * Returns an App Check token.
+         * @internal
+         */
+        async getToken(isLimitedUse = false) {
+          throwIfThrottled(this._throttleData);
+          const attestedClaimsToken = await getToken$1(this._app).catch((_e2) => {
+            throw ERROR_FACTORY2.create(
+              "recaptcha-error"
+              /* AppCheckError.RECAPTCHA_ERROR */
+            );
+          });
+          if (!getStateReference(this._app).reCAPTCHAState?.succeeded) {
+            throw ERROR_FACTORY2.create(
+              "recaptcha-error"
+              /* AppCheckError.RECAPTCHA_ERROR */
+            );
+          }
+          let result;
+          try {
+            const request = getExchangeRecaptchaV3TokenRequest(this._app, attestedClaimsToken);
+            if (isLimitedUse) {
+              request.body["limited_use"] = true;
+            }
+            result = await exchangeToken(request, this._heartbeatServiceProvider);
+          } catch (e) {
+            if (e.code?.includes(
+              "fetch-status-error"
+              /* AppCheckError.FETCH_STATUS_ERROR */
+            )) {
+              this._throttleData = setBackoff(Number(e.customData?.httpStatus), this._throttleData);
+              throw ERROR_FACTORY2.create("initial-throttle", {
+                time: getDurationString(this._throttleData.allowRequestsAfter - Date.now()),
+                httpStatus: this._throttleData.httpStatus
+              });
+            } else {
+              throw e;
+            }
+          }
+          this._throttleData = null;
+          return result;
+        }
+        /**
+         * @internal
+         */
+        initialize(app) {
+          this._app = app;
+          this._heartbeatServiceProvider = _getProvider(app, "heartbeat");
+          initializeV3(app, this._siteKey).catch(() => {
+          });
+        }
+        /**
+         * @internal
+         */
+        isEqual(otherProvider) {
+          if (otherProvider instanceof _ReCaptchaV3Provider) {
+            return this._siteKey === otherProvider._siteKey;
+          } else {
+            return false;
+          }
+        }
+      };
+      ReCaptchaEnterpriseProvider = class _ReCaptchaEnterpriseProvider {
+        /**
+         * Create a ReCaptchaEnterpriseProvider instance.
+         * @param siteKey - reCAPTCHA Enterprise score-based site key.
+         */
+        constructor(_siteKey) {
+          this._siteKey = _siteKey;
+          this._throttleData = null;
+        }
+        /**
+         * Returns an App Check token.
+         * @internal
+         */
+        async getToken(isLimitedUse = false) {
+          throwIfThrottled(this._throttleData);
+          const attestedClaimsToken = await getToken$1(this._app).catch((_e2) => {
+            throw ERROR_FACTORY2.create(
+              "recaptcha-error"
+              /* AppCheckError.RECAPTCHA_ERROR */
+            );
+          });
+          if (!getStateReference(this._app).reCAPTCHAState?.succeeded) {
+            throw ERROR_FACTORY2.create(
+              "recaptcha-error"
+              /* AppCheckError.RECAPTCHA_ERROR */
+            );
+          }
+          let result;
+          try {
+            const request = getExchangeRecaptchaEnterpriseTokenRequest(this._app, attestedClaimsToken);
+            if (isLimitedUse) {
+              request.body["limited_use"] = true;
+            }
+            result = await exchangeToken(request, this._heartbeatServiceProvider);
+          } catch (e) {
+            if (e.code?.includes(
+              "fetch-status-error"
+              /* AppCheckError.FETCH_STATUS_ERROR */
+            )) {
+              this._throttleData = setBackoff(Number(e.customData?.httpStatus), this._throttleData);
+              throw ERROR_FACTORY2.create("initial-throttle", {
+                time: getDurationString(this._throttleData.allowRequestsAfter - Date.now()),
+                httpStatus: this._throttleData.httpStatus
+              });
+            } else {
+              throw e;
+            }
+          }
+          this._throttleData = null;
+          return result;
+        }
+        /**
+         * @internal
+         */
+        initialize(app) {
+          this._app = app;
+          this._heartbeatServiceProvider = _getProvider(app, "heartbeat");
+          initializeEnterprise(app, this._siteKey).catch(() => {
+          });
+        }
+        /**
+         * @internal
+         */
+        isEqual(otherProvider) {
+          if (otherProvider instanceof _ReCaptchaEnterpriseProvider) {
+            return this._siteKey === otherProvider._siteKey;
+          } else {
+            return false;
+          }
+        }
+      };
+      CustomProvider = class _CustomProvider {
+        constructor(_customProviderOptions) {
+          this._customProviderOptions = _customProviderOptions;
+        }
+        /**
+         * @internal
+         */
+        async getToken() {
+          const customToken = await this._customProviderOptions.getToken();
+          const issuedAtTimeSeconds = issuedAtTime(customToken.token);
+          const issuedAtTimeMillis = issuedAtTimeSeconds !== null && issuedAtTimeSeconds < Date.now() && issuedAtTimeSeconds > 0 ? issuedAtTimeSeconds * 1e3 : Date.now();
+          return { ...customToken, issuedAtTimeMillis };
+        }
+        /**
+         * @internal
+         */
+        initialize(app) {
+          this._app = app;
+        }
+        /**
+         * @internal
+         */
+        isEqual(otherProvider) {
+          if (otherProvider instanceof _CustomProvider) {
+            return this._customProviderOptions.getToken.toString() === otherProvider._customProviderOptions.getToken.toString();
+          } else {
+            return false;
+          }
+        }
+      };
+      APP_CHECK_NAME = "app-check";
+      APP_CHECK_NAME_INTERNAL = "app-check-internal";
+      registerAppCheck();
+    }
+  });
+
+  // node_modules/firebase/app-check/dist/esm/index.esm.js
+  var index_esm_exports = {};
+  __export(index_esm_exports, {
+    CustomProvider: () => CustomProvider,
+    ReCaptchaEnterpriseProvider: () => ReCaptchaEnterpriseProvider,
+    ReCaptchaV3Provider: () => ReCaptchaV3Provider,
+    _initializeAppCheckInternal: () => _initializeAppCheckInternal,
+    getLimitedUseToken: () => getLimitedUseToken,
+    getToken: () => getToken,
+    initializeAppCheck: () => initializeAppCheck,
+    onTokenChanged: () => onTokenChanged,
+    setTokenAutoRefreshEnabled: () => setTokenAutoRefreshEnabled
+  });
+  var init_index_esm11 = __esm({
+    "node_modules/firebase/app-check/dist/esm/index.esm.js"() {
+      init_index_esm10();
+    }
+  });
+
+  // node_modules/@capacitor-firebase/app-check/dist/esm/web.js
+  var web_exports2 = {};
+  __export(web_exports2, {
+    FirebaseAppCheckWeb: () => FirebaseAppCheckWeb
+  });
+  var FirebaseAppCheckWeb;
+  var init_web2 = __esm({
+    "node_modules/@capacitor-firebase/app-check/dist/esm/web.js"() {
+      init_dist();
+      init_index_esm5();
+      init_index_esm11();
+      FirebaseAppCheckWeb = class _FirebaseAppCheckWeb extends WebPlugin {
+        get appCheckInstance() {
+          return this._appCheckInstance;
+        }
+        set appCheckInstance(value) {
+          this._appCheckInstance = value;
+          if (value) {
+            this.registerOnTokenChangedListener();
+          } else {
+            this.unregisterOnTokenChangedListener();
+          }
+        }
+        async getToken(options) {
+          if (!this.appCheckInstance) {
+            throw new Error(_FirebaseAppCheckWeb.errorNotInitialized);
+          }
+          const result = await getToken(this.appCheckInstance, options === null || options === void 0 ? void 0 : options.forceRefresh);
+          return {
+            token: result.token
+          };
+        }
+        async initialize(options) {
+          if (options === null || options === void 0 ? void 0 : options.debugToken) {
+            self.FIREBASE_APPCHECK_DEBUG_TOKEN = options.debugToken;
+          } else if (options === null || options === void 0 ? void 0 : options.debug) {
+            self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+          }
+          let provider = options === null || options === void 0 ? void 0 : options.provider;
+          if (!provider) {
+            if (!(options === null || options === void 0 ? void 0 : options.siteKey)) {
+              throw new Error(_FirebaseAppCheckWeb.errorSiteKeyMissing);
+            }
+            const { ReCaptchaV3Provider: ReCaptchaV3Provider2 } = await Promise.resolve().then(() => (init_index_esm11(), index_esm_exports));
+            provider = new ReCaptchaV3Provider2(options === null || options === void 0 ? void 0 : options.siteKey);
+          }
+          const app = getApp();
+          this.appCheckInstance = initializeAppCheck(app, {
+            provider,
+            isTokenAutoRefreshEnabled: options === null || options === void 0 ? void 0 : options.isTokenAutoRefreshEnabled
+          });
+        }
+        async setTokenAutoRefreshEnabled(options) {
+          if (!this.appCheckInstance) {
+            throw new Error(_FirebaseAppCheckWeb.errorNotInitialized);
+          }
+          setTokenAutoRefreshEnabled(this.appCheckInstance, options.enabled);
+        }
+        registerOnTokenChangedListener() {
+          if (!this.appCheckInstance) {
+            return;
+          }
+          this.onTokenChangedListenerUnsubscribe = onTokenChanged(this.appCheckInstance, (tokenResult) => this.handleTokenChanged(tokenResult.token));
+        }
+        unregisterOnTokenChangedListener() {
+          if (this.onTokenChangedListenerUnsubscribe) {
+            this.onTokenChangedListenerUnsubscribe();
+          }
+        }
+        handleTokenChanged(token) {
+          const event = {
+            token
+          };
+          this.notifyListeners(_FirebaseAppCheckWeb.tokenChangedEvent, event);
+        }
+      };
+      FirebaseAppCheckWeb.tokenChangedEvent = "tokenChanged";
+      FirebaseAppCheckWeb.errorNotInitialized = "AppCheck has not been initialized.";
+      FirebaseAppCheckWeb.errorSiteKeyMissing = "siteKey must be provided.";
+    }
+  });
+
+  // node_modules/@capacitor-firebase/app-check/dist/esm/index.js
+  var FirebaseAppCheck;
+  var init_esm3 = __esm({
+    "node_modules/@capacitor-firebase/app-check/dist/esm/index.js"() {
+      init_dist();
+      init_definitions2();
+      FirebaseAppCheck = registerPlugin("FirebaseAppCheck", {
+        web: () => Promise.resolve().then(() => (init_web2(), web_exports2)).then((m) => new m.FirebaseAppCheckWeb())
+      });
+    }
+  });
+
   // src/cloud-sync.js
   var require_cloud_sync = __commonJS({
     "src/cloud-sync.js"() {
@@ -32109,6 +36890,9 @@ This typically indicates that your device does not have a healthy Internet conne
       init_index_esm6();
       init_index_esm9();
       init_esm2();
+      init_esm3();
+      init_index_esm11();
+      init_dist();
       var firebaseConfig = {
         apiKey: "AIzaSyAhdMBjwnI5r4gpLdzcogppHu1iCNtnUSU",
         authDomain: "mister-lapkins.firebaseapp.com",
@@ -32119,7 +36903,21 @@ This typically indicates that your device does not have a healthy Internet conne
       };
       var app = initializeApp(firebaseConfig);
       var auth = getAuth(app);
-      var db = getFirestore(app);
+      var db = initializeFirestore(app, { localCache: persistentLocalCache() });
+      if (Capacitor.isNativePlatform()) {
+        FirebaseAppCheck.initialize().then(function() {
+          return initializeAppCheck(app, {
+            provider: new CustomProvider({
+              getToken: function() {
+                return FirebaseAppCheck.getToken();
+              }
+            }),
+            isTokenAutoRefreshEnabled: true
+          });
+        }).catch(function(e) {
+          console.warn("Mister Lapkins: App Check init failed", e);
+        });
+      }
       var currentUid = null;
       var listeningUid = null;
       var getStateFn = null;
@@ -32269,6 +37067,46 @@ This typically indicates that your device does not have a healthy Internet conne
           if (!currentUid) return;
           if (pushTimer) clearTimeout(pushTimer);
           pushTimer = setTimeout(flushPush, 1500);
+        },
+        // Google Play's account-deletion requirement — actually deletes the Firebase Auth account and
+        // this account's cloud data, not just a request/ticket. Order matters: data first (cheap to
+        // retry, and matches "delete the data" even if the harder identity step below fails), Auth user
+        // last (the actual point of no return — once that succeeds, the caller should wipe all local
+        // storage and treat this as a fresh install). Household membership is cleaned up via
+        // getStateFn() (shoppingLists[].householdId) since cloud-sync doesn't otherwise know which
+        // shared lists this account belongs to — that only lives in the app's own state.
+        //
+        // Can reject with auth/requires-recent-login if this session's sign-in is stale — Firebase
+        // requires a fresh credential for account deletion specifically. The caller should catch that
+        // code, ask the user to sign out/in again, and retry.
+        deleteAccount: function() {
+          var uid = currentUid;
+          if (!uid) return Promise.reject(new Error("not-signed-in"));
+          stopListening();
+          var state = getStateFn ? getStateFn() : null;
+          var householdIds = state && Array.isArray(state.shoppingLists) ? state.shoppingLists.filter(function(l) {
+            return l.householdId;
+          }).map(function(l) {
+            return l.householdId;
+          }) : [];
+          var leaveHouseholds = householdIds.map(function(id) {
+            return updateDoc(householdDocRef(id), { members: arrayRemove(uid) }).catch(function(e) {
+              console.warn("Mister Lapkins: leaving household on account delete failed (continuing)", id, e);
+            });
+          });
+          return Promise.all(leaveHouseholds).then(function() {
+            return deleteDoc(userDocRef(uid)).catch(function(e) {
+              console.warn("Mister Lapkins: delete user doc failed (continuing)", e);
+            });
+          }).then(function() {
+            var user = auth.currentUser;
+            if (!user) throw new Error("no-current-user");
+            return deleteUser(user);
+          }).then(function() {
+            currentUid = null;
+            return FirebaseAuthentication.signOut().catch(function() {
+            });
+          });
         }
       };
       function householdDocRef(id) {
@@ -32284,10 +37122,10 @@ This typically indicates that your device does not have a healthy Internet conne
         getUid: function() {
           return currentUid;
         },
-        create: function(name4) {
+        create: function(name5) {
           if (!currentUid) return Promise.reject(new Error("not-signed-in"));
           var ref = doc(collection(db, "households"));
-          return setDoc(ref, { name: name4, members: [currentUid], createdAt: serverTimestamp() }).then(function() {
+          return setDoc(ref, { name: name5, members: [currentUid], createdAt: serverTimestamp() }).then(function() {
             return ref.id;
           });
         },
@@ -32328,8 +37166,8 @@ This typically indicates that your device does not have a healthy Internet conne
         toggleItem: function(householdId, itemId, checked, uid) {
           return updateDoc(householdItemRef(householdId, itemId), { checked, checkedBy: checked ? uid : null });
         },
-        renameItem: function(householdId, itemId, name4) {
-          return updateDoc(householdItemRef(householdId, itemId), { name: name4 });
+        renameItem: function(householdId, itemId, name5) {
+          return updateDoc(householdItemRef(householdId, itemId), { name: name5 });
         },
         // Drag-and-drop reordering (see startCardDrag/endCardDrag + the shoppingItemList pointerdown
         // handler) — just the one field, same as toggleItem/renameItem, so two people dragging
@@ -32976,4 +37814,38 @@ re2js/build/index.esm.js:
 
 @capacitor/core/dist/index.js:
   (*! Capacitor: https://capacitorjs.com/ - MIT License *)
+
+@firebase/app-check/dist/esm/index.esm.js:
+  (**
+   * @license
+   * Copyright 2020 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2021 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
 */

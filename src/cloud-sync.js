@@ -8,12 +8,15 @@
 // Talks to the rest of the (non-module, unbundled) app only through window.CloudSync, since
 // index.html's main script is a classic script and can't itself use `import`.
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithCredential, onIdTokenChanged, signOut as fbSignOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithCredential, onIdTokenChanged, signOut as fbSignOut, deleteUser } from "firebase/auth";
 import {
-  getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
-  collection, addDoc, updateDoc, deleteDoc, arrayUnion
+  initializeFirestore, persistentLocalCache, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+  collection, addDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove
 } from "firebase/firestore";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
+import { FirebaseAppCheck } from "@capacitor-firebase/app-check";
+import { initializeAppCheck, CustomProvider } from "firebase/app-check";
+import { Capacitor } from "@capacitor/core";
 
 var firebaseConfig = {
   apiKey: "AIzaSyAhdMBjwnI5r4gpLdzcogppHu1iCNtnUSU",
@@ -26,7 +29,49 @@ var firebaseConfig = {
 
 var app = initializeApp(firebaseConfig);
 var auth = getAuth(app);
-var db = getFirestore(app);
+// persistentLocalCache (IndexedDB-backed) instead of plain getFirestore's in-memory-only cache —
+// lets a cold app launch read this account's last-synced state instantly, offline, before any
+// network round-trip resolves, instead of showing nothing until one does. Single-tab manager
+// (the default when no tabManager is given) is the right call here: the WebView is always
+// exactly one tab, and the hosted web build's own site (mister-lapkins.web.app) doesn't run this
+// app's UI at all (see hosting/index.html) — no multi-tab scenario ever exists for this app.
+// Safe with respect to the fresh-install data-loss bug fixed 2026-07-23 (see startListening's
+// comment on lastSeenAt/loadOrSeedCloudState ordering): that fix works by calling startListening
+// (and its lastSeenAt merge write) only after loadOrSeedCloudState's own getDoc() has already
+// resolved — a sequencing guarantee this doesn't touch. A warm persisted cache only makes that
+// getDoc() resolve faster with more accurate data than before; the one genuinely-empty-cache case
+// (first install, nothing persisted yet) behaves identically to how it always has.
+var db = initializeFirestore(app, { localCache: persistentLocalCache() });
+
+// App Check (Play Integrity on Android) — proves to Firestore/Auth that a request actually came
+// from this real, unmodified, Play-installed app, not a bot or a repackaged copy. Fire-and-forget
+// (not awaited): initializeAppCheck() just registers the token provider against `app` for every
+// later SDK call to consult, it doesn't need to have already resolved before getAuth/
+// initializeFirestore above run.
+//
+// Re-enabled 2026-08-05 for the actual Play Store submission — was deliberately disabled
+// 2026-08-04 after on-device testing showed FirebaseAppCheck.getToken() failing repeatedly and
+// adding real latency to the sign-in → initial cloud fetch sequence on a debug build sideloaded
+// via adb (Play Integrity has nothing to recognize a non-Play-installed build as). Builds
+// actually distributed through Play shouldn't hit that failure loop — but if a future local
+// sideloaded debug build ever shows that same "signing in did nothing" symptom again, that's
+// this, not a real bug; see git history for the disable-it patch.
+//
+// Enforcement itself is a separate switch, still "Unenforced" (monitor-only) in the Firebase
+// Console App Check tab as of this writing — flip Firestore/Auth to "Enforced" only after
+// confirming real Play-installed traffic shows up as verified there, not before.
+if(Capacitor.isNativePlatform()){
+  FirebaseAppCheck.initialize().then(function(){
+    return initializeAppCheck(app, {
+      provider: new CustomProvider({
+        getToken: function(){ return FirebaseAppCheck.getToken(); }
+      }),
+      isTokenAutoRefreshEnabled: true
+    });
+  }).catch(function(e){
+    console.warn("Mister Lapkins: App Check init failed", e);
+  });
+}
 
 var currentUid = null;
 var listeningUid = null; // which uid startListening() is currently attached to, so we don't double-attach
@@ -310,6 +355,46 @@ window.CloudSync = {
     if(!currentUid) return;
     if(pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(flushPush, 1500);
+  },
+  // Google Play's account-deletion requirement — actually deletes the Firebase Auth account and
+  // this account's cloud data, not just a request/ticket. Order matters: data first (cheap to
+  // retry, and matches "delete the data" even if the harder identity step below fails), Auth user
+  // last (the actual point of no return — once that succeeds, the caller should wipe all local
+  // storage and treat this as a fresh install). Household membership is cleaned up via
+  // getStateFn() (shoppingLists[].householdId) since cloud-sync doesn't otherwise know which
+  // shared lists this account belongs to — that only lives in the app's own state.
+  //
+  // Can reject with auth/requires-recent-login if this session's sign-in is stale — Firebase
+  // requires a fresh credential for account deletion specifically. The caller should catch that
+  // code, ask the user to sign out/in again, and retry.
+  deleteAccount: function(){
+    var uid = currentUid;
+    if(!uid) return Promise.reject(new Error("not-signed-in"));
+    stopListening();
+    var state = getStateFn ? getStateFn() : null;
+    var householdIds = (state && Array.isArray(state.shoppingLists))
+      ? state.shoppingLists.filter(function(l){ return l.householdId; }).map(function(l){ return l.householdId; })
+      : [];
+    var leaveHouseholds = householdIds.map(function(id){
+      return updateDoc(householdDocRef(id), { members: arrayRemove(uid) }).catch(function(e){
+        console.warn("Mister Lapkins: leaving household on account delete failed (continuing)", id, e);
+      });
+    });
+    return Promise.all(leaveHouseholds)
+      .then(function(){
+        return deleteDoc(userDocRef(uid)).catch(function(e){
+          console.warn("Mister Lapkins: delete user doc failed (continuing)", e);
+        });
+      })
+      .then(function(){
+        var user = auth.currentUser;
+        if(!user) throw new Error("no-current-user");
+        return deleteUser(user);
+      })
+      .then(function(){
+        currentUid = null;
+        return FirebaseAuthentication.signOut().catch(function(){});
+      });
   }
 };
 

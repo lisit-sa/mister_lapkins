@@ -585,9 +585,14 @@
     "src/share.js"() {
       init_esm();
       window.NativeShare = {
+        // Deliberately rethrows (doesn't swallow) so callers can fall back to clipboard-copy —
+        // a caller that only logged failures would leave the tap looking like a dead button on
+        // whatever device rejects the intent (silent no-op reported by a tester, see index.html's
+        // nativeShareListCode).
         share: function(text) {
           return Share.share({ text }).catch(function(e) {
             console.error("NativeShare: share failed", e);
+            throw e;
           });
         }
       };

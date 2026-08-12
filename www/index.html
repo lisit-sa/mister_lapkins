@@ -174,6 +174,39 @@
     box-shadow: 0 0 40px rgba(var(--shadow-rgb),0.08);
   }
 
+  /* The app is phone-only by design (max-width:420px above). On a wide viewport (tablet
+     screenshots for the Play Store listing) that would otherwise leave the card floating on
+     flat --bg with dead space on both sides. Instead, wrap it in a blurred version of its own
+     background image so the wide screenshot reads as an intentional presentation rather than a
+     phone app stretched/lost on a tablet. Purely cosmetic — doesn't change app behavior or the
+     420px-capped layout itself. */
+  @media (min-width: 700px){
+    body{
+      position:relative;
+      background-image: url('background.png');
+      background-size: cover;
+      background-position: center;
+    }
+    body::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: rgba(0,0,0,0.18);
+      backdrop-filter: blur(36px);
+      -webkit-backdrop-filter: blur(36px);
+    }
+    .app{
+      max-width:460px;
+      height:calc(100vh - 64px);
+      margin:32px 0;
+      border-radius:28px;
+      overflow:hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+      position:relative;
+      z-index:1;
+    }
+  }
+
   /* Frosted glass panel holding the cat, progress bar and task content.
      Its own background/blur only affects what's BEHIND it (the photo), not
      the decorative layer below, which paints on top of this tint at z-index:5,
@@ -588,9 +621,6 @@
     content:'\2713'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     color: var(--on-accent); font-size: calc(13px * var(--font-scale)); font-weight:700;
   }
-  /* Shown (but not directly clickable — see toggleTask) whenever a task has subtasks, since
-     its completion is derived from them rather than a direct click of its own. */
-  .task-check.derived{ cursor:default; opacity:.75; }
   /* A centered "tongue" tab at the very bottom of the card — only rendered for tasks that
      actually have subtasks (see showArrow in renderTaskCard). Its ONLY job is toggling the
      separate subtask cards below (toggleTaskSubtasksExpanded); the card's own text/title click
@@ -1549,6 +1579,7 @@
     padding:12px; border-radius: var(--radius-md); cursor:pointer; font-size: calc(14px * var(--font-scale)); opacity:.7; font-family:inherit;
   }
   .add-task-actions .add-btn{ flex:1; margin:0; }
+  .add-task-actions .danger-btn{ flex:1; width:auto; margin:0; }
 
   .add-task-actions .inline-icon {    width: 3em; height: 2em; display: block; margin: 0 auto;}
   /* Secondary-metadata "settings zone" (Категория/Напоминание) — a single soft-tinted
@@ -1670,7 +1701,7 @@
     display:flex; align-items:center; gap:10px; width:100%; margin-bottom:18px;
     border:2px solid var(--text); border-radius: var(--radius-md); background: var(--card);
     color: var(--text); font-family:inherit; font-weight:700; font-size: calc(14px * var(--font-scale));
-    padding:12px 14px; cursor:pointer; opacity:.85;
+    padding:12px 14px; cursor:pointer; opacity:.85; text-decoration:none;
   }
   .sidebar-nav-btn:active{ opacity:1; }
   .sidebar-nav-icon{ font-size:16px; line-height:1; }
@@ -1682,6 +1713,12 @@
   .sidebar-nav-label{ flex:1; }
   .sidebar-nav-lang .lang-toggle{ flex-shrink:0; }
   .sidebar-nav-lang .lang-btn{ flex:none; padding:7px 14px; font-size: calc(12.5px * var(--font-scale)); }
+  .sidebar-privacy-link{
+    display:block; text-align:center; margin-top:6px;
+    font-size: calc(11px * var(--font-scale)); font-style:italic; opacity:.5;
+    color: var(--text); text-decoration:underline;
+  }
+  .sidebar-privacy-link:active{ opacity:.8; }
 
   .sidebar-account{ margin-bottom:14px; }
   .account-signin-btn{
@@ -1738,6 +1775,13 @@
     color: var(--text-muted); opacity:.6; margin:0 0 12px;
   }
   .section-title-icon{ width:15px; height:15px; object-fit:contain; flex-shrink:0; }
+  .danger-btn{
+    width:100%; border:2px solid var(--danger); background:transparent; color: var(--danger-dark);
+    font-family:inherit; font-weight:700; font-size: calc(13px * var(--font-scale));
+    padding:11px; border-radius: var(--radius-md); cursor:pointer; margin-top:4px;
+  }
+  .danger-btn:active{ background: rgba(var(--danger-rgb),0.12); }
+  .danger-btn[disabled]{ opacity:.5; cursor:default; }
   .lang-toggle{ display:flex; gap:8px; }
   .lang-btn{
     flex:1; border:2px solid var(--text); border-radius: var(--radius-md); background: var(--card);
@@ -2531,6 +2575,16 @@
           <span data-i18n="sidebar_section_idle_phrases">Мои фразы</span>
         </button>
       </div>
+
+      <!-- Only meaningful signed in — there's no cloud account to delete otherwise (see
+           updateAccountUI toggling this section's .hidden). Google Play requires this reachable
+           from inside the app itself, not just the Store listing/Data Safety form — see
+           hosting/delete-account/. -->
+      <div class="sidebar-section hidden" id="accountDangerSection">
+        <p class="sidebar-section-title" data-i18n="sidebar_section_account">⚠️ Аккаунт</p>
+        <p class="toggle-hint" data-i18n="delete_account_hint">Удаляет аккаунт и все облачные данные безвозвратно: задачи, заметки, списки покупок, настройки. Фото из «Контроль дома» и так хранятся только на этом телефоне. Не отменяет действующую подписку Google Play, если она у вас есть — её нужно отменить отдельно, в настройках Google Play.</p>
+        <button type="button" class="danger-btn" id="deleteAccountBtn" data-i18n="delete_account_btn">Удалить аккаунт и все данные</button>
+      </div>
     </section>
 
   </main>
@@ -2554,7 +2608,7 @@
     <button class="tab-btn active" data-tab="tasks"><img class="tab-btn-icon" src="icons/icon_tasks.png" alt=""><span data-i18n="tab_tasks">Дела</span></button>
     <button class="tab-btn" data-tab="pantry"><img class="tab-btn-icon" src="icons/icon_supplies.png" alt=""><span data-i18n="tab_pantry">Запасы</span></button>
     <button class="tab-btn" data-tab="collection"><img class="tab-btn-icon" src="icons/icon_treasures.png" alt=""><span data-i18n="tab_collection">Сокровища</span></button>
-    <button class="tab-btn" data-tab="homecheck"><img class="tab-btn-icon" src="icons/icon_lock.png" alt=""><span data-i18n="tab_homecheck">Контроль дома</span></button>
+    <button class="tab-btn" data-tab="homecheck"><img class="tab-btn-icon" src="icons/home_check.png" alt=""><span data-i18n="tab_homecheck">Контроль дома</span></button>
   </nav>
 </div>
 
@@ -3004,6 +3058,12 @@
     <svg class="sidebar-nav-icon icon-glyph-light"><use href="#icon-paw-light"></use></svg>
     <span data-i18n="sidebar_nav_kindness">Добро</span>
   </button>
+
+  <!-- Small italic footer link rather than another sidebar-nav-btn row — this isn't a feature
+       to reach for, just the legally-required in-app reachability for it (Google Play wants the
+       privacy policy accessible from inside the app itself, not only the Store listing). Opens
+       in the system browser (Capacitor's default for a cross-origin navigation). -->
+  <a class="sidebar-privacy-link" href="https://mister-lapkins.web.app/privacy" target="_blank" rel="noopener" data-i18n="sidebar_nav_privacy">Политика конфиденциальности</a>
 </div>
 
 <!-- Shown only right after a fresh Google sign-in finds this account's cloud data already
@@ -3052,6 +3112,21 @@
   </div>
 </div>
 
+<!-- Confirm step for deleteAccountBtn (see tab-settings' accountDangerSection) — a destructive,
+     irreversible action gets its own explicit confirmation, unlike lighter actions elsewhere
+     (e.g. Очистить всё in the trash) that just fire immediately. -->
+<div class="modal-overlay" id="deleteAccountModalOverlay">
+  <div class="modal-card">
+    <p class="modal-title" data-i18n="delete_account_confirm_title">Удалить аккаунт и все данные?</p>
+    <p class="modal-hint" data-i18n="delete_account_confirm_text">Это необратимо: аккаунт, задачи, заметки, списки покупок и настройки в облаке будут удалены. Действующую подписку Google Play (если она есть) это не отменяет — её нужно отменить отдельно, в настройках Google Play.</p>
+    <p class="modal-hint hidden" id="deleteAccountStatus"></p>
+    <div class="add-task-actions">
+      <button type="button" class="cancel-btn" id="deleteAccountCancelBtn" data-i18n="btn_cancel">Отмена</button>
+      <button type="button" class="danger-btn" id="deleteAccountConfirmBtn" data-i18n="delete_account_confirm_btn">Удалить</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="kindnessModalOverlay">
   <div class="modal-card add-task-card settings-modal-card">
     <button type="button" class="modal-close-x" id="kindnessModalCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
@@ -3059,11 +3134,11 @@
       <div class="kindness-card">
         <div class="kindness-icon"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg></div>
         <h2 data-i18n="kindness_heading">Хвостики</h2>
-        <p data-i18n="kindness_ad_text">Мистер Лапкинс напоминает: 5% от рекламы в будущем мы будем отдавать приютам для животных в Израиле.</p>
-        <p class="kindness-sub" data-i18n="kindness_sub">А если хочешь помочь прямо сейчас — вот пара организаций:</p>
+        <p data-i18n="kindness_ad_text">Лапкинс считает, что сытым и любимым должен быть каждый котик и песик! Поэтому 5% от дохода приложения мы перечисляем приюты для животных.</p>
+        <p class="kindness-sub" data-i18n="kindness_sub">Хочешь помочь хвостикам без посредников? Вот организации, которым можно доверять:</p>
         <ul class="kindness-links">
-          <li><a href="https://www.spca.co.il" target="_blank" rel="noopener" data-i18n="kindness_link_spca"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg> SPCA Israel — Агудат Цаар Балей Хаим</a></li>
-          <li><a href="https://www.letlive.org.il" target="_blank" rel="noopener" data-i18n="kindness_link_letlive"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)</a></li>
+          <li><a href="https://www.spcai.org/take-action/ways-to-give" target="_blank" rel="noopener" data-i18n="kindness_link_spca"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg> SPCA International </a></li>
+          <li><a href="https://bestfriends.org/donate" target="_blank" rel="noopener" data-i18n="kindness_link_letlive"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg> Four Paws International</a></li>
         </ul>
     
     </div>
@@ -3234,8 +3309,8 @@
       aria_focus_settings: "Настроить время",
       focus_phase_work: "Фокус",
       focus_phase_break: "Перерыв",
-      focus_text_work: "Тсс, Мистер Лапкин сосредоточенно работает вместе с тобой...",
-      focus_text_break: "Время потянуться и выпить чаю! Мистер Лапкин отдыхает.",
+      focus_text_work: "Тсс, Мистер Лапкинс сосредоточенно работает вместе с тобой...",
+      focus_text_break: "Время потянуться и выпить чаю! Мистер Лапкинс отдыхает.",
       focus_start: "▶ Старт",
       focus_pause: "⏸ Пауза",
       focus_skip: "Пропустить",
@@ -3347,6 +3422,16 @@
       account_sign_out: "Выйти",
       sidebar_nav_settings: "Настройки",
       sidebar_nav_kindness: "Добро",
+      sidebar_nav_privacy: "Политика конфиденциальности",
+      sidebar_section_account: "⚠️ Аккаунт",
+      delete_account_hint: "Удаляет аккаунт и все облачные данные безвозвратно: задачи, заметки, списки покупок, настройки. Фото из «Контроль дома» и так хранятся только на этом телефоне. Не отменяет действующую подписку Google Play, если она у вас есть — её нужно отменить отдельно, в настройках Google Play.",
+      delete_account_btn: "Удалить аккаунт и все данные",
+      delete_account_confirm_title: "Удалить аккаунт и все данные?",
+      delete_account_confirm_text: "Это необратимо: аккаунт, задачи, заметки, списки покупок и настройки в облаке будут удалены. Действующую подписку Google Play (если она есть) это не отменяет — её нужно отменить отдельно, в настройках Google Play.",
+      delete_account_confirm_btn: "Удалить",
+      delete_account_in_progress: "Удаляем аккаунт…",
+      delete_account_needs_relogin: "Для удаления аккаунта нужен свежий вход. Выйдите, войдите заново через Google и повторите.",
+      delete_account_error: "Не получилось удалить аккаунт. Проверьте соединение и попробуйте ещё раз.",
       sidebar_section_lang: "Язык / Language",
       sidebar_section_customization: "Кастомизация",
       toggle_dark_theme: "Тёмная тема",
@@ -3383,10 +3468,10 @@
       idle_phrase_placeholder: "Своя фраза...",
       aria_add_idle_phrase: "Добавить фразу",
       kindness_heading: "Хвостики",
-      kindness_ad_text: "Мистер Лапкинс напоминает: 5% от рекламы в будущем мы будем отдавать приютам для животных в Израиле.",
-      kindness_sub: "А если хочешь помочь прямо сейчас — вот пара организаций:",
-      kindness_link_spca: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> SPCA Israel — Агудат Цаар Балей Хаим",
-      kindness_link_letlive: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> «Тну ле-Хайот ли-Хйот» (Let the Animals Live)",
+      kindness_ad_text: "Лапкинс считает, что сытым и любимым должен быть каждый котик и песик! Поэтому 5% от дохода приложения мы перечисляем приюты для животных.",
+      kindness_sub: "Хочешь помочь хвостикам без посредников? Вот организации, которым можно доверять:",
+      kindness_link_spca: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> SPCA International",
+      kindness_link_letlive: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> Four Paws International",
       kindness_note: "Ссылки указаны для ориентира — перед публикацией приложения стоит проверить их актуальность.",
       kindness_placeholder: "Скоро здесь появится статистика твоей заботы о себе.",
 
@@ -3626,6 +3711,16 @@
       account_sign_out: "Sign out",
       sidebar_nav_settings: "Settings",
       sidebar_nav_kindness: "Kindness",
+      sidebar_nav_privacy: "Privacy Policy",
+      sidebar_section_account: "⚠️ Account",
+      delete_account_hint: "Permanently deletes your account and all cloud data: tasks, notes, shopping lists, settings. \"Контроль дома\" photos already only live on this phone. This doesn't cancel an active Google Play subscription, if you have one — cancel that separately in Google Play's own settings.",
+      delete_account_btn: "Delete account and all data",
+      delete_account_confirm_title: "Delete account and all data?",
+      delete_account_confirm_text: "This can't be undone: your account, tasks, notes, shopping lists, and cloud settings will be deleted. This doesn't cancel an active Google Play subscription, if you have one — cancel that separately in Google Play's own settings.",
+      delete_account_confirm_btn: "Delete",
+      delete_account_in_progress: "Deleting account…",
+      delete_account_needs_relogin: "Deleting your account needs a fresh sign-in. Sign out, sign back in with Google, then try again.",
+      delete_account_error: "Couldn't delete the account. Check your connection and try again.",
       sidebar_section_lang: "Язык / Language",
       sidebar_section_customization: "Customization",
       toggle_dark_theme: "Dark theme",
@@ -3662,10 +3757,10 @@
       idle_phrase_placeholder: "Your own phrase...",
       aria_add_idle_phrase: "Add phrase",
       kindness_heading: "Little Tails",
-      kindness_ad_text: "Mr. Lapkins wants you to know: in the future, 5% of our ad revenue will go to animal shelters in Israel.",
-      kindness_sub: "Want to help right now? Here are a couple of organizations:",
-      kindness_link_spca: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> SPCA Israel — Tza'ar Ba'alei Chaim",
-      kindness_link_letlive: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> Let the Animals Live (Tnu La'Chayot Lichyot)",
+      kindness_ad_text: "Lapkins believes that every cat and dog deserves to be well-fed and loved! That's why we donate 5% of the app's revenue to animal shelters.",
+      kindness_sub: "Want to help tails directly, no middleman? Here are organizations you can trust:",
+      kindness_link_spca: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> SPCA International",
+      kindness_link_letlive: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> Four Paws International",
       kindness_note: "Links are for reference — please double-check they're still active before publishing the app.",
       kindness_placeholder: "Your self-care stats will show up here soon.",
 
@@ -3933,6 +4028,7 @@
   var boxModalOverlay, boxModalCloseX, giftBox, boxStageBefore, boxStageAfter, rewardTitleEl, rewardIconEl, rewardLevelEl, rewardNameEl, rewardDescriptionEl, closeModalBtn;
   var settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle;
   var accountSignInBtn, accountSignedIn, accountAvatar, accountAvatarFallback, accountName, accountSignOutBtn;
+  var accountDangerSection, deleteAccountBtn, deleteAccountModalOverlay, deleteAccountCancelBtn, deleteAccountConfirmBtn, deleteAccountStatus;
   var isSignedIn = false;
   var currentUserUid = null;
   // Flips true the first time updateAccountUI actually runs. isSignedIn defaults to false at
@@ -4596,6 +4692,7 @@
     authStateResolved = true;
     accountSignInBtn.classList.toggle("hidden", !!user);
     accountSignedIn.classList.toggle("hidden", !user);
+    accountDangerSection.classList.toggle("hidden", !user);
     if(user){
       var displayName = user.displayName || user.email || "";
       accountName.textContent = displayName;
@@ -4630,6 +4727,50 @@
       subscribedHouseholdId = null;
       householdItemsCache = [];
     }
+  }
+
+  // ---------- account deletion (Google Play requires this reachable in-app, not just via the
+  // web page linked from Data Safety — see hosting/delete-account/ for that side) ----------
+  function openDeleteAccountModal(){
+    deleteAccountStatus.classList.add("hidden");
+    deleteAccountStatus.textContent = "";
+    deleteAccountConfirmBtn.disabled = false;
+    deleteAccountCancelBtn.disabled = false;
+    deleteAccountModalOverlay.classList.add("show");
+  }
+
+  function closeDeleteAccountModal(){
+    deleteAccountModalOverlay.classList.remove("show");
+  }
+
+  // The actual "point of no return" already happened server-side by the time this runs (see
+  // CloudSync.deleteAccount) — this just makes the device match that: wipe every local trace
+  // (including Контроль дома photos, which never left the device to begin with — see
+  // HOMECHECK_DB_NAME) and reload to a fresh, signed-out start, same as a new install.
+  function wipeLocalDataAndReload(){
+    try{ localStorage.clear(); }catch(e){}
+    try{ indexedDB.deleteDatabase(HOMECHECK_DB_NAME); }catch(e){}
+    location.reload();
+  }
+
+  function confirmDeleteAccount(){
+    if(!window.CloudSync) return;
+    deleteAccountConfirmBtn.disabled = true;
+    deleteAccountCancelBtn.disabled = true;
+    deleteAccountStatus.classList.remove("hidden");
+    deleteAccountStatus.textContent = t("delete_account_in_progress");
+    window.CloudSync.deleteAccount().then(function(){
+      wipeLocalDataAndReload();
+    }).catch(function(e){
+      console.warn("Mister Lapkins: delete account failed", e);
+      deleteAccountConfirmBtn.disabled = false;
+      deleteAccountCancelBtn.disabled = false;
+      // Firebase requires a fresh sign-in for this specific sensitive action — sign out/in again
+      // gets a new credential, then retrying the same button succeeds.
+      deleteAccountStatus.textContent = (e && e.code === "auth/requires-recent-login")
+        ? t("delete_account_needs_relogin")
+        : t("delete_account_error");
+    });
   }
 
   // Used by cloud-sync.js right when a fresh sign-in finds an already-populated cloud doc, to
@@ -4942,7 +5083,7 @@
     return '<li class="task-item ' + (task.completed ? "completed" : "") + '" data-id="' + task.id + '">' +
       '<div class="task-main-row">' +
         dragHandleHtml +
-        '<button class="task-check ' + (task.completed ? "checked" : "") + (hasSubtasks ? " derived" : "") + '" aria-label="' + t("aria_mark_done") + '"></button>' +
+        '<button class="task-check ' + (task.completed ? "checked" : "") + '" aria-label="' + t("aria_mark_done") + '"></button>' +
         '<div class="task-body">' + titleHtml + renderReminderBadgeHtml(task) + categoryTagHtml + '</div>' +
         '<button class="task-add-step" data-parent-id="' + task.id + '" aria-label="' + t("aria_add_step") + '">+</button>' +
         '<button class="task-edit" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>' +
@@ -5552,10 +5693,18 @@
     var code = shareListSheetCode.textContent;
     if(!code || code === "…") return;
     var text = t("share_list_share_text_template").replace("{link}", buildJoinDeepLink(code)).replace("{code}", code);
-    if(window.NativeShare){
-      window.NativeShare.share(text);
-    } else if(navigator.clipboard){
+    function fallbackCopy(){
+      if(!navigator.clipboard) return;
       navigator.clipboard.writeText(text).then(function(){ showToast(t("share_list_copied_toast")); }).catch(function(){});
+    }
+    // Some devices reject the native share intent outright (confirmed via a tester's screen
+    // recording: the button visibly registers the tap — its :active highlight flashes — but
+    // the system share sheet never opens). Falling back to clipboard-copy on that rejection
+    // means the tap always does *something* visible instead of looking like a dead button.
+    if(window.NativeShare){
+      window.NativeShare.share(text).catch(fallbackCopy);
+    } else {
+      fallbackCopy();
     }
   }
 
@@ -6905,10 +7054,10 @@
   function toggleTask(id){
     var task = state.tasks.find(function(t){ return t.id === id; });
     if(!task) return;
-    // A task with subtasks can't be checked off directly — its completion is derived from
-    // whether every subtask is done (see toggleSubtask). The checkbox still displays that
-    // derived state, but clicking it here is a no-op rather than fighting the subtask list.
-    if(task.subtasks.length > 0) return;
+    // A task with subtasks can be checked off directly too, independent of how many of its
+    // subtasks are done — this is the ONLY thing that completes (or reopens) it either way, on
+    // purpose: finishing every subtask doesn't auto-complete the task, since the user might still
+    // want to add another step first (see toggleSubtask).
     task.completed = !task.completed;
     if(task.completed) cancelTaskReminderNotification(task.id);
     else scheduleTaskReminderNotification(task); // undone — resume its reminder if it still has one
@@ -6945,18 +7094,12 @@
     if(window.AudioManager) window.AudioManager.playClick();
     if(window.AppHaptics) window.AppHaptics[subtask.completed ? "success" : "light"]();
 
-    // Subtasks are a checklist, not the reward-earning "3 dela" cycle — finishing all of them
-    // still flips the parent's own `completed` (strikethrough, moves to Достижения) but must
-    // NEVER call addProgress. Only a plain task's own checkbox (see toggleTask) advances the
-    // header's 0/3 slider.
-    var wasCompleted = task.completed;
-    task.completed = task.subtasks.length > 0 && task.subtasks.every(function(s){ return s.completed; });
-    if(task.completed && !wasCompleted) cancelTaskReminderNotification(task.id);
-    else if(!task.completed && wasCompleted) scheduleTaskReminderNotification(task);
-
+    // Subtasks are a pure checklist — finishing every last one does NOT complete the parent or
+    // earn a reward on its own, on purpose: the user might still want to add another step before
+    // calling the task actually done. Completing (and earning the reward for) the task is only
+    // ever the task's own checkbox (see toggleTask), whether or not every subtask is checked.
     renderTasks();
     saveState();
-    if(task.completed && !wasCompleted) scheduleArchiveIfCompleted(task.id);
   }
 
   function addSubtask(parentId, text, reminderDateTime){
@@ -6968,10 +7111,9 @@
     };
     task.subtasks.push(subtask);
     scheduleSubtaskReminderNotification(subtask);
-    // A brand new step is always undone — if the task had previously been marked complete
-    // (every prior subtask was done), adding a fresh one un-finishes it. No addProgress call
-    // either way: subtask completion never touches the reward counter (see toggleSubtask).
-    task.completed = false;
+    // Subtasks don't drive the parent's completed/reward state either way (see toggleSubtask) —
+    // adding one doesn't reopen an already-completed task, same as checking one off doesn't
+    // close it. Only the task's own checkbox does either.
     expandedSubtasksIds[parentId] = true; // keep the cards open so the new step is visible right away
     renderTasks();
     saveState();
@@ -6984,13 +7126,10 @@
     cancelSubtaskReminderNotification(subtaskId);
     if(window.AudioManager) window.AudioManager.playDelete();
     if(window.AppHaptics) window.AppHaptics.light();
-    var wasCompleted = task.completed;
-    task.completed = task.subtasks.length > 0 && task.subtasks.every(function(s){ return s.completed; });
+    // Same as toggleSubtask/addSubtask: deleting a subtask (even the last unfinished one) never
+    // touches the parent's completed/reward state — only its own checkbox does.
     renderTasks();
     saveState();
-    // No addProgress here either — deleting the last unfinished subtask can flip `completed`
-    // to true, but that's still subtask-driven, so the reward counter stays untouched.
-    if(task.completed && !wasCompleted) scheduleArchiveIfCompleted(task.id);
   }
 
   function updateSubtask(parentId, subtaskId, text, reminderDateTime){
@@ -8314,6 +8453,12 @@
             task.titleIsCustom = false;
           }
           task.text = newText;
+          // scheduleTaskReminderNotification bakes task.title/task.text into the OS notification's
+          // body text at schedule time — the OS has no way to re-read it later, so an already-
+          // scheduled reminder keeps showing whatever the text was when it was (re)scheduled unless
+          // told again. Re-scheduling here (same key, same reminderDateTime) overwrites the pending
+          // notification in place rather than duplicating it — see hashId in src/notifications.js.
+          if(task.reminderDateTime) scheduleTaskReminderNotification(task);
           saveState();
           renderTasks();
         }
@@ -9277,6 +9422,12 @@
     });
     accountSignInBtn.addEventListener("click", function(){ if(window.CloudSync) window.CloudSync.signIn(); });
     accountSignOutBtn.addEventListener("click", function(){ if(window.CloudSync) window.CloudSync.signOut(); });
+    deleteAccountBtn.addEventListener("click", openDeleteAccountModal);
+    deleteAccountCancelBtn.addEventListener("click", closeDeleteAccountModal);
+    deleteAccountConfirmBtn.addEventListener("click", confirmDeleteAccount);
+    deleteAccountModalOverlay.addEventListener("click", function(e){
+      if(e.target === deleteAccountModalOverlay) closeDeleteAccountModal();
+    });
     // A photoUrl that's present but fails to actually load (dead link, blocked request, etc.) —
     // falls back to the same initial-letter circle used when there's no photoUrl at all.
     accountAvatar.addEventListener("error", function(){
@@ -9310,7 +9461,8 @@
         [addPantryModalOverlay, closeAddPantryModal],
         [addHabitModalOverlay, closeAddHabitModal],
         [boxModalOverlay, closeBoxModal],
-        [kindnessModalOverlay, closeKindnessModal]
+        [kindnessModalOverlay, closeKindnessModal],
+        [deleteAccountModalOverlay, closeDeleteAccountModal]
       ];
       window.Capacitor.Plugins.App.addListener("backButton", function(){
         for(var i = 0; i < backCloseTargets.length; i++){
@@ -9527,6 +9679,13 @@
     accountAvatarFallback = document.getElementById("accountAvatarFallback");
     accountName = document.getElementById("accountName");
     accountSignOutBtn = document.getElementById("accountSignOutBtn");
+
+    accountDangerSection = document.getElementById("accountDangerSection");
+    deleteAccountBtn = document.getElementById("deleteAccountBtn");
+    deleteAccountModalOverlay = document.getElementById("deleteAccountModalOverlay");
+    deleteAccountCancelBtn = document.getElementById("deleteAccountCancelBtn");
+    deleteAccountConfirmBtn = document.getElementById("deleteAccountConfirmBtn");
+    deleteAccountStatus = document.getElementById("deleteAccountStatus");
 
     signinConflictModalOverlay = document.getElementById("signinConflictModalOverlay");
     signinConflictUseLocalBtn = document.getElementById("signinConflictUseLocalBtn");

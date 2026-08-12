@@ -11,6 +11,7 @@ apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
     implementation project(':capacitor-community-native-audio')
     implementation project(':capacitor-community-speech-recognition')
+    implementation project(':capacitor-firebase-app-check')
     implementation project(':capacitor-firebase-authentication')
     implementation project(':capacitor-app')
     implementation project(':capacitor-haptics')
