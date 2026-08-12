@@ -333,8 +333,19 @@
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
+    padding-bottom: 5px;
   }
-  .header-title{ flex-shrink:0; font-size:15px; font-weight:700; color: var(--text); }
+  /* Was a plain 15px <span> (icon-only text ended up styling the icon via the shared 1em glyph
+     rule) — too small next to the 34px hamburger circle and, being a <span>, wasn't actually
+     clickable despite looking like it should be (design review, 2026-08-12: "little paws are
+     tiny, click zone is small, and the menu button outweighs it"). Now a real button, sized and
+     padded to feel like a proper tap target on the same visual weight as .settings-btn. */
+  .header-title{
+    flex-shrink:0; font-size:24px; font-weight:700; color: var(--text);
+    background:transparent; border:none; padding:5px; margin:-5px; cursor:pointer;
+    display:flex; align-items:center;
+  }
+  .header-title:active{ transform: translateY(1px); }
   .settings-btn{
     flex-shrink: 0;
     width: 34px; height: 34px;
@@ -475,16 +486,27 @@
   }
   .thought-close:active{ opacity:1; }
 
-  .progress-wrap{ display:flex; align-items:center; gap:10px; padding: 12px 16px 18px; }
+  .progress-wrap{ display:flex; align-items:center; padding: 12px 16px 18px; }
   .progress-track{
-    flex:1; height:14px; background: var(--track-bg);
+    flex:1; height:20px; background: var(--track-bg); position:relative;
     border-radius: 999px; border:2px solid var(--text); overflow:hidden;
   }
   .progress-fill{
     height:100%; background: linear-gradient(90deg, var(--accent), var(--accent-dark));
     width:0%; transition: width .45s ease; border-radius:999px;
   }
-  .progress-label{ font-size: calc(12.5px * var(--font-scale)); font-weight:700; min-width:32px; text-align:right; }
+  /* Lives inside .progress-track now (was a separate element next to it) so the bar itself can
+     run full width. At 0 done it sits near the left, dark, on the plain empty track; once
+     anything's done it rides the fill's own trailing edge instead (left:<pct%>, anchored by its
+     own right edge via translateX so it visibly stays "inside" the green rather than drifting
+     past it) and switches to the on-accent color for contrast against the fill — see
+     renderProgress (2026-08-12, was a static label to the side showing "0/3"). */
+  .progress-label{
+    position:absolute; top:60%; left:10px; transform: translateY(-50%);
+    font-size: calc(12px * var(--font-scale)); font-weight:700; color: var(--text);
+    white-space:nowrap; transition: left .45s ease, color .2s ease;
+  }
+  .progress-label.on-fill{ color: var(--on-accent); transform: translateY(-50%) translateX(-100%); }
 
   /* Content */
   .content{
@@ -512,6 +534,14 @@
   }
   .add-task-trigger:active{ transform: translateY(1px); }
   .trigger-icon{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
+  /* The icon's own art sits visually centered in its box, but the text next to it optically
+     reads a couple px higher than the icon's true center (design review, 2026-08-12) — nudging
+     the text down instead of the icon, per that feedback. */
+  /* Was excluding the ▾ arrow span from this nudge (different glyph, assumed different metrics)
+     — that left the label shifted 1px down but the arrow where it always was, so the two drifted
+     apart from EACH OTHER instead of both settling together (design review, 2026-08-12). Moving
+     both by the same amount keeps them visually paired regardless of either's "true" center. */
+  .add-task-trigger span, .filter-tab span{ position:relative; top:1px; }
   .task-filter-tabs{ display:flex; gap:8px; margin-bottom:16px; }
   .filter-tab{
     flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
@@ -542,7 +572,8 @@
      (same pattern as .pantry-template-picker below). */
   .category-filter-dropdown{ position:relative; flex:1; }
   .category-filter-trigger{ width:100%; }
-  .category-filter-trigger-arrow{ font-size:13px; opacity:.75; flex-shrink:0; transition: transform .2s ease; }
+  .category-filter-trigger-arrow{ font-size:13px; opacity:.75; flex-shrink:0; transition: transform .2s ease; top: 3px !important;}
+  .open .category-filter-trigger-arrow{ top: 1px !important;}
   .category-filter-dropdown.open .category-filter-trigger-arrow{ transform: rotate(180deg); }
   .category-filter-list{
     display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:20;
@@ -601,15 +632,16 @@
   }
   .task-main-row{ display:flex; align-items:center; gap:10px; }
   /* Six-dot grip, own tap target separate from the checkbox/body/buttons so a drag can never be
-     mistaken for tapping into the task detail popup or toggling completion — see startTaskDrag. */
-  /* The "⠿" glyph's own font metrics sit noticeably above its line's vertical center (true of
-     most fonts' Braille-block characters) — align-items:center alone still leaves it visibly
-     higher than the checkbox circle next to it, hence the extra padding-top nudging the glyph
-     itself down to compensate. */
+     mistaken for tapping into the task detail popup or toggling completion — see startTaskDrag.
+     Padding is now the same 4px all around as every other .task-main-row action button (design
+     review, 2026-08-12 — was 6px/2px top/bottom, a one-off hack for the point below). The "⠿"
+     glyph's own font metrics still sit noticeably above its line's true center (true of most
+     fonts' Braille-block characters) even with align-items:center and matching padding, so that
+     part of the compensation now lives in its own transform instead of asymmetric padding. */
   .task-drag-handle{
-    background:transparent; border:none; cursor:grab; padding:6px 4px 2px; opacity:.4;
-    font-size:18px; line-height:1; color: var(--text); touch-action:none; align-self:stretch;
-    display:flex; align-items:center;
+    background:transparent; border:none; cursor:grab; padding:4px; opacity:.4;
+    font-size:18px; line-height:1; color: var(--text); touch-action:none; align-self:center;margin-top:4px;
+    display:flex; align-items:center; transform: translateY(2px);
   }
   .task-drag-handle:active{ cursor:grabbing; opacity:.9; }
   .task-check{
@@ -638,7 +670,7 @@
   /* Clicking anywhere on the body (outside the check/step/edit/delete buttons, which are
      siblings, not children) opens the full-text detail popup — see openTaskDetailModal. */
   .task-body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; cursor:pointer; }
-  .task-title{ font-size: calc(15px * var(--font-scale)); font-weight:700; line-height: 1.2; word-break: break-word; }
+  .task-title{ font-size: calc(15px * var(--font-scale)); font-weight:700; line-height: 1.2; word-break: break-word; margin-top: 2px;}
   .subtask-progress{ font-size: calc(11px * var(--font-scale)); font-weight:700; color: var(--olive); }
   .task-reminder-badge{ font-size: calc(10.5px * var(--font-scale)); font-weight:600; color: var(--olive); }
   /* Gentle stand-in for a "missed reminder" state — no red, no "overdue" wording, just a
@@ -652,11 +684,19 @@
     padding:2px 9px; border-radius:999px; margin-top:1px;
     background: rgba(var(--accent-rgb),0.16); color: var(--accent-dark);
   }
-  .task-edit, .subtask-edit, .task-add-step{ background:transparent; border:none; font-size:14px; cursor:pointer; opacity:.6; padding:2px; display:flex; align-items:center; }
+  /* Same 4px all-around padding as .task-drag-handle/.task-check now (design review, 2026-08-12
+     — used to be a bare 2px with no compensation, which read a couple px above the checkbox+
+     title's visual center). Uniform padding across every .task-main-row action button is the
+     baseline; only glyphs whose own font metrics are genuinely off-center (see .task-drag-handle)
+     get an additional transform on top of it. */
+  .task-edit, .subtask-edit, .task-add-step{ background:transparent; border:none; font-size:14px; cursor:pointer; opacity:.6; padding:4px; display:flex; align-items:center; }
   .task-edit:active, .subtask-edit:active, .task-add-step:active{ opacity:1; }
-  .task-add-step{ font-size:21px; font-weight:700; color: var(--text); justify-content:center; min-width:18px; }
+  /* Used to be a bare "+" text glyph — now the same icon-image treatment as .task-edit
+     (icons/icon_plus.png), so justify-content just keeps it centered same as the pencil/change
+     icon rather than relying on font metrics at all (design review, 2026-08-12). */
+  .task-add-step{ justify-content:center; }
   .edit-icon-img{ width:15px; height:15px; object-fit:contain; display:block; }
-  .task-delete, .subtask-delete{ background:transparent; border:none; font-size:15px; cursor:pointer; opacity:.6; padding:2px; }
+  .task-delete, .subtask-delete{ background:transparent; border:none; font-size:15px; cursor:pointer; opacity:.6; padding:4px; margin-top:3px; }
   .task-delete:active, .subtask-delete:active{ opacity:1; }
   .empty-hint{ text-align:center; color: var(--text-muted); font-size: calc(13.5px * var(--font-scale)); margin-top:30px; }
 
@@ -850,13 +890,14 @@
     position:relative; z-index:5; box-shadow: 0 10px 22px rgba(0,0,0,0.22);
     transform: scale(1.02) rotate(-1deg);
   }
-  /* Same six-dot grip as .task-drag-handle (see its own comment re: the glyph's font metrics
-     needing the extra top padding), own tap target so a drag can never be mistaken for checking
-     the item off or opening its rename input — see startShoppingDrag. */
+  /* Same six-dot grip as .task-drag-handle — same 4px uniform padding + transform compensation
+     for the "⠿" glyph's off-center font metrics, not asymmetric padding (design review,
+     2026-08-12, applied here to match the task-row fix), own tap target so a drag can never be
+     mistaken for checking the item off or opening its rename input — see startShoppingDrag. */
   .shopping-item-drag-handle{
-    background:transparent; border:none; cursor:grab; padding:6px 4px 2px; opacity:.4;
+    background:transparent; border:none; cursor:grab; padding:4px; opacity:.4;
     font-size:18px; line-height:1; color: var(--text); touch-action:none; flex-shrink:0;
-    display:flex; align-items:center;
+    display:flex; align-items:center; transform: translateY(2px); margin-top:4px;
   }
   .shopping-item-drag-handle:active{ cursor:grabbing; opacity:.9; }
   .shopping-item-checkbox{
@@ -878,10 +919,10 @@
     flex:1; min-width:0; border:2px solid var(--accent-dark); border-radius: var(--radius-md);
     background: var(--bg); color: var(--text); font-family:inherit; font-size: calc(14px * var(--font-scale)); padding:6px 8px; outline:none;
   }
-  .shopping-item-edit{ background:transparent; border:none; font-size:14px; cursor:pointer; opacity:.6; padding:2px; display:flex; align-items:center; flex-shrink:0; }
+  .shopping-item-edit{ background:transparent; border:none; font-size:14px; cursor:pointer; opacity:.6; padding:4px; display:flex; align-items:center; flex-shrink:0; }
   .shopping-item-edit:active{ opacity:1; }
   .shopping-item-save{ opacity:1; color: var(--accent-dark); font-weight:700; font-size:16px; }
-  .shopping-item-delete{ background:transparent; border:none; font-size:15px; cursor:pointer; opacity:.6; padding:2px; flex-shrink:0; }
+  .shopping-item-delete{ background:transparent; border:none; font-size:15px; cursor:pointer; opacity:.6; padding:4px; flex-shrink:0; }
   .shopping-item-delete:active{ opacity:1; }
 
   /* Собранные/купленные товары живут in their own collapsed-by-default zone below the active
@@ -925,9 +966,12 @@
   }
   .collection-tabs::-webkit-scrollbar{ display:none; }
   .collection-tab{
-    flex:0 0 auto; white-space:nowrap; padding:9px 16px; border-radius:999px; border:2px solid var(--text);
+    flex:0 0 auto; white-space:nowrap; padding:10px 16px 8px; border-radius:999px; border:2px solid var(--text);
     background: var(--surface-soft); color: var(--text-muted); font-size: calc(12px * var(--font-scale)); font-weight:700; cursor:pointer;
     transition: background .2s, color .2s; text-align:center;
+    /* Symmetric padding still read as text sitting high (same font-metric issue as the "+"
+       button — design review, 2026-08-12) — flex-centering the label is exact regardless. */
+    display:flex; align-items:center; justify-content:center;
   }
   .collection-tab.active{ background: var(--accent); color: var(--on-accent); border-color: var(--accent-dark); }
   .collection-progress{ text-align:center; font-size: calc(12.5px * var(--font-scale)); font-weight:600; opacity:.7; margin:0 0 16px; }
@@ -938,9 +982,10 @@
      switcher too (they have no data-collection, so that handler would set
      state.activeCollection to undefined on a stray click). */
   .products-subtab{
-    flex:1; padding:9px 6px; border-radius:999px; border:2px solid var(--text);
+    flex:1; padding:10px 6px 8px; border-radius:999px; border:2px solid var(--text);
     background: var(--surface-soft); color: var(--text-muted); font-size: calc(12px * var(--font-scale)); font-weight:700; cursor:pointer;
     transition: background .2s, color .2s; text-align:center;
+    display:flex; align-items:center; justify-content:center;
   }
   .products-subtab.active{ background: var(--accent); color: var(--on-accent); border-color: var(--accent-dark); }
   .collection-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
@@ -1063,21 +1108,33 @@
   .homecheck-reset-btn{
     display:block; width:100%; border:2px solid var(--text); border-radius: var(--radius-lg);
     background: var(--accent); color: var(--on-accent); font-weight:700; font-size: calc(14.5px * var(--font-scale));
-    padding:14px; cursor:pointer; box-shadow: var(--shadow-soft); margin-bottom:16px; font-family:inherit;
+    padding:14px; cursor:pointer; box-shadow: var(--shadow-soft); margin-bottom:16px; font-family:inherit; line-height: 1;
   }
   .homecheck-reset-btn:active{ transform: translateY(1px); }
   .homecheck-add-row{ display:flex; gap:8px; margin-bottom:16px; }
   .homecheck-add-input{
     flex:1; min-width:0; border:2px solid var(--text); border-radius: var(--radius-md);
     background: var(--card); color: var(--text); font-family:inherit; font-size: calc(14px * var(--font-scale));
-    padding:11px 14px; outline:none;
+    /* Symmetric 11px/11px padding still reads as sitting high — same font-metric mismatch as
+       the "+" button above, just showing up as text-in-an-<input> instead of a button glyph, so
+       flex-centering isn't an option here (browsers position an <input>'s own text internally,
+       not as a styleable child box) — nudged via asymmetric padding instead (design review,
+       2026-08-12). */
+    padding:11px 14px 9px; outline:none;
   }
   .homecheck-add-input:focus{ border-color: var(--accent-dark); }
   .homecheck-add-btn{
     border:2px solid var(--text); background: var(--yellow); color:var(--text); font-weight:700;
-    font-size:21px; line-height:1; width:44px; border-radius: var(--radius-md); cursor:pointer; flex-shrink:0;
+    font-size:21px; width:44px; border-radius: var(--radius-md); cursor:pointer; flex-shrink:0;
+    /* Used to be a bare "+" text glyph — flex-centering it (align-items/justify-content) got
+       close but still read as slightly off on-device, since flex only centers the line box, not
+       necessarily a symbol's own ink within it. Swapped to icons/icon_plus.png (.homecheck-add-
+       icon below) instead, same fix as .task-add-step — an image can't have this problem at all,
+       whatever the centering method (design review, 2026-08-12). */
+    display:flex; align-items:center; justify-content:center;
   }
   .homecheck-add-btn:active{ transform: translateY(1px); }
+  .homecheck-add-icon{ width:18px; height:18px; object-fit:contain; display:block; }
   .device-list{ display:flex; flex-direction:column; gap:12px; }
   .device-card{
     background: var(--card); border:2px solid var(--text); border-radius: var(--radius-lg);
@@ -1094,16 +1151,16 @@
     color: var(--on-accent); font-size:15px; font-weight:700;
   }
   .device-info{ flex:1; min-width:0; }
-  .device-name{ font-weight:700; font-size: calc(14px * var(--font-scale)); margin-bottom:3px; word-break:break-word; }
+  .device-name{ font-weight:700; font-size: calc(14px * var(--font-scale)); margin-bottom:1px; word-break:break-word; }
   .device-status{ font-size: calc(11.5px * var(--font-scale)); color: var(--text-muted); opacity:.7; }
   .device-status.checked{ color: var(--accent-dark); opacity:1; font-weight:600; }
   .device-check-btn{
     border:2px solid var(--text); background: var(--bg); color:var(--text); font-weight:700;
-    font-size: calc(12px * var(--font-scale)); padding:9px 12px; border-radius: var(--radius-md); cursor:pointer; white-space:nowrap;
+    font-size: calc(12px * var(--font-scale)); padding:10px 12px 8px; border-radius: var(--radius-md); cursor:pointer; white-space:nowrap;
     flex-shrink:0; font-family:inherit;
   }
   .device-check-btn:active{ transform: translateY(1px); }
-  .device-delete{ background:transparent; border:none; font-size:15px; cursor:pointer; opacity:.5; padding:2px; flex-shrink:0; }
+  .device-delete{ margin-top:3px;background:transparent; border:none; font-size:15px; cursor:pointer; opacity:.5; padding:2px; flex-shrink:0; }
   .device-delete:active{ opacity:1; }
   .device-photo-row{
     display:flex; align-items:flex-start; flex-wrap:wrap; gap:14px 10px; margin-top:12px; padding-top:12px;
@@ -1391,13 +1448,20 @@
     font-weight:700; font-size: calc(19px * var(--font-scale)); margin:0 0 20px;
     resize:none; overflow-y:auto; min-height:40px; max-height:160px;
   }
+  /* Restyled as a small caption/eyebrow above the hero field rather than a second input that
+     just happens to be smaller — same font/weight/style as .task-quick-input previously, only
+     shrunk, which read as "backwards" (a title smaller than its own body text) rather than as a
+     deliberate label (design review, 2026-08-12). Uppercase + letter-spacing + muted color is
+     the standard "this is a caption, not a peer field" signal; the typed value still gets full
+     .task-title-input color (not the placeholder's dimmer one) so an actual title stays legible. */
   .task-title-input{
     width:100%; border:none; border-bottom:1px solid rgba(var(--shadow-rgb),0.1);
     border-radius:0; background:transparent; color: var(--text); font-family:inherit;
-    font-weight:700; font-size: calc(14px * var(--font-scale)); padding:4px 2px 8px; margin:0; outline:none;
+    font-weight:700; font-size: calc(11px * var(--font-scale)); letter-spacing:0.6px; text-transform:uppercase;
+    padding:2px 2px 8px; margin:0 0 4px; outline:none;
     transition: border-color .2s ease;
   }
-  .task-title-input::placeholder{ color: var(--text-muted); opacity:.5; font-weight:400; }
+  .task-title-input::placeholder{ color: var(--text-muted); opacity:.55; font-weight:700; letter-spacing:0.6px; }
   .task-title-input:focus{ border-bottom-color: var(--accent-dark); }
   /* min-height keeps the ~3-line starting size the CSS rows="3" attribute already implies;
      max-height+overflow-y caps how far auto-grow (see autosizeTextarea) can push before the
@@ -1609,7 +1673,7 @@
   .reminder-switch{ position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0; }
   .reminder-switch input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; z-index:1; }
   .reminder-switch-track{
-    position:absolute; inset:0; background: var(--switch-track-bg); border:2px solid var(--text);
+    position:absolute; top: 2px; inset:0; background: var(--switch-track-bg); border:2px solid var(--text);
     border-radius:999px; transition: background .2s;
   }
   .reminder-switch-thumb{
@@ -2252,8 +2316,11 @@
   <header class="header">
     <div class="header-bar" id="headerBar">
       <!-- Paw icon only now — the "mister Lapkins" wordmark is gone, kept only as an aria-label
-           for screen readers so the app's name is still announced. -->
-      <span class="header-title" aria-label="mister Lapkins"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg></span>
+           for screen readers so the app's name is still announced. A real <button> (not just a
+           decorative <span>) since design review flagged it as looking tappable but doing
+           nothing — taps it now to the Дела tab, the standard "tap the logo" behavior
+           (2026-08-12). -->
+      <button type="button" class="header-title" id="headerLogoBtn" aria-label="mister Lapkins"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg></button>
 
       <!-- Story window: normally cycles gentle encouragement text; on task #1/#2 of the
            reward cycle it swaps to a random scene from header_cats/ for 10s (see
@@ -2279,8 +2346,10 @@
       </div>
     </div>
     <div class="progress-wrap" id="progressWrap">
-      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-label" id="progressLabel">0/3</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+        <div class="progress-label" id="progressLabel">0 / 3</div>
+      </div>
     </div>
   </header>
 
@@ -2355,7 +2424,7 @@
 
         <div class="shopping-item-add-row">
           <input type="text" id="shoppingItemAddInput" class="shopping-item-add-input" maxlength="60" placeholder="Молоко, хлеб..." data-i18n-placeholder="placeholder_shopping_item" autocomplete="off">
-          <button type="button" class="homecheck-add-btn" id="shoppingItemAddBtn" aria-label="Добавить продукт" data-i18n-aria="aria_add_shopping_item">+</button>
+          <button type="button" class="homecheck-add-btn" id="shoppingItemAddBtn" aria-label="Добавить продукт" data-i18n-aria="aria_add_shopping_item"><img class="homecheck-add-icon" src="icons/icon_plus_2.png" alt=""></button>
         </div>
 
         <div id="shoppingListsWrap">
@@ -2472,7 +2541,7 @@
 
       <div class="homecheck-add-row">
         <input type="text" id="homeCheckAddInput" class="homecheck-add-input" maxlength="40" placeholder="Свой прибор (например, Плойка)..." data-i18n-placeholder="placeholder_homecheck_device" autocomplete="off">
-        <button type="button" class="homecheck-add-btn" id="homeCheckAddBtn" aria-label="Добавить прибор" data-i18n-aria="aria_add_device">+</button>
+        <button type="button" class="homecheck-add-btn" id="homeCheckAddBtn" aria-label="Добавить прибор" data-i18n-aria="aria_add_device"><img class="homecheck-add-icon" src="icons/icon_plus_2.png" alt=""></button>
       </div>
 
       <div class="device-list" id="deviceList"></div>
@@ -4026,7 +4095,7 @@
   var editingPantryId = null; // set by openEditPantryModal, mirrors editingHabitId below
   var tabButtons, tabPanels;
   var boxModalOverlay, boxModalCloseX, giftBox, boxStageBefore, boxStageAfter, rewardTitleEl, rewardIconEl, rewardLevelEl, rewardNameEl, rewardDescriptionEl, closeModalBtn;
-  var settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle;
+  var headerLogoBtn, settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle;
   var accountSignInBtn, accountSignedIn, accountAvatar, accountAvatarFallback, accountName, accountSignOutBtn;
   var accountDangerSection, deleteAccountBtn, deleteAccountModalOverlay, deleteAccountCancelBtn, deleteAccountConfirmBtn, deleteAccountStatus;
   var isSignedIn = false;
@@ -4890,8 +4959,16 @@
 
   // ---------- rendering ----------
   function renderProgress(){
-    progressFillEl.style.width = (state.points / 3 * 100) + "%";
-    progressLabelEl.textContent = state.points + "/3";
+    var pct = state.points / 3 * 100;
+    progressFillEl.style.width = pct + "%";
+    progressLabelEl.textContent = state.points + " / 3";
+    if(state.points > 0){
+      progressLabelEl.classList.add("on-fill");
+      progressLabelEl.style.left = "calc(" + pct + "% - 10px)";
+    } else {
+      progressLabelEl.classList.remove("on-fill");
+      progressLabelEl.style.left = "10px";
+    }
   }
 
   function renderTasks(){
@@ -5074,7 +5151,7 @@
         '<div class="task-main-row">' +
           dragHandleHtml +
           '<div class="task-body">' + titleHtml + categoryTagHtml + '</div>' +
-          '<button class="task-edit" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>' +
+          '<button class="task-edit" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_change.png" alt=""></button>' +
           '<button class="task-delete" aria-label="' + t("aria_delete") + '">🗑️</button>' +
         '</div>' +
         '</li>';
@@ -5085,8 +5162,8 @@
         dragHandleHtml +
         '<button class="task-check ' + (task.completed ? "checked" : "") + '" aria-label="' + t("aria_mark_done") + '"></button>' +
         '<div class="task-body">' + titleHtml + renderReminderBadgeHtml(task) + categoryTagHtml + '</div>' +
-        '<button class="task-add-step" data-parent-id="' + task.id + '" aria-label="' + t("aria_add_step") + '">+</button>' +
-        '<button class="task-edit" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>' +
+        '<button class="task-add-step" data-parent-id="' + task.id + '" aria-label="' + t("aria_add_step") + '"><img class="edit-icon-img" src="icons/icon_plus.png" alt=""></button>' +
+        '<button class="task-edit" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_change.png" alt=""></button>' +
         '<button class="task-delete" aria-label="' + t("aria_delete") + '">🗑️</button>' +
       '</div>' +
       arrowHtml +
@@ -6961,7 +7038,13 @@
   // allowed to treat it as missed.
   var REMINDER_CARRY_OVER_GRACE_MS = 5 * 60000;
   function processReminderLifecycle(obj, now, onReschedule){
-    if(!obj.reminderDateTime || obj.completed) return false;
+    // A recurring task (obj.recurrence — top-level tasks only, subtasks never have one) already
+    // gets its reminderDateTime advanced on its own terms when actually completed (see
+    // toggleTask's recurrence handling) — it isn't "missed" just because its time passed while
+    // still unchecked, that's the whole point of it repeating. Carrying it over here too was
+    // showing the "Лапкинс перенёс..." caption on a task that was never actually late (reported
+    // 2026-08-12).
+    if(!obj.reminderDateTime || obj.completed || obj.recurrence) return false;
     var when = parseReminderDateTime(obj.reminderDateTime);
     if(now.getTime() - when.getTime() < REMINDER_CARRY_OVER_GRACE_MS) return false;
 
@@ -9382,6 +9465,7 @@
 
     thoughtCloseBtn.addEventListener("click", dismissFloatingThoughtEarly);
 
+    headerLogoBtn.addEventListener("click", function(){ switchTab("tasks"); });
     settingsBtn.addEventListener("click", openSidebar);
     sidebarCloseX.addEventListener("click", closeSidebar);
     sidebarOverlay.addEventListener("click", closeSidebar);
@@ -9464,6 +9548,13 @@
         [kindnessModalOverlay, closeKindnessModal],
         [deleteAccountModalOverlay, closeDeleteAccountModal]
       ];
+      // Full-page sub-screens reached via the sidebar (each has its own "←" — see e.g.
+      // settingsBackBtn above, all of which go to "tasks" too) — without this, hardware/gesture
+      // back on one of these just fell through to minimizeApp and exited the whole app instead
+      // of backing out to the main screen, which is what the on-screen arrow already does
+      // (reported 2026-08-12: some people reach for the phone's back button/gesture out of habit
+      // instead of the on-screen arrow).
+      var BACK_NAVIGABLE_TABS = ["settings", "trash", "achievements", "habits", "idle-phrases", "reminder-sound"];
       window.Capacitor.Plugins.App.addListener("backButton", function(){
         for(var i = 0; i < backCloseTargets.length; i++){
           var overlay = backCloseTargets[i][0];
@@ -9474,6 +9565,10 @@
         }
         if(sidebarOverlay.classList.contains("open")){
           closeSidebar();
+          return;
+        }
+        if(BACK_NAVIGABLE_TABS.indexOf(activeTab) !== -1){
+          switchTab("tasks");
           return;
         }
         window.Capacitor.Plugins.App.minimizeApp();
@@ -9699,6 +9794,7 @@
     batteryStatusBanner = document.getElementById("batteryStatusBanner");
     batteryStatusFixBtn = document.getElementById("batteryStatusFixBtn");
 
+    headerLogoBtn = document.getElementById("headerLogoBtn");
     settingsBtn = document.getElementById("settingsBtn");
     settingsSidebar = document.getElementById("settingsSidebar");
     sidebarOverlay = document.getElementById("sidebarOverlay");
