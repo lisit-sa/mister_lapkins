@@ -36930,6 +36930,7 @@ This typically indicates that your device does not have a healthy Internet conne
       var localEditCount = 0;
       var lastPushedEditCount = 0;
       var freshSignInUid = null;
+      var PENDING_PUSH_KEY = "misterLapkinsPendingCloudPush";
       var initialSyncDone = false;
       function userDocRef(uid) {
         return doc(db, "users", uid);
@@ -36966,10 +36967,28 @@ This typically indicates that your device does not have a healthy Internet conne
         console.log("Mister Lapkins: loadOrSeedCloudState start", uid, "isFreshSignIn:", isFreshSignIn);
         initialSyncDone = false;
         var editCountAtFetchStart = localEditCount;
+        var hadUnconfirmedPushFromLastSession = false;
+        try {
+          hadUnconfirmedPushFromLastSession = !isFreshSignIn && localStorage.getItem(PENDING_PUSH_KEY) === "1";
+        } catch (e) {
+        }
         getDoc(userDocRef(uid)).then(function(snap) {
           console.log("Mister Lapkins: loadOrSeedCloudState getDoc resolved, exists:", snap.exists(), "fromCache:", snap.metadata && snap.metadata.fromCache);
           if (!isFreshSignIn && localEditCount !== editCountAtFetchStart) {
             console.log("Mister Lapkins: loadOrSeedCloudState bailing, local edit landed mid-fetch");
+            startListening(uid);
+            return;
+          }
+          if (hadUnconfirmedPushFromLastSession && getStateFn) {
+            console.warn("Mister Lapkins: loadOrSeedCloudState \u2014 unconfirmed push from a previous session, pushing local state instead of applying this fetch");
+            setDoc(userDocRef(uid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).then(function() {
+              try {
+                localStorage.removeItem(PENDING_PUSH_KEY);
+              } catch (e) {
+              }
+            }).catch(function(e) {
+              console.warn("Mister Lapkins: cloud sync push (unconfirmed-session recovery) failed", e);
+            });
             startListening(uid);
             return;
           }
@@ -37065,6 +37084,10 @@ This typically indicates that your device does not have a healthy Internet conne
         queuePush: function() {
           localEditCount++;
           if (!currentUid) return;
+          try {
+            localStorage.setItem(PENDING_PUSH_KEY, "1");
+          } catch (e) {
+          }
           if (pushTimer) clearTimeout(pushTimer);
           pushTimer = setTimeout(flushPush, 1500);
         },
@@ -37189,9 +37212,16 @@ This typically indicates that your device does not have a healthy Internet conne
           return;
         }
         pushTimer = null;
+        var pushedCount = localEditCount;
         lastPushedEditCount = localEditCount;
         setDoc(userDocRef(currentUid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).then(function() {
           console.log("Mister Lapkins: cloud sync push succeeded");
+          if (localEditCount === pushedCount) {
+            try {
+              localStorage.removeItem(PENDING_PUSH_KEY);
+            } catch (e) {
+            }
+          }
         }).catch(function(e) {
           console.warn("Mister Lapkins: cloud sync push failed", e);
         });

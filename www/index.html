@@ -572,7 +572,7 @@
      (same pattern as .pantry-template-picker below). */
   .category-filter-dropdown{ position:relative; flex:1; }
   .category-filter-trigger{ width:100%; }
-  .category-filter-trigger-arrow{ font-size:13px; opacity:.75; flex-shrink:0; transition: transform .2s ease; top: 3px !important;}
+  .category-filter-trigger-arrow{ font-size:13px; opacity:.75; flex-shrink:0; transition: transform .2s ease; top: 1px !important;}
   .open .category-filter-trigger-arrow{ top: 1px !important;}
   .category-filter-dropdown.open .category-filter-trigger-arrow{ transform: rotate(180deg); }
   .category-filter-list{
@@ -582,6 +582,13 @@
     box-shadow: 0 14px 28px rgba(var(--shadow-rgb),0.28); padding:6px;
   }
   .category-filter-dropdown.open .category-filter-list{ display:block; animation: fadeIn .15s ease; }
+  /* Reuses .category-picker-new-row/.category-picker-new-fields/.category-swatch-row/
+     .category-swatch wholesale (see the category-picker rules) for the same inline name+color
+     editor, just mounted in the filter dropdown instead — editing.category-filter-list toggle
+     swaps which one shows, mirroring .category-picker.open.adding-category (2026-08-12: "а вот
+     здесь редактировать?" — the filter dropdown had no edit affordance at all before this). */
+  .category-filter-dropdown.editing-category .category-filter-list{ display:none; }
+  .category-filter-dropdown.editing-category .category-picker-new-row{ display:flex; }
   .category-filter-option{
     width:100%; display:block; text-align:left; background:transparent; border:none;
     border-radius: var(--radius-md); padding:9px 12px; cursor:pointer;
@@ -591,10 +598,11 @@
   .category-filter-row .category-filter-option{ flex:1; min-width:0; }
   .category-filter-option:hover, .category-filter-option:active{ background: rgba(var(--shadow-rgb),0.08); }
   .category-filter-option.active{ color: var(--accent-dark); }
-  .category-filter-delete{
+  .category-filter-edit, .category-filter-delete{
     background:transparent; border:none; font-size:12px; cursor:pointer; opacity:.55;
-    padding:6px 8px; flex-shrink:0; border-radius: var(--radius-md);
+    padding:6px 8px; flex-shrink:0; border-radius: var(--radius-md); display:flex; align-items:center;
   }
+  .category-filter-edit:hover, .category-filter-edit:active{ opacity:1; background: rgba(var(--shadow-rgb),0.08); }
   .category-filter-delete:hover, .category-filter-delete:active{ opacity:1; background: rgba(var(--shadow-rgb),0.08); }
 
   .type-toggle{ display:flex; gap:8px; }
@@ -615,10 +623,25 @@
   .add-btn:active{ transform: translateY(1px); }
 
   .task-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  /* background-image here is a translucent wash of the category's color (--cat-bg, set inline
+     per-card — see categoryColorStyle/renderTaskCard), painted over whatever background-color
+     already resolved to. When --cat-bg isn't set (no category, or an uncolored one) the rgba()
+     calls are invalid at computed-value time, which makes the WHOLE background-image property
+     fall back to its initial value (none) — leaving the plain background-color showing through
+     with no extra rule needed (2026-08-12 — user-chosen category colors). 0.3 opacity reads as a
+     clean pastel wash over the light theme's near-white card — over the dark theme's dark-purple
+     card the same light color at the same low opacity mixes into a muddy, muted version of
+     itself instead (design feedback, 2026-08-12 follow-up) — needs a stronger dose of the actual
+     color to read as that color against a dark base, hence the separate, higher-opacity override
+     below rather than one shared value. */
   .task-item{
-    display:flex; flex-direction:column; background: var(--card);
+    display:flex; flex-direction:column; background-color: var(--card);
+    background-image: linear-gradient(rgba(var(--cat-bg),0.3), rgba(var(--cat-bg),0.3));
     border:2px solid var(--text); border-radius: var(--radius-md); padding:10px 12px;
     box-shadow: var(--shadow-soft); transition: opacity .3s;
+  }
+  body.dark-theme .task-item{
+    background-image: linear-gradient(rgba(var(--cat-bg),0.6), rgba(var(--cat-bg),0.6));
   }
   .task-item.completed{ opacity:.55; }
   .task-item.completed .task-title{ text-decoration: line-through; }
@@ -677,12 +700,18 @@
      soft note that Mr. Lapkins quietly moved the reminder to today (see checkReminders). */
   .task-reminder-badge.task-carried-over{ font-style:italic; font-weight:600; opacity:.85; color: var(--accent-dark); }
   /* Pastel category word-tag — sits under the title/reminder line only when a task has a
-     category set (see renderCategoryTagHtml); one soft accent tint keeps it calm rather than
-     assigning a different color per category. */
+     category set; plain accent tint by default, same as always. .has-color (only present when
+     the category actually has a user-chosen one — see categoryColorStyle/renderTaskCard) swaps
+     in that color's own bg/text via the --cat-bg/--cat-text custom properties set inline on this
+     same element, at a punchier opacity than the base tint so a chosen color actually reads as
+     that color rather than another faint accent wash (2026-08-12 — user-chosen category colors). */
   .task-category-tag{
     align-self:flex-start; font-size: calc(10.5px * var(--font-scale)); font-weight:700;
     padding:2px 9px; border-radius:999px; margin-top:1px;
     background: rgba(var(--accent-rgb),0.16); color: var(--accent-dark);
+  }
+  .task-category-tag.has-color{
+    background: rgba(var(--cat-bg),0.55); color: var(--cat-text);
   }
   /* Same 4px all-around padding as .task-drag-handle/.task-check now (design review, 2026-08-12
      — used to be a bare 2px with no compensation, which read a couple px above the checkbox+
@@ -710,8 +739,14 @@
     display:flex; align-items:center; gap:8px; margin-left:24px;
     background: var(--card); border:2px solid var(--text); border-radius: var(--radius-md);
     padding:8px 10px; box-shadow: var(--shadow-soft);
-    animation: subtaskCardIn .3s ease both;
   }
+  /* Only present when this render is the one genuine "the arrow was just tapped open" moment
+     (see subtaskEntranceTaskId/toggleTaskSubtasksExpanded) — .subtask-card used to carry this
+     animation unconditionally, which replayed on every single re-render of the whole list
+     (renderTasks does a full innerHTML rebuild), including checking a completely unrelated
+     subtask/task off. With several subtasks open that read as the whole group flickering/
+     "dancing" on every tap (reported 2026-08-17). */
+  .subtask-card.entering{ animation: subtaskCardIn .3s ease both; }
   @keyframes subtaskCardIn{
     from{ opacity:0; transform: translateY(-8px); }
     to{ opacity:1; transform: translateY(0); }
@@ -1355,11 +1390,17 @@
   .add-task-card{
     position:relative; text-align:left; padding-top:22px; padding-bottom:20px;
     height:fit-content;
-    /* dvh (see .sidebar above for the same pattern) shrinks with the on-screen keyboard; plain
-       vh doesn't, so on Android with the keyboard open this card could think it has more room
-       than is actually visible above the keyboard — pushing the line you're typing out of view
-       even though autosizeTextarea's scrollIntoView (see below) tries to keep the caret in view. */
-    max-height: 85vh; max-height: 85dvh; overflow-y:auto;
+    /* dvh (see .sidebar above for the same pattern) is meant to shrink with the on-screen
+       keyboard the way plain vh doesn't, but in practice Chrome/WebView's dvh mostly tracks
+       browser-chrome changes (address bar) and often does NOT reliably shrink for the software
+       keyboard specifically — so this card could still think it has more room than is actually
+       visible above the keyboard, forcing a scroll for a form short enough it shouldn't need one
+       (reported 2026-08-19, on the Новый продукт/pantry modal — same class, same underlying gap).
+       --kb-modal-max-h (see the visualViewport listener near the bottom of this file) is the real
+       fix: JS measures the actual visible height above the keyboard directly and wins over the
+       dvh guess below whenever it's set; dvh stays as the fallback for browsers/older WebViews
+       with no visualViewport support at all. */
+    max-height: 85vh; max-height: 85dvh; max-height: var(--kb-modal-max-h, 85dvh); overflow-y:auto;
   }
   .add-task-card .modal-title{ margin:0 0 12px; }
   .modal-close-x{
@@ -1537,10 +1578,30 @@
     box-shadow: 0 14px 28px rgba(var(--shadow-rgb),0.28); padding:6px;
   }
   .category-picker-list{ max-height:220px; overflow-y:auto; }
-  .category-picker-new-row{ gap:8px; padding:8px; }
+  .category-picker-new-row{ gap:8px; padding:8px; flex-wrap:wrap; }
   .category-picker.open .category-picker-list{ display:block; animation: fadeIn .15s ease; }
   .category-picker.open.adding-category .category-picker-list{ display:none; }
   .category-picker.open.adding-category .category-picker-new-row{ display:flex; }
+  /* Only #categoryNewRow/#taskOptionsCategoryNewRow (task/note category creation) have these two
+     children — #shoppingListNewRow reuses the same .category-picker-new-row shell for a plain
+     list-name field with no color picker, so it's untouched by either rule. flex:1 1 100% on both
+     forces each onto its own full-width line within the wrapping row above, without needing to
+     change .category-picker-new-row's own row direction (which the shopping-list reuse depends
+     on) — added for user-chosen category colors (2026-08-12). */
+  /* min-width:0 matters here specifically — without it, this flex item's automatic minimum size
+     falls back to its children's combined min-content width (the confirm button's own intrinsic
+     width plus the text input's, which ignores the input's own min-width:0 since that only
+     governs ITS shrinking as a child of THIS row, not this row's own floor as a child of
+     .category-picker-new-row). In the wide add-task-modal picker there was enough room that this
+     never became visible; in the much narrower filter-dropdown reuse (2026-08-12) the confirm
+     button was overflowing right out of the card because of exactly this. */
+  .category-picker-new-fields{ display:flex; gap:8px; flex:1 1 100%; min-width:0; }
+  .category-swatch-row{ display:flex; gap:8px; flex-wrap:wrap; flex:1 1 100%; }
+  .category-swatch{
+    width:22px; height:22px; border-radius:50%; border:2px solid transparent; cursor:pointer;
+    padding:0; flex-shrink:0;
+  }
+  .category-swatch.selected{ border-color: var(--text); }
   .category-picker-row{ display:flex; align-items:center; gap:2px; }
   .category-picker-option{
     width:100%; display:block; text-align:left; background:transparent; border:none;
@@ -1557,10 +1618,11 @@
     margin-top:6px; padding-top:8px; border-top:2px solid rgba(var(--shadow-rgb),0.15);
     display:flex; flex-direction:column; gap:2px;
   }
-  .category-picker-delete{
+  .category-picker-edit, .category-picker-delete{
     background:transparent; border:none; font-size:12px; cursor:pointer; opacity:.55;
-    padding:6px 8px; flex-shrink:0; border-radius: var(--radius-md);
+    padding:6px 8px; flex-shrink:0; border-radius: var(--radius-md); display:flex; align-items:center;
   }
+  .category-picker-edit:hover, .category-picker-edit:active,
   .category-picker-delete:hover, .category-picker-delete:active{ opacity:1; background: rgba(var(--shadow-rgb),0.08); }
   .category-picker-new-input{
     flex:1; min-width:0; border:2px solid var(--text); border-radius: var(--radius-md); background: var(--bg);
@@ -1696,6 +1758,23 @@
      to a dark glyph — invisible on the dark theme's dark input background. color-scheme tells
      the browser to draw its own native chrome (this icon included) in a dark-appropriate style. */
   body.dark-theme .reminder-input{ color-scheme: dark; }
+  /* Тихие часы rows (Settings) — same .reminder-input look as the task reminder's own date/time
+     fields, just two side by side with a dash between, a confirm checkmark and a delete button
+     (2026-08-12). Both action buttons get a real bordered box — a plain low-opacity trash glyph
+     (the usual .category-*-delete look) all but disappeared against the page's own photo
+     background here, since this row sits directly on it rather than inside a card. The checkmark
+     is mostly reassurance (every field already saves on its own change event — see
+     updateQuietHoursRange) rather than a required step, but "does this actually save?" was
+     unclear without some explicit confirm affordance (design feedback, 2026-08-12). */
+  .quiet-hours-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .quiet-hours-dash{ opacity:.5; flex-shrink:0; }
+  .quiet-hours-confirm, .quiet-hours-delete{
+    border:2px solid var(--text); background: var(--card); border-radius: var(--radius-md);
+    width:40px; height:40px; flex-shrink:0; cursor:pointer; font-size:15px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .quiet-hours-confirm{ color: var(--accent-dark); font-weight:700; }
+  .quiet-hours-confirm:active, .quiet-hours-delete:active{ transform: translateY(1px); }
   /* Повтор — reuses .category-picker's dropdown chrome (see #recurPicker markup in both the
      add-task and task-options modals) rather than .reminder-fields' own max-height/overflow:hidden
      collapse animation, since that overflow:hidden would clip this picker's absolutely-positioned
@@ -1862,7 +1941,6 @@
     font-size: calc(11.5px * var(--font-scale)); color: var(--text); line-height:1.4;
     margin:-4px 0 10px; padding:0 2px;
   }
-  .toggle-hint:last-child{ margin-bottom:0; }
   .toggle-row-text{ font-size: calc(13.5px * var(--font-scale)); font-weight:700; color: var(--text); }
 
   /* "Мои фразы" list — same row anatomy as .shopping-item (card, edit pencil, delete trash,
@@ -2368,6 +2446,13 @@
             <span class="category-filter-trigger-arrow">▾</span>
           </button>
           <div class="category-filter-list" id="categoryFilterList" role="listbox"></div>
+          <div class="category-picker-new-row" id="categoryFilterEditRow">
+            <div class="category-picker-new-fields">
+              <input type="text" id="categoryFilterEditInput" class="category-picker-new-input" maxlength="24" autocomplete="off">
+              <button type="button" class="category-picker-new-confirm" id="categoryFilterEditConfirmBtn" aria-label="Сохранить" data-i18n-aria="aria_save">✓</button>
+            </div>
+            <div class="category-swatch-row" id="categoryFilterEditSwatchRow"></div>
+          </div>
         </div>
         <div class="category-filter-dropdown" id="noteCategoryFilterDropdown">
           <button type="button" class="filter-tab category-filter-trigger" id="noteCategoryFilterTrigger" aria-haspopup="listbox">
@@ -2376,6 +2461,13 @@
             <span class="category-filter-trigger-arrow">▾</span>
           </button>
           <div class="category-filter-list" id="noteCategoryFilterList" role="listbox"></div>
+          <div class="category-picker-new-row" id="noteCategoryFilterEditRow">
+            <div class="category-picker-new-fields">
+              <input type="text" id="noteCategoryFilterEditInput" class="category-picker-new-input" maxlength="24" autocomplete="off">
+              <button type="button" class="category-picker-new-confirm" id="noteCategoryFilterEditConfirmBtn" aria-label="Сохранить" data-i18n-aria="aria_save">✓</button>
+            </div>
+            <div class="category-swatch-row" id="noteCategoryFilterEditSwatchRow"></div>
+          </div>
         </div>
       </div>
       <ul class="task-list" id="taskList"></ul>
@@ -2645,6 +2737,20 @@
         </button>
       </div>
 
+      <!-- Quiet hours — one or more daily windows during which a "Забота о себе" habit reminder
+           that would otherwise fire gets pushed to the window's end instead (see
+           quietHoursPushedTime). Purely a notification-timing thing — the in-app overdue state is
+           untouched, so opening the app during quiet hours still shows the real status. -->
+      <div class="sidebar-section">
+        <p class="sidebar-section-title">
+          <img class="section-title-icon" src="icons/icon_bell.png" alt="">
+          <span data-i18n="settings_quiet_hours_title">Тихие часы</span>
+        </p>
+        <p class="toggle-hint" data-i18n="settings_quiet_hours_hint">В это время напоминания «Забота о себе» не будут звучать — можно добавить несколько промежутков, например на ночь и на дневной сон.</p>
+        <div id="quietHoursList"></div>
+        <button type="button" class="homecheck-reset-btn" id="quietHoursAddBtn" data-i18n="settings_quiet_hours_add">+ Добавить промежуток</button>
+      </div>
+
       <!-- Only meaningful signed in — there's no cloud account to delete otherwise (see
            updateAccountUI toggling this section's .hidden). Google Play requires this reachable
            from inside the app itself, not just the Store listing/Data Safety form — see
@@ -2719,8 +2825,11 @@
         </button>
         <div class="category-picker-list" id="categoryPickerList" role="listbox"></div>
         <div class="category-picker-new-row" id="categoryNewRow">
-          <input type="text" id="categoryNewInput" class="category-picker-new-input" maxlength="24" placeholder="Название категории" data-i18n-placeholder="category_new_placeholder" autocomplete="off">
-          <button type="button" class="category-picker-new-confirm" id="categoryNewConfirmBtn" aria-label="Добавить категорию" data-i18n-aria="aria_add_category">+</button>
+          <div class="category-picker-new-fields">
+            <input type="text" id="categoryNewInput" class="category-picker-new-input" maxlength="24" placeholder="Название категории" data-i18n-placeholder="category_new_placeholder" autocomplete="off">
+            <button type="button" class="category-picker-new-confirm" id="categoryNewConfirmBtn" aria-label="Добавить категорию" data-i18n-aria="aria_add_category">+</button>
+          </div>
+          <div class="category-swatch-row" id="categoryNewSwatchRow"></div>
         </div>
       </div>
       <!-- Wrapped so the zone's own gap (see .task-settings-zone) only spaces out the three
@@ -2803,8 +2912,11 @@
         </button>
         <div class="category-picker-list" id="taskOptionsCategoryPickerList" role="listbox"></div>
         <div class="category-picker-new-row" id="taskOptionsCategoryNewRow">
-          <input type="text" id="taskOptionsCategoryNewInput" class="category-picker-new-input" maxlength="24" placeholder="Название категории" data-i18n-placeholder="category_new_placeholder" autocomplete="off">
-          <button type="button" class="category-picker-new-confirm" id="taskOptionsCategoryNewConfirmBtn" aria-label="Добавить категорию" data-i18n-aria="aria_add_category">+</button>
+          <div class="category-picker-new-fields">
+            <input type="text" id="taskOptionsCategoryNewInput" class="category-picker-new-input" maxlength="24" placeholder="Название категории" data-i18n-placeholder="category_new_placeholder" autocomplete="off">
+            <button type="button" class="category-picker-new-confirm" id="taskOptionsCategoryNewConfirmBtn" aria-label="Добавить категорию" data-i18n-aria="aria_add_category">+</button>
+          </div>
+          <div class="category-swatch-row" id="taskOptionsCategoryNewSwatchRow"></div>
         </div>
       </div>
       <div class="reminder-block" id="taskOptionsReminderBlock">
@@ -3203,7 +3315,7 @@
       <div class="kindness-card">
         <div class="kindness-icon"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg></div>
         <h2 data-i18n="kindness_heading">Хвостики</h2>
-        <p data-i18n="kindness_ad_text">Лапкинс считает, что сытым и любимым должен быть каждый котик и песик! Поэтому 5% от дохода приложения мы перечисляем приюты для животных.</p>
+        <p data-i18n="kindness_ad_text">Лапкинс считает, что сытым и любимым должен быть каждый котик и песик! Поэтому 5% от дохода приложения мы перечисляем в приюты для животных.</p>
         <p class="kindness-sub" data-i18n="kindness_sub">Хочешь помочь хвостикам без посредников? Вот организации, которым можно доверять:</p>
         <ul class="kindness-links">
           <li><a href="https://www.spcai.org/take-action/ways-to-give" target="_blank" rel="noopener" data-i18n="kindness_link_spca"><svg class="icon-glyph-dark"><use href="#icon-paw-dark"></use></svg><svg class="icon-glyph-light"><use href="#icon-paw-light"></use></svg> SPCA International </a></li>
@@ -3320,6 +3432,7 @@
       category_add_new: "+ Создать свою",
       category_new_placeholder: "Название категории",
       aria_add_category: "Добавить категорию",
+      aria_save: "Сохранить",
       empty_task: "Задач пока нет — самое время добавить одну <img class=\"inline-icon\" src=\"icons/icon_sparkles.png\" alt=\"\">",
       empty_note: "Заметок пока нет — запиши что-то важное <img class=\"inline-icon\" src=\"icons/icon_notes.png\" alt=\"\">",
       tasks_overflow_note: "Сегодня этого достаточно <img class=\"inline-icon\" src=\"icons/icon_heart.png\" alt=\"\">",
@@ -3408,7 +3521,7 @@
       placeholder_pantry_name: "Название продукта",
       pantry_days_label: "Хватает на",
       icon_input_hint: "Можно вставить свой эмодзи",
-      btn_add_pantry: "Добавить в кладовую",
+      btn_add_pantry: "Добавить",
       pantry_select_placeholder: "Выбери из списка...",
       pantry_custom_option: "Свой вариант",
       pantry_or_custom_hint: "Или добавь свой",
@@ -3517,6 +3630,11 @@
       task_reminder_sound_violin: "Скрипка",
       task_reminder_sound_violin_music: "Скрипичная мелодия",
       task_reminder_sound_hint: "Играет только для напоминаний о делах и подзадачах — привычки и запасы звучат как раньше. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.",
+      settings_quiet_hours_title: "Тихие часы",
+      settings_quiet_hours_hint: "В это время напоминания «Забота о себе» не будут звучать — можно добавить несколько промежутков, например на ночь и на дневной сон.",
+      settings_quiet_hours_add: "+ Добавить промежуток",
+      settings_quiet_hours_empty: "Пока не добавлено ни одного промежутка.",
+      settings_quiet_hours_saved_toast: "Сохранено",
       aria_preview_sound: "Прослушать",
       aria_stop_sound: "Остановить",
       settings_gender_label: "Обращение",
@@ -3537,7 +3655,7 @@
       idle_phrase_placeholder: "Своя фраза...",
       aria_add_idle_phrase: "Добавить фразу",
       kindness_heading: "Хвостики",
-      kindness_ad_text: "Лапкинс считает, что сытым и любимым должен быть каждый котик и песик! Поэтому 5% от дохода приложения мы перечисляем приюты для животных.",
+      kindness_ad_text: "Лапкинс считает, что сытым и любимым должен быть каждый котик и песик! Поэтому 5% от дохода приложения мы перечисляем в приюты для животных.",
       kindness_sub: "Хочешь помочь хвостикам без посредников? Вот организации, которым можно доверять:",
       kindness_link_spca: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> SPCA International",
       kindness_link_letlive: "<svg class=\"icon-glyph-dark\"><use href=\"#icon-paw-dark\"></use></svg><svg class=\"icon-glyph-light\"><use href=\"#icon-paw-light\"></use></svg> Four Paws International",
@@ -3615,6 +3733,7 @@
       category_add_new: "+ Create custom",
       category_new_placeholder: "Category name",
       aria_add_category: "Add category",
+      aria_save: "Save",
       empty_task: "No tasks yet — the perfect time to add one <img class=\"inline-icon\" src=\"icons/icon_sparkles.png\" alt=\"\">",
       empty_note: "No notes yet — jot something down <img class=\"inline-icon\" src=\"icons/icon_notes.png\" alt=\"\">",
       tasks_overflow_note: "That's enough for today <img class=\"inline-icon\" src=\"icons/icon_heart.png\" alt=\"\">",
@@ -3703,7 +3822,7 @@
       placeholder_pantry_name: "Product name",
       pantry_days_label: "Lasts for",
       icon_input_hint: "You can type any emoji here",
-      btn_add_pantry: "Add to pantry",
+      btn_add_pantry: "Add",
       pantry_select_placeholder: "Choose from the list...",
       pantry_custom_option: "Custom",
       pantry_or_custom_hint: "Or add your own",
@@ -3806,6 +3925,11 @@
       task_reminder_sound_violin: "Violin",
       task_reminder_sound_violin_music: "Violin Melody",
       task_reminder_sound_hint: "Only plays for task/subtask reminders. Keeps ringing until you tap Snooze/Done on the notification itself.",
+      settings_quiet_hours_title: "Quiet hours",
+      settings_quiet_hours_hint: "\"Self-care\" reminders won't make sound during these windows — add as many as you need, e.g. overnight and a daytime nap.",
+      settings_quiet_hours_add: "+ Add a window",
+      settings_quiet_hours_empty: "No quiet windows added yet.",
+      settings_quiet_hours_saved_toast: "Saved",
       aria_preview_sound: "Play preview",
       aria_stop_sound: "Stop",
       settings_gender_label: "Form of address",
@@ -3941,6 +4065,72 @@
   // keys since new ones are user-typed and have no translation.
   var DEFAULT_CATEGORIES = ["Работа", "Дом", "Здоровье", "Хобби"];
 
+  // Curated pastel palette for user-chosen category colors (see addCategory/state.categoryColors/
+  // state.noteCategoryColors) — every bg is light enough that the tag's own dark text and, at the
+  // lower opacity .task-item/.note-item use for the card wash (see renderTaskCard), the card's
+  // normal text all stay readable on top of it (design ask, 2026-08-12: "только пастельными,
+  // чтобы было видно текст"). text is only used for the small tag pill, not the card itself —
+  // the card keeps its own normal text color regardless of category. Bumped noticeably more
+  // saturated than the first pass (2026-08-12 follow-up: the original bg values were too close to
+  // the app's own cream background to tell categories apart on the card wash) — still reads as
+  // "pastel", just no longer washed-out enough to be interchangeable at a glance.
+  var CATEGORY_COLORS = [
+    { key: "rose",     bg: "236,150,163", text: "#6b1f2d" },
+    { key: "taupe",    bg: "182,181,177", text: "#454340" },
+    { key: "honey",    bg: "244,180,40",  text: "#5c3d05" },
+    { key: "sage",     bg: "150,190,130", text: "#28401f" },
+    { key: "sky",      bg: "120,182,217", text: "#123a4a" },
+    { key: "lavender", bg: "178,152,217", text: "#3c2560" },
+    { key: "clay",     bg: "212,142,112", text: "#5c2814" },
+    { key: "mint",     bg: "112,201,171", text: "#134a38" }
+  ];
+  function categoryColorByKey(key){
+    return CATEGORY_COLORS.find(function(c){ return c.key === key; }) || null;
+  }
+  function normalizeCategoryColors(raw, validNames){
+    var out = {};
+    if(raw && typeof raw === "object"){
+      validNames.forEach(function(name){
+        var key = raw[name];
+        if(typeof key === "string" && categoryColorByKey(key)) out[name] = key;
+      });
+    }
+    return out;
+  }
+  // Inline custom-property style for whatever needs to paint a category's color — falls back to
+  // nothing (empty string) for an uncolored category, so consumers (.task-category-tag/.task-item)
+  // just fall through to their existing plain accent look via CSS var() fallbacks.
+  function categoryColorStyle(name, colorMap){
+    var entry = name && colorMap ? categoryColorByKey(colorMap[name]) : null;
+    return entry ? "--cat-bg:" + entry.bg + ";--cat-text:" + entry.text + ";" : "";
+  }
+  // Shared by both "add new category" flows (#categoryNewSwatchRow / #taskOptionsCategoryNewSwatchRow
+  // — see openCategoryNewInput/openTaskOptionsCategoryNewInput) — a plain re-render on every click
+  // rather than toggling a "selected" class, since there are only 8 of these.
+  // Colors a category's own name in the picker/filter option lists below, so an already-colored
+  // category is recognizable at a glance while picking. Was a small dot before it, but that sat
+  // oddly above a name long enough to wrap onto its own line — coloring the text itself has
+  // nothing to visually detach from (design feedback, 2026-08-12).
+  function categoryColoredNameHtml(name, colorMap){
+    var escaped = escapeHtml(name);
+    var entry = name && colorMap ? categoryColorByKey(colorMap[name]) : null;
+    return entry ? '<span style="color:' + entry.text + '">' + escaped + '</span>' : escaped;
+  }
+  function renderCategorySwatchRow(container, selectedKey, onSelect){
+    container.innerHTML = CATEGORY_COLORS.map(function(c){
+      return '<button type="button" class="category-swatch' + (c.key === selectedKey ? " selected" : "") +
+        '" data-key="' + c.key + '" style="background:rgb(' + c.bg + ')" aria-label="' + c.key + '"></button>';
+    }).join("");
+    Array.prototype.forEach.call(container.querySelectorAll(".category-swatch"), function(btn){
+      // stopPropagation matters here: onSelect re-renders this same row (innerHTML), which
+      // detaches the very button this click started on — the document-level "click outside
+      // closes the picker" listener (see closeCategoryPicker wiring) then sees a bubbled event
+      // whose target is no longer attached to #categoryPicker and closes it, right as you pick a
+      // color. Stopping it from bubbling that far keeps the picker open (2026-08-12).
+      btn.addEventListener("click", function(e){ e.stopPropagation(); onSelect(btn.dataset.key); });
+    });
+  }
+
   // nameKey rather than a plain name — the picker list itself is live-translated (see
   // populatePantryTemplateOptions/selectPantryTemplate), even though the name it copies into
   // the free-text input afterward is not (same as any custom-typed pantry name).
@@ -4024,6 +4214,10 @@
   var TASKS_VISIBLE_LIMIT = 5;
   var tasksExpanded = false;
   var expandedSubtasksIds = {}; // session-only UI state — which tasks show their subtask cards
+  // Non-null for exactly one renderTasks() call — the one right after toggleTaskSubtasksExpanded
+  // actually opens a task's subtasks — so only THAT task's cards get the .entering animation
+  // class this one time, not on every unrelated re-render (see .subtask-card.entering's comment).
+  var subtaskEntranceTaskId = null;
   var taskDragState = null; // non-null only while a #taskList card is actively being dragged (see startTaskDrag)
   var shoppingDragState = null; // non-null only while a #shoppingItemList row is actively being dragged (see startShoppingDrag)
   var activeTab = "tasks";
@@ -4045,7 +4239,9 @@
   var quoteTextEl, floatingThoughtEl, thoughtCloseBtn, progressFillEl, progressLabelEl;
   var addTaskTrigger, taskList, taskEmptyHint;
   var categoryFilterDropdown, categoryFilterTrigger, categoryFilterLabel, categoryFilterList;
+  var categoryFilterEditRow, categoryFilterEditInput, categoryFilterEditConfirmBtn, categoryFilterEditSwatchRow;
   var noteCategoryFilterDropdown, noteCategoryFilterTrigger, noteCategoryFilterLabel, noteCategoryFilterList;
+  var noteCategoryFilterEditRow, noteCategoryFilterEditInput, noteCategoryFilterEditConfirmBtn, noteCategoryFilterEditSwatchRow;
   var tasksOverflowEl, tasksOverflowBtn;
   var trashBackBtn, trashClearBtn, trashPanelEl;
   var trashDeletedList, trashDeletedEmptyHint;
@@ -4053,14 +4249,14 @@
   var achievementsLegend, achievementsHistory, achievementsEmptyHint;
   var addTaskModalOverlay, addTaskModalTitleEl, addTaskTextarea, taskTitleInput, taskQuickInput, modalTypeButtons, addTaskCloseX, addTaskCancelBtn, addTaskSubmitBtn;
   var taskTypeToggleEl, reminderToggleRowEl;
-  var categoryPicker, categoryPickerTrigger, categoryPickerLabel, categoryPickerList, categoryNewRow, categoryNewInput, categoryNewConfirmBtn;
+  var categoryPicker, categoryPickerTrigger, categoryPickerLabel, categoryPickerList, categoryNewRow, categoryNewInput, categoryNewConfirmBtn, categoryNewSwatchRow;
   var taskSettingsZone;
   var reminderToggle, reminderFields, reminderDateInput, reminderTimeInput;
   var recurPicker, recurPickerTrigger, recurPickerLabel, recurPickerList, recurCustomRow, recurCustomDaysInput, recurCustomDaysSuffix;
   var taskDetailModalOverlay, taskDetailCloseX, taskDetailTitleInput, taskDetailTextarea, taskDetailSaveBtn;
   var taskOptionsModalOverlay, taskOptionsCloseX, taskOptionsTypeButtons, taskOptionsCancelBtn, taskOptionsSaveBtn;
   var taskOptionsCategoryPicker, taskOptionsCategoryPickerTrigger, taskOptionsCategoryPickerLabel, taskOptionsCategoryPickerList;
-  var taskOptionsCategoryNewRow, taskOptionsCategoryNewInput, taskOptionsCategoryNewConfirmBtn;
+  var taskOptionsCategoryNewRow, taskOptionsCategoryNewInput, taskOptionsCategoryNewConfirmBtn, taskOptionsCategoryNewSwatchRow;
   var taskOptionsReminderBlock, taskOptionsReminderToggle, taskOptionsReminderFields, taskOptionsReminderDateInput, taskOptionsReminderTimeInput;
   var taskOptionsRecurPicker, taskOptionsRecurPickerTrigger, taskOptionsRecurPickerLabel, taskOptionsRecurPickerList, taskOptionsRecurCustomRow, taskOptionsRecurCustomDaysInput, taskOptionsRecurCustomDaysSuffix;
   var pantryList, collectionGrid, collectionTabButtons, collectionProgressEl;
@@ -4095,7 +4291,7 @@
   var editingPantryId = null; // set by openEditPantryModal, mirrors editingHabitId below
   var tabButtons, tabPanels;
   var boxModalOverlay, boxModalCloseX, giftBox, boxStageBefore, boxStageAfter, rewardTitleEl, rewardIconEl, rewardLevelEl, rewardNameEl, rewardDescriptionEl, closeModalBtn;
-  var headerLogoBtn, settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle;
+  var headerLogoBtn, settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle, quietHoursListEl, quietHoursAddBtn;
   var accountSignInBtn, accountSignedIn, accountAvatar, accountAvatarFallback, accountName, accountSignOutBtn;
   var accountDangerSection, deleteAccountBtn, deleteAccountModalOverlay, deleteAccountCancelBtn, deleteAccountConfirmBtn, deleteAccountStatus;
   var isSignedIn = false;
@@ -4482,6 +4678,8 @@
       habits: createDefaultHabits(),
       categories: DEFAULT_CATEGORIES.slice(),
       noteCategories: DEFAULT_CATEGORIES.slice(),
+      categoryColors: {},
+      noteCategoryColors: {},
       shoppingLists: defaultShoppingLists,
       activeShoppingListId: defaultShoppingLists[0].id,
       // The user's own fully-editable copy of the header's idle phrases (see renderIdlePhrases)
@@ -4494,7 +4692,7 @@
       // exist), NOT checked/photos, which stay IndexedDB-only on this device (see
       // HOMECHECK_DB_NAME/reconcileHomeDevicesWithRoster further down).
       homeDevices: createDefaultHomeDevices(),
-      settings: { lang: "ru", gender: "lord", darkTheme: false, minimalTheme: false, showCatThoughts: true, showAllTasksImmediately: false, gamificationEnabled: true, focusWorkMinutes: 30, focusBreakMinutes: 5, fontScale: FONT_SCALE_MIN, taskReminderSound: TASK_REMINDER_SOUND_KEYS[0] }
+      settings: { lang: "ru", gender: "lord", darkTheme: false, minimalTheme: false, showCatThoughts: true, showAllTasksImmediately: false, gamificationEnabled: true, focusWorkMinutes: 30, focusBreakMinutes: 5, fontScale: FONT_SCALE_MIN, taskReminderSound: TASK_REMINDER_SOUND_KEYS[0], quietHours: [] }
     };
   }
 
@@ -4549,6 +4747,20 @@
       });
     });
     return collections;
+  }
+
+  // "Тихие часы" — one or more daily HH:MM windows (see quietHoursPushedTime below) during which
+  // a habit reminder that would otherwise fire gets pushed to the window's end instead, so
+  // "Забота о себе" nags don't wake anyone up overnight or during a kid's nap (requested
+  // 2026-08-12). Each range is a plain wall-clock window, not tied to a specific date — a bad/
+  // malformed entry (missing field, garbled time) is dropped rather than kept half-broken.
+  var QUIET_HOURS_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  function normalizeQuietHours(raw){
+    if(!Array.isArray(raw)) return [];
+    return raw
+      .filter(function(r){ return r && QUIET_HOURS_TIME_RE.test(r.start) && QUIET_HOURS_TIME_RE.test(r.end); })
+      .map(function(r){ return { start: r.start, end: r.end }; })
+      .slice(0, 8); // sane upper bound — nobody genuinely needs more than a couple of these
   }
 
   function normalizeState(parsed){
@@ -4639,6 +4851,12 @@
     } else {
       noteCategories = categories.slice();
     }
+    // User-chosen pastel color per category (see CATEGORY_COLORS/addCategory) — a category with
+    // no entry here just keeps the old neutral accent-tinted tag look, so this is fully additive/
+    // backward-compatible. Only keeps entries for categories that still exist and color keys that
+    // are still valid, so a stale/hand-edited sync doc can't point at a color that no longer exists.
+    var categoryColors = normalizeCategoryColors(parsed.categoryColors, categories);
+    var noteCategoryColors = normalizeCategoryColors(parsed.noteCategoryColors, noteCategories);
     // The user's own fully-editable copy of the header's idle phrases (see showIdleText/
     // renderIdlePhrases) — no field yet (or emptied down to nothing) falls back to
     // HEADER_IDLE_PHRASES for that language, same reasoning as categories/noteCategories above;
@@ -4685,10 +4903,11 @@
       focusWorkMinutes: typeof parsedSettings.focusWorkMinutes === "number" ? clamp(Math.round(parsedSettings.focusWorkMinutes), 1, 180) : 30,
       focusBreakMinutes: typeof parsedSettings.focusBreakMinutes === "number" ? clamp(Math.round(parsedSettings.focusBreakMinutes), 1, 60) : 5,
       fontScale: typeof parsedSettings.fontScale === "number" ? clamp(parsedSettings.fontScale, FONT_SCALE_MIN, FONT_SCALE_MAX) : FONT_SCALE_MIN,
-      taskReminderSound: TASK_REMINDER_SOUND_KEYS.indexOf(parsedSettings.taskReminderSound) !== -1 ? parsedSettings.taskReminderSound : TASK_REMINDER_SOUND_KEYS[0]
+      taskReminderSound: TASK_REMINDER_SOUND_KEYS.indexOf(parsedSettings.taskReminderSound) !== -1 ? parsedSettings.taskReminderSound : TASK_REMINDER_SOUND_KEYS[0],
+      quietHours: normalizeQuietHours(parsedSettings.quietHours)
     };
     var homeDeviceRoster = normalizeHomeDevices(parsed);
-    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, habits: habits, categories: categories, noteCategories: noteCategories, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
+    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, habits: habits, categories: categories, noteCategories: noteCategories, categoryColors: categoryColors, noteCategoryColors: noteCategoryColors, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
   }
 
   function loadState(){
@@ -5030,10 +5249,12 @@
   }
 
   function renderCategoryFilterList(){
+    categoryFilterDropdown.classList.remove("editing-category");
     var html = '<button type="button" class="category-filter-option' + (!currentCategoryFilter ? " active" : "") + '" data-category="">' + t("category_filter_all") + '</button>';
     html += state.categories.map(function(cat){
       return '<div class="category-filter-row">' +
-        '<button type="button" class="category-filter-option' + (currentCategoryFilter === cat ? " active" : "") + '" data-category="' + escapeHtml(cat) + '">' + escapeHtml(cat) + '</button>' +
+        '<button type="button" class="category-filter-option' + (currentCategoryFilter === cat ? " active" : "") + '" data-category="' + escapeHtml(cat) + '">' + categoryColoredNameHtml(cat, state.categoryColors) + '</button>' +
+        '<button type="button" class="category-filter-edit" data-category="' + escapeHtml(cat) + '" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>' +
         '<button type="button" class="category-filter-delete" data-category="' + escapeHtml(cat) + '" aria-label="' + t("aria_delete") + '">🗑️</button>' +
       '</div>';
     }).join("");
@@ -5053,6 +5274,32 @@
     renderTasks();
   }
 
+  // Edit pencil in the filter dropdown's list (data-category on each row's .category-filter-edit
+  // — see renderCategoryFilterList) — same rename+recolor as the picker's own edit flow
+  // (openCategoryEditInput/editCategory), just reachable straight from the main screen's filter
+  // instead of only from inside the add/edit-task modal (design feedback, 2026-08-12).
+  var categoryFilterEditingName = null;
+  var categoryFilterEditSelectedColor = CATEGORY_COLORS[0].key;
+  function updateCategoryFilterEditSwatchRow(){
+    renderCategorySwatchRow(categoryFilterEditSwatchRow, categoryFilterEditSelectedColor, function(key){
+      categoryFilterEditSelectedColor = key;
+      updateCategoryFilterEditSwatchRow();
+    });
+  }
+  function openCategoryFilterEditInput(name){
+    categoryFilterDropdown.classList.add("editing-category");
+    categoryFilterEditingName = name;
+    categoryFilterEditInput.value = name;
+    categoryFilterEditSelectedColor = state.categoryColors[name] || CATEGORY_COLORS[0].key;
+    updateCategoryFilterEditSwatchRow();
+    setTimeout(function(){ categoryFilterEditInput.focus(); categoryFilterEditInput.select(); }, 50);
+  }
+  function confirmCategoryFilterEdit(){
+    if(!categoryFilterEditingName) return;
+    editCategory(categoryFilterEditingName, categoryFilterEditInput.value, false, categoryFilterEditSelectedColor);
+    categoryFilterEditingName = null;
+  }
+
   // Mirrors selectCategoryFilter/updateCategoryFilterLabel/renderCategoryFilterList above —
   // Заметки gets its own independent category dropdown (see #noteCategoryFilterDropdown) since
   // notes now carry their own category too, but its selection is tracked separately from
@@ -5062,10 +5309,12 @@
   }
 
   function renderNoteCategoryFilterList(){
+    noteCategoryFilterDropdown.classList.remove("editing-category");
     var html = '<button type="button" class="category-filter-option' + (!currentNoteCategoryFilter ? " active" : "") + '" data-category="">' + t("category_filter_all_notes") + '</button>';
     html += state.noteCategories.map(function(cat){
       return '<div class="category-filter-row">' +
-        '<button type="button" class="category-filter-option' + (currentNoteCategoryFilter === cat ? " active" : "") + '" data-category="' + escapeHtml(cat) + '">' + escapeHtml(cat) + '</button>' +
+        '<button type="button" class="category-filter-option' + (currentNoteCategoryFilter === cat ? " active" : "") + '" data-category="' + escapeHtml(cat) + '">' + categoryColoredNameHtml(cat, state.noteCategoryColors) + '</button>' +
+        '<button type="button" class="category-filter-edit" data-category="' + escapeHtml(cat) + '" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>' +
         '<button type="button" class="category-filter-delete" data-category="' + escapeHtml(cat) + '" aria-label="' + t("aria_delete") + '">🗑️</button>' +
       '</div>';
     }).join("");
@@ -5083,6 +5332,29 @@
     updateNoteCategoryFilterLabel();
     renderNoteCategoryFilterList();
     renderTasks();
+  }
+
+  // Mirrors categoryFilterEditingName/openCategoryFilterEditInput/confirmCategoryFilterEdit above.
+  var noteCategoryFilterEditingName = null;
+  var noteCategoryFilterEditSelectedColor = CATEGORY_COLORS[0].key;
+  function updateNoteCategoryFilterEditSwatchRow(){
+    renderCategorySwatchRow(noteCategoryFilterEditSwatchRow, noteCategoryFilterEditSelectedColor, function(key){
+      noteCategoryFilterEditSelectedColor = key;
+      updateNoteCategoryFilterEditSwatchRow();
+    });
+  }
+  function openNoteCategoryFilterEditInput(name){
+    noteCategoryFilterDropdown.classList.add("editing-category");
+    noteCategoryFilterEditingName = name;
+    noteCategoryFilterEditInput.value = name;
+    noteCategoryFilterEditSelectedColor = state.noteCategoryColors[name] || CATEGORY_COLORS[0].key;
+    updateNoteCategoryFilterEditSwatchRow();
+    setTimeout(function(){ noteCategoryFilterEditInput.focus(); noteCategoryFilterEditInput.select(); }, 50);
+  }
+  function confirmNoteCategoryFilterEdit(){
+    if(!noteCategoryFilterEditingName) return;
+    editCategory(noteCategoryFilterEditingName, noteCategoryFilterEditInput.value, true, noteCategoryFilterEditSelectedColor);
+    noteCategoryFilterEditingName = null;
   }
 
   // Shared by both a main task and a subtask row — same badge either way, just gating between
@@ -5109,10 +5381,14 @@
 
   // Subtasks are now standalone sibling <li> cards (see renderTaskCard) instead of rows nested
   // inside their parent's own bordered box — data-parent-id/data-subtask-id on the card itself
-  // is what the click delegation in taskList uses to route actions. animationDelay staggers
-  // their entrance so they visibly cascade in one after another when a task's arrow is opened.
-  function renderSubtaskCard(subtask, parentId, index){
-    return '<li class="subtask-card' + (subtask.completed ? " completed" : "") + '" data-parent-id="' + parentId + '" data-subtask-id="' + subtask.id + '" style="animation-delay:' + (index * 45) + 'ms">' +
+  // is what the click delegation in taskList uses to route actions. animate (see
+  // subtaskEntranceTaskId) is only true for the one render right after the arrow that reveals
+  // these was tapped — animationDelay staggers their entrance so they visibly cascade in one
+  // after another that one time, instead of replaying on every unrelated re-render.
+  function renderSubtaskCard(subtask, parentId, index, animate){
+    var classes = "subtask-card" + (subtask.completed ? " completed" : "") + (animate ? " entering" : "");
+    var styleAttr = animate ? ' style="animation-delay:' + (index * 45) + 'ms"' : "";
+    return '<li class="' + classes + '"' + styleAttr + ' data-parent-id="' + parentId + '" data-subtask-id="' + subtask.id + '">' +
       '<button class="subtask-check ' + (subtask.completed ? "checked" : "") + '" aria-label="' + t("aria_mark_done") + '"></button>' +
       '<div class="subtask-body">' +
         '<span class="subtask-text">' + escapeHtml(subtask.text) + '</span>' +
@@ -5136,18 +5412,22 @@
       ? ' <span class="subtask-progress">(' + doneCount + '/' + task.subtasks.length + ')</span>'
       : "";
     var titleHtml = '<span class="task-title">' + escapeHtml(task.title) + progressHtml + '</span>';
-    var categoryTagHtml = task.category ? '<span class="task-category-tag">' + escapeHtml(task.category) + '</span>' : "";
+    var categoryColorMap = task.type === "note" ? state.noteCategoryColors : state.categoryColors;
+    var categoryColorStyleAttr = categoryColorStyle(task.category, categoryColorMap);
+    var categoryTagHtml = task.category
+      ? '<span class="task-category-tag' + (categoryColorStyleAttr ? " has-color" : "") + '" style="' + categoryColorStyleAttr + '">' + escapeHtml(task.category) + '</span>'
+      : "";
     var arrowHtml = hasSubtasks
       ? '<button class="task-expand-arrow' + (isSubtasksExpanded ? " expanded" : "") + '" aria-label="' + t("aria_expand") + '">▾</button>'
       : "";
     var subtaskCardsHtml = (hasSubtasks && isSubtasksExpanded)
-      ? task.subtasks.map(function(s, i){ return renderSubtaskCard(s, task.id, i); }).join("")
+      ? task.subtasks.map(function(s, i){ return renderSubtaskCard(s, task.id, i, task.id === subtaskEntranceTaskId); }).join("")
       : "";
 
     var dragHandleHtml = '<button class="task-drag-handle" aria-label="' + t("aria_reorder") + '">⠿</button>';
 
     if(task.type === "note"){
-      return '<li class="task-item note-item" data-id="' + task.id + '">' +
+      return '<li class="task-item note-item" data-id="' + task.id + '" style="' + categoryColorStyleAttr + '">' +
         '<div class="task-main-row">' +
           dragHandleHtml +
           '<div class="task-body">' + titleHtml + categoryTagHtml + '</div>' +
@@ -5157,7 +5437,7 @@
         '</li>';
     }
 
-    return '<li class="task-item ' + (task.completed ? "completed" : "") + '" data-id="' + task.id + '">' +
+    return '<li class="task-item ' + (task.completed ? "completed" : "") + '" data-id="' + task.id + '" style="' + categoryColorStyleAttr + '">' +
       '<div class="task-main-row">' +
         dragHandleHtml +
         '<button class="task-check ' + (task.completed ? "checked" : "") + '" aria-label="' + t("aria_mark_done") + '"></button>' +
@@ -5419,8 +5699,11 @@
   // Only a restore icon here (no delete) — per Достижения's purpose, the sole "oops" recovery
   // is undoing an accidental completion, not removing history (see restoreArchivedTask).
   function renderAchievementHistoryCard(task){
-    var categoryTagHtml = task.category ? '<span class="task-category-tag">' + escapeHtml(task.category) + '</span>' : "";
-    return '<li class="task-item" data-id="' + task.id + '">' +
+    var achievementColorStyleAttr = categoryColorStyle(task.category, state.categoryColors);
+    var categoryTagHtml = task.category
+      ? '<span class="task-category-tag' + (achievementColorStyleAttr ? " has-color" : "") + '" style="' + achievementColorStyleAttr + '">' + escapeHtml(task.category) + '</span>'
+      : "";
+    return '<li class="task-item" data-id="' + task.id + '" style="' + achievementColorStyleAttr + '">' +
       '<div class="task-main-row">' +
         '<div class="task-body">' +
           '<span class="task-title">' + escapeHtml(task.title) + '</span>' +
@@ -6812,12 +7095,19 @@
 
   // overrideWhen lets handleTaskReminderAction's "snooze" fire the same reminder again N minutes
   // from now, reusing this same title/body-building logic instead of duplicating it.
+  // clampPastDue (see its own comment on schedulePantryReminderNotification) matters here
+  // specifically for a recurring task catching up after being stuck for several missed days
+  // (see processReminderLifecycle's recurrence branch) — advanceReminderByRecurrence steps
+  // forward one interval per checkReminders tick, and each intermediate step is still in the past
+  // until it finally catches up to today; without clamping, each of those would fire an actual
+  // notification almost instantly, i.e. a burst of several reminders seconds apart on reopen
+  // instead of a single one once it's caught up (2026-08-19).
   function scheduleTaskReminderNotification(task, overrideWhen){
     if(!window.AppNotifications || !task.reminderDateTime) return;
     var key = "task:" + task.id;
     window.AppNotifications.scheduleReminder(
       key, t("notif_title_task"), reminderGreeting() + t("notif_body_suffix") + (task.title || task.text) + " 🐾",
-      overrideWhen || parseReminderDateTime(task.reminderDateTime), taskReminderOpts(key)
+      clampPastDue(overrideWhen || parseReminderDateTime(task.reminderDateTime)), taskReminderOpts(key)
     );
     maybeSuggestBatteryExemption();
   }
@@ -6832,7 +7122,7 @@
     var key = "subtask:" + subtask.id;
     window.AppNotifications.scheduleReminder(
       key, t("notif_title_task"), reminderGreeting() + t("notif_body_suffix") + subtask.text + " 🐾",
-      overrideWhen || parseReminderDateTime(subtask.reminderDateTime), taskReminderOpts(key)
+      clampPastDue(overrideWhen || parseReminderDateTime(subtask.reminderDateTime)), taskReminderOpts(key)
     );
     maybeSuggestBatteryExemption();
   }
@@ -6901,15 +7191,103 @@
   // while the app is closed or the screen is off never actually reached the user. Mirrors the
   // task reminder functions above: scheduled for whenever the interval next elapses, rescheduled
   // any time lastDoneAt or intervalMinutes changes (check-off, edit, or a fresh habit).
+  // If `when` falls inside this one daily HH:MM range (see normalizeQuietHours), returns the Date
+  // the range ends — otherwise null. end <= start means the range wraps past midnight (e.g.
+  // 22:00–07:00); for those, both "started today" and "started yesterday, still going" instances
+  // get checked, since an overnight range that began the previous evening is still active during
+  // early-morning hours today.
+  // Added on top of the range's actual end before returning — waking up (or a kid's nap ending)
+  // isn't the moment someone wants a reminder buzzing either, so this lands it a little after the
+  // window closes rather than right on the edge (requested 2026-08-12: "минут через 15-20, чтобы
+  // человек успел в себя прийти").
+  var QUIET_HOURS_BUFFER_MS = 15 * 60000;
+  function quietRangeEndIfInside(when, range){
+    var s = QUIET_HOURS_TIME_RE.exec(range.start), e = QUIET_HOURS_TIME_RE.exec(range.end);
+    if(!s || !e) return null;
+    var overnight = (Number(e[1]) * 60 + Number(e[2])) <= (Number(s[1]) * 60 + Number(s[2]));
+    for(var dayOffset = 0; dayOffset >= -1; dayOffset--){
+      if(dayOffset === -1 && !overnight) continue;
+      var start = new Date(when); start.setDate(start.getDate() + dayOffset); start.setHours(Number(s[1]), Number(s[2]), 0, 0);
+      var end = new Date(when); end.setDate(end.getDate() + dayOffset + (overnight ? 1 : 0)); end.setHours(Number(e[1]), Number(e[2]), 0, 0);
+      if(when >= start && when < end) return new Date(end.getTime() + QUIET_HOURS_BUFFER_MS);
+    }
+    return null;
+  }
+
+  // Pushes `when` past every quiet-hours range it falls inside, re-checking after each push in
+  // case ranges are adjacent/overlapping — capped so a pathological all-day config can't loop
+  // forever.
+  function quietHoursPushedTime(when){
+    var ranges = state.settings.quietHours;
+    if(!ranges || !ranges.length) return when;
+    for(var pass = 0; pass < 8; pass++){
+      var moved = false;
+      for(var i = 0; i < ranges.length; i++){
+        var end = quietRangeEndIfInside(when, ranges[i]);
+        if(end){ when = end; moved = true; }
+      }
+      if(!moved) break;
+    }
+    return when;
+  }
+
+  // Settings UI for state.settings.quietHours — see quietHoursPushedTime for how these are
+  // actually applied. Every edit reschedules all habit reminders immediately (rescheduleAllHabitReminders)
+  // so a change takes effect right away rather than waiting for the next check-off to re-arm.
+  function renderQuietHoursList(){
+    var ranges = state.settings.quietHours;
+    if(!ranges.length){
+      quietHoursListEl.innerHTML = '<p class="toggle-hint" data-i18n="settings_quiet_hours_empty">Пока не добавлено ни одного промежутка.</p>';
+      applyTranslations();
+      return;
+    }
+    quietHoursListEl.innerHTML = ranges.map(function(r, i){
+      return '<div class="quiet-hours-row">' +
+        '<input type="time" class="reminder-input quiet-hours-input" data-index="' + i + '" data-field="start" value="' + r.start + '">' +
+        '<span class="quiet-hours-dash">–</span>' +
+        '<input type="time" class="reminder-input quiet-hours-input" data-index="' + i + '" data-field="end" value="' + r.end + '">' +
+        '<button type="button" class="quiet-hours-confirm" data-index="' + i + '" aria-label="' + t("aria_save") + '">✓</button>' +
+        '<button type="button" class="quiet-hours-delete" data-index="' + i + '" aria-label="' + t("aria_delete") + '">🗑️</button>' +
+      '</div>';
+    }).join("");
+  }
+
+  function addQuietHoursRange(){
+    state.settings.quietHours.push({ start: "22:00", end: "07:00" });
+    saveState();
+    renderQuietHoursList();
+    rescheduleAllHabitReminders();
+  }
+
+  function updateQuietHoursRange(index, field, value){
+    var range = state.settings.quietHours[index];
+    if(!range || !QUIET_HOURS_TIME_RE.test(value)) return;
+    range[field] = value;
+    saveState();
+    rescheduleAllHabitReminders();
+  }
+
+  function deleteQuietHoursRange(index){
+    state.settings.quietHours.splice(index, 1);
+    saveState();
+    renderQuietHoursList();
+    rescheduleAllHabitReminders();
+  }
+
   function scheduleHabitReminderNotification(h){
     if(!window.AppNotifications) return;
     var key = "habit:" + h.id;
     // extra.key is what lets handleTaskReminderAction (see its "habit:"/"pantry:" branches)
     // recognize a tap on this notification and jump to the right tab — without it, tapping just
     // opened the app to whatever tab it last had open, same as tapping the app icon would.
+    // quietHoursPushedTime moves it past any configured quiet-hours window (2026-08-12) — only
+    // the OS notification's fire time is affected; isHabitOverdue's own math is untouched, so the
+    // in-app "overdue" state still reflects the real interval if someone opens the app early.
+    // clampPastDue (see its own comment on schedulePantryReminderNotification) guards the same
+    // sync-resurrection ambush-notification risk here too.
     window.AppNotifications.scheduleReminder(
       key, t("notif_title_habit"), reminderGreeting() + t("notif_habit_body_suffix") + habitDisplayName(h) + " 🐾",
-      new Date(h.lastDoneAt + h.intervalMinutes * 60000), { extra: { key: key } }
+      clampPastDue(quietHoursPushedTime(new Date(h.lastDoneAt + h.intervalMinutes * 60000))), { extra: { key: key } }
     );
   }
 
@@ -6938,6 +7316,22 @@
     return due;
   }
 
+  // rescheduleAllPantryReminders/rescheduleAllHabitReminders re-arm everything on every launch
+  // (safety net for items that predate the reminder feature) AND after every cloud-sync apply —
+  // if a locally-deleted item's own delete never finished pushing to Firestore before the app
+  // closed, a later relaunch's ordinary session-restore fetch can still pull the old cloud copy
+  // down and silently resurrect it (reported 2026-08-12: deleted a low pantry item, its "running
+  // out" reminder still fired well after). A resurrected item's stored due date is often already
+  // in the past by then, and scheduling a native reminder for a past time fires it almost
+  // instantly — this clamp turns that into a short delay instead of an ambush notification the
+  // moment the app (or a sync) resurrects something, while still actually delivering the
+  // reminder for a genuinely-overdue item that's still real (rather than silently dropping it).
+  var PAST_DUE_REMINDER_DELAY_MS = 30 * 60000;
+  function clampPastDue(when){
+    var earliestAllowed = new Date(Date.now() + PAST_DUE_REMINDER_DELAY_MS);
+    return when < earliestAllowed ? earliestAllowed : when;
+  }
+
   function schedulePantryReminderNotification(item){
     if(!window.AppNotifications) return;
     var key = "pantry:" + item.id;
@@ -6945,7 +7339,7 @@
     window.AppNotifications.scheduleReminder(
       key, t("notif_title_pantry"),
       reminderGreeting() + t("notif_pantry_body_prefix") + pantryDisplayName(item) + t("notif_pantry_body_suffix"),
-      pantryDueDate(item), { extra: { key: key } }
+      clampPastDue(pantryDueDate(item)), { extra: { key: key } }
     );
   }
 
@@ -6977,13 +7371,19 @@
   // Adds a user-typed category (see #categoryNewConfirmBtn), case-insensitively deduped against
   // existing ones so retyping "работа" doesn't create a near-duplicate of "Работа". Задачки and
   // Заметки keep independent lists (state.categories / state.noteCategories) — isNote picks which.
-  function addCategory(name, isNote){
+  // colorKey (see CATEGORY_COLORS) only ever gets recorded for a genuinely NEW category — retyping
+  // an existing name just returns it as-is, its color (if any) untouched.
+  function addCategory(name, isNote, colorKey){
     var trimmed = (name || "").trim();
     if(!trimmed) return null;
     var list = isNote ? state.noteCategories : state.categories;
     var existing = list.find(function(c){ return c.toLowerCase() === trimmed.toLowerCase(); });
     if(existing) return existing;
     list.push(trimmed);
+    if(colorKey && categoryColorByKey(colorKey)){
+      var colorMap = isNote ? state.noteCategoryColors : state.categoryColors;
+      colorMap[trimmed] = colorKey;
+    }
     saveState();
     return trimmed;
   }
@@ -6996,8 +7396,13 @@
   // independent (see addCategory), so deleting one mustn't clear the other's tag.
   function deleteCategory(name, isNote){
     var itemType = isNote ? "note" : "task";
-    if(isNote) state.noteCategories = state.noteCategories.filter(function(c){ return c !== name; });
-    else state.categories = state.categories.filter(function(c){ return c !== name; });
+    if(isNote){
+      state.noteCategories = state.noteCategories.filter(function(c){ return c !== name; });
+      delete state.noteCategoryColors[name];
+    } else {
+      state.categories = state.categories.filter(function(c){ return c !== name; });
+      delete state.categoryColors[name];
+    }
     state.tasks.forEach(function(t){ if(t.type === itemType && t.category === name) t.category = null; });
     if(!isNote && currentCategoryFilter === name) currentCategoryFilter = null;
     if(isNote && currentNoteCategoryFilter === name) currentNoteCategoryFilter = null;
@@ -7015,6 +7420,49 @@
     taskOptionsCategoryPickerLabel.classList.toggle("placeholder", !taskOptionsCategory);
     renderTaskOptionsCategoryPickerOptions();
     renderTasks();
+  }
+
+  // Renames a category in place (keeps its position in the list — not a delete+re-add, which
+  // would jump it to the end) and re-tags every task/note that had the old name, same as
+  // deleteCategory has to (task.category is a plain string, not an id). Renaming onto a name that
+  // collides with a DIFFERENT existing category (case-insensitively) leaves the name itself
+  // untouched — same silent-no-op dedupe rule addCategory already uses — but the color still
+  // applies, so at minimum "just changing the color" always works even if the new name didn't
+  // land. colorKey is required here (unlike addCategory's optional one) since the only way to
+  // reach this is the edit pencil, which always has a swatch selected.
+  function editCategory(oldName, newName, isNote, colorKey){
+    var trimmed = (newName || "").trim();
+    if(!trimmed) return null;
+    var list = isNote ? state.noteCategories : state.categories;
+    var colorMap = isNote ? state.noteCategoryColors : state.categoryColors;
+    var itemType = isNote ? "note" : "task";
+    var idx = list.indexOf(oldName);
+    if(idx === -1) return null;
+    var collides = list.some(function(c, i){ return i !== idx && c.toLowerCase() === trimmed.toLowerCase(); });
+    var finalName = collides ? oldName : trimmed;
+    list[idx] = finalName;
+    if(finalName !== oldName){
+      delete colorMap[oldName];
+      state.tasks.forEach(function(t){ if(t.type === itemType && t.category === oldName) t.category = finalName; });
+      if(!isNote && currentCategoryFilter === oldName) currentCategoryFilter = finalName;
+      if(isNote && currentNoteCategoryFilter === oldName) currentNoteCategoryFilter = finalName;
+      if(modalTaskCategory === oldName) modalTaskCategory = finalName;
+      if(taskOptionsCategory === oldName) taskOptionsCategory = finalName;
+    }
+    if(colorKey && categoryColorByKey(colorKey)) colorMap[finalName] = colorKey;
+    saveState();
+    updateCategoryFilterLabel();
+    renderCategoryFilterList();
+    updateNoteCategoryFilterLabel();
+    renderNoteCategoryFilterList();
+    categoryPickerLabel.textContent = modalTaskCategory || t("category_none");
+    categoryPickerLabel.classList.toggle("placeholder", !modalTaskCategory);
+    renderCategoryPickerOptions();
+    taskOptionsCategoryPickerLabel.textContent = taskOptionsCategory || t("category_none");
+    taskOptionsCategoryPickerLabel.classList.toggle("placeholder", !taskOptionsCategory);
+    renderTaskOptionsCategoryPickerOptions();
+    renderTasks();
+    return finalName;
   }
 
   // ---------- reminders ----------
@@ -7038,15 +7486,30 @@
   // allowed to treat it as missed.
   var REMINDER_CARRY_OVER_GRACE_MS = 5 * 60000;
   function processReminderLifecycle(obj, now, onReschedule){
-    // A recurring task (obj.recurrence — top-level tasks only, subtasks never have one) already
-    // gets its reminderDateTime advanced on its own terms when actually completed (see
-    // toggleTask's recurrence handling) — it isn't "missed" just because its time passed while
-    // still unchecked, that's the whole point of it repeating. Carrying it over here too was
-    // showing the "Лапкинс перенёс..." caption on a task that was never actually late (reported
-    // 2026-08-12).
-    if(!obj.reminderDateTime || obj.completed || obj.recurrence) return false;
+    if(!obj.reminderDateTime || obj.completed) return false;
     var when = parseReminderDateTime(obj.reminderDateTime);
     if(now.getTime() - when.getTime() < REMINDER_CARRY_OVER_GRACE_MS) return false;
+
+    // A recurring task (obj.recurrence — top-level tasks only, subtasks never have one) also gets
+    // its reminderDateTime advanced when actually completed (see toggleTask's recurrence
+    // handling) — but completion is the only OTHER thing that ever moves it, and a still-unchecked
+    // task obviously can't complete itself. Originally this just returned false for recurring
+    // tasks entirely (stop showing the misleading "Лапкинс перенёс..." caption on something that
+    // wasn't really "carried over", it repeats on purpose — fixed 2026-08-12) — but that made a
+    // single missed delivery (Doze, a revoked notification permission, anything) permanently
+    // freeze the whole series with nothing left to ever move it forward again: no carry-over, no
+    // completion, no reminder, forever. Reported 2026-08-19 — set two days earlier, never fired
+    // once, still showing the original stale date. Advancing by the task's own recurrence
+    // interval (not a flat "+1 day", which would ignore weekly/custom patterns) instead of
+    // freezing keeps it self-healing without resurrecting the caption: reminderCarriedOver stays
+    // false here, since landing on the next legitimate occurrence isn't the same thing as a
+    // one-off reminder getting bumped for being late.
+    if(obj.recurrence){
+      obj.reminderDateTime = advanceReminderByRecurrence(obj.reminderDateTime, obj.recurrence);
+      obj.reminderFired = false;
+      if(onReschedule) onReschedule(obj);
+      return true;
+    }
 
     var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     var tomorrowStr = tomorrow.getFullYear() + "-" + String(tomorrow.getMonth() + 1).padStart(2, "0") + "-" + String(tomorrow.getDate()).padStart(2, "0");
@@ -7163,7 +7626,9 @@
     var task = state.tasks.find(function(t){ return t.id === id; });
     if(!task || task.subtasks.length === 0) return;
     expandedSubtasksIds[id] = !expandedSubtasksIds[id];
+    subtaskEntranceTaskId = expandedSubtasksIds[id] ? id : null;
     renderTasks();
+    subtaskEntranceTaskId = null; // one-shot — see its own declaration
   }
 
   function toggleSubtask(parentId, subtaskId){
@@ -7346,6 +7811,11 @@
     clearTimeout(toastHideTimer);
     toastHideTimer = setTimeout(function(){ appToast.classList.remove("show"); }, 2600);
   }
+  // Exposed so src/voice.js (a separately-bundled, self-contained module — see its own header
+  // comment) can surface a failed dictation attempt instead of silently doing nothing, same
+  // optional-dependency pattern other modules use in the other direction (window.AudioManager
+  // etc.) — see AppVoice's own comment on why this matters (2026-08-17).
+  window.AppToast = { show: showToast };
 
   function addPantryItem(name, icon, daysDuration){
     var item = { id: genId(), name: name, icon: icon, daysDuration: daysDuration, lastBoughtDate: todayISO() };
@@ -7934,6 +8404,7 @@
     fontSizeSlider.value = state.settings.fontScale;
     reminderSoundCurrentLabel.textContent = t("task_reminder_sound_" + state.settings.taskReminderSound);
     renderReminderSoundList();
+    renderQuietHoursList();
     catThoughtsToggle.checked = state.settings.showCatThoughts;
     showAllTasksToggle.checked = state.settings.showAllTasksImmediately;
     gamificationToggle.checked = state.settings.gamificationEnabled;
@@ -8243,9 +8714,11 @@
   function renderCategoryPickerOptions(){
     var html = '<button type="button" class="category-picker-option' + (!modalTaskCategory ? " active" : "") + '" data-category="">' + t("category_none") + '</button>';
     var pickerCategories = modalTaskType === "note" ? state.noteCategories : state.categories;
+    var pickerCategoryColors = modalTaskType === "note" ? state.noteCategoryColors : state.categoryColors;
     html += pickerCategories.map(function(cat){
       return '<div class="category-picker-row">' +
-        '<button type="button" class="category-picker-option' + (modalTaskCategory === cat ? " active" : "") + '" data-category="' + escapeHtml(cat) + '">' + escapeHtml(cat) + '</button>' +
+        '<button type="button" class="category-picker-option' + (modalTaskCategory === cat ? " active" : "") + '" data-category="' + escapeHtml(cat) + '">' + categoryColoredNameHtml(cat, pickerCategoryColors) + '</button>' +
+        '<button type="button" class="category-picker-edit" data-category="' + escapeHtml(cat) + '" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>' +
         '<button type="button" class="category-picker-delete" data-category="' + escapeHtml(cat) + '" aria-label="' + t("aria_delete") + '">🗑️</button>' +
       '</div>';
     }).join("");
@@ -8268,18 +8741,52 @@
   }
 
   // "+ Создать свою" swaps the option list for the inline name field (see .adding-category in
-  // the CSS) instead of opening a whole separate modal for one text input.
+  // the CSS) instead of opening a whole separate modal for one text input. The same field also
+  // doubles as "edit an existing category" (see the pencil in each .category-picker-row) —
+  // categoryEditingName tracks which mode this is: null means the confirm button adds a new
+  // category, a name means it edits that one instead (2026-08-12).
+  var categoryNewSelectedColor = CATEGORY_COLORS[0].key;
+  var categoryEditingName = null;
+  function updateCategoryNewSwatchRow(){
+    renderCategorySwatchRow(categoryNewSwatchRow, categoryNewSelectedColor, function(key){
+      categoryNewSelectedColor = key;
+      updateCategoryNewSwatchRow();
+    });
+  }
   function openCategoryNewInput(){
     categoryPicker.classList.add("adding-category");
+    categoryEditingName = null;
+    categoryNewInput.value = "";
+    categoryNewSelectedColor = CATEGORY_COLORS[0].key;
+    updateCategoryNewSwatchRow();
+    categoryNewConfirmBtn.textContent = "+";
     setTimeout(function(){ categoryNewInput.focus(); }, 50);
+  }
+
+  // Prefills the same inline field with an existing category's current name/color instead of a
+  // blank one — see categoryEditingName above. Confirm button swaps to a checkmark here — "+"
+  // read as "make a new one" rather than "save this edit" (2026-08-12).
+  function openCategoryEditInput(name){
+    var isNote = modalTaskType === "note";
+    var colorMap = isNote ? state.noteCategoryColors : state.categoryColors;
+    categoryPicker.classList.add("adding-category");
+    categoryEditingName = name;
+    categoryNewInput.value = name;
+    categoryNewSelectedColor = colorMap[name] || CATEGORY_COLORS[0].key;
+    updateCategoryNewSwatchRow();
+    categoryNewConfirmBtn.textContent = "✓";
+    setTimeout(function(){ categoryNewInput.focus(); categoryNewInput.select(); }, 50);
   }
 
   function confirmNewCategory(){
     var isNote = modalTaskType === "note";
-    var name = addCategory(categoryNewInput.value, isNote);
+    var name = categoryEditingName
+      ? editCategory(categoryEditingName, categoryNewInput.value, isNote, categoryNewSelectedColor)
+      : addCategory(categoryNewInput.value, isNote, categoryNewSelectedColor);
+    categoryEditingName = null;
     if(!name) return;
     setCategoryPickerValue(name);
-    if(isNote) renderNoteCategoryFilterList(); else renderCategoryFilterList(); // new category should show up in the matching filter dropdown too
+    if(isNote) renderNoteCategoryFilterList(); else renderCategoryFilterList(); // new/edited category should show up in the matching filter dropdown too
   }
 
   function resetReminderFieldsToDefault(){
@@ -8557,9 +9064,11 @@
   function renderTaskOptionsCategoryPickerOptions(){
     var html = '<button type="button" class="category-picker-option' + (!taskOptionsCategory ? " active" : "") + '" data-category="">' + t("category_none") + '</button>';
     var pickerCategories = taskOptionsType === "note" ? state.noteCategories : state.categories;
+    var taskOptionsCategoryColors = taskOptionsType === "note" ? state.noteCategoryColors : state.categoryColors;
     html += pickerCategories.map(function(cat){
       return '<div class="category-picker-row">' +
-        '<button type="button" class="category-picker-option' + (taskOptionsCategory === cat ? " active" : "") + '" data-category="' + escapeHtml(cat) + '">' + escapeHtml(cat) + '</button>' +
+        '<button type="button" class="category-picker-option' + (taskOptionsCategory === cat ? " active" : "") + '" data-category="' + escapeHtml(cat) + '">' + categoryColoredNameHtml(cat, taskOptionsCategoryColors) + '</button>' +
+        '<button type="button" class="category-picker-edit" data-category="' + escapeHtml(cat) + '" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_pencil.png" alt=""></button>' +
         '<button type="button" class="category-picker-delete" data-category="' + escapeHtml(cat) + '" aria-label="' + t("aria_delete") + '">🗑️</button>' +
       '</div>';
     }).join("");
@@ -8581,14 +9090,42 @@
     closeTaskOptionsCategoryPicker();
   }
 
+  var taskOptionsCategoryNewSelectedColor = CATEGORY_COLORS[0].key;
+  var taskOptionsCategoryEditingName = null;
+  function updateTaskOptionsCategoryNewSwatchRow(){
+    renderCategorySwatchRow(taskOptionsCategoryNewSwatchRow, taskOptionsCategoryNewSelectedColor, function(key){
+      taskOptionsCategoryNewSelectedColor = key;
+      updateTaskOptionsCategoryNewSwatchRow();
+    });
+  }
   function openTaskOptionsCategoryNewInput(){
     taskOptionsCategoryPicker.classList.add("adding-category");
+    taskOptionsCategoryEditingName = null;
+    taskOptionsCategoryNewInput.value = "";
+    taskOptionsCategoryNewSelectedColor = CATEGORY_COLORS[0].key;
+    updateTaskOptionsCategoryNewSwatchRow();
+    taskOptionsCategoryNewConfirmBtn.textContent = "+";
     setTimeout(function(){ taskOptionsCategoryNewInput.focus(); }, 50);
+  }
+
+  function openTaskOptionsCategoryEditInput(name){
+    var isNote = taskOptionsType === "note";
+    var colorMap = isNote ? state.noteCategoryColors : state.categoryColors;
+    taskOptionsCategoryPicker.classList.add("adding-category");
+    taskOptionsCategoryEditingName = name;
+    taskOptionsCategoryNewInput.value = name;
+    taskOptionsCategoryNewSelectedColor = colorMap[name] || CATEGORY_COLORS[0].key;
+    updateTaskOptionsCategoryNewSwatchRow();
+    taskOptionsCategoryNewConfirmBtn.textContent = "✓";
+    setTimeout(function(){ taskOptionsCategoryNewInput.focus(); taskOptionsCategoryNewInput.select(); }, 50);
   }
 
   function confirmNewTaskOptionsCategory(){
     var isNote = taskOptionsType === "note";
-    var name = addCategory(taskOptionsCategoryNewInput.value, isNote);
+    var name = taskOptionsCategoryEditingName
+      ? editCategory(taskOptionsCategoryEditingName, taskOptionsCategoryNewInput.value, isNote, taskOptionsCategoryNewSelectedColor)
+      : addCategory(taskOptionsCategoryNewInput.value, isNote, taskOptionsCategoryNewSelectedColor);
+    taskOptionsCategoryEditingName = null;
     if(!name) return;
     setTaskOptionsCategoryPickerValue(name);
     if(isNote) renderNoteCategoryFilterList(); else renderCategoryFilterList();
@@ -8944,8 +9481,11 @@
 
     categoryFilterTrigger.addEventListener("click", function(){
       categoryFilterDropdown.classList.toggle("open");
+      categoryFilterDropdown.classList.remove("editing-category");
     });
     categoryFilterList.addEventListener("click", function(e){
+      var editBtn = e.target.closest(".category-filter-edit");
+      if(editBtn){ e.stopPropagation(); openCategoryFilterEditInput(editBtn.dataset.category); return; }
       var delBtn = e.target.closest(".category-filter-delete");
       // Stops here rather than bubbling to the outside-click listener below — by the time it
       // would run, deleteCategory()'s re-render has already detached this button from the DOM,
@@ -8955,25 +9495,42 @@
       var row = e.target.closest(".category-filter-option");
       if(row) selectCategoryFilter(row.dataset.category || null);
     });
+    categoryFilterEditConfirmBtn.addEventListener("click", confirmCategoryFilterEdit);
+    categoryFilterEditInput.addEventListener("keydown", function(e){
+      if(e.key === "Enter"){ e.preventDefault(); confirmCategoryFilterEdit(); }
+    });
     document.addEventListener("click", function(e){
       if(!categoryFilterDropdown.classList.contains("open")) return;
-      if(!e.target.closest("#categoryFilterDropdown")) categoryFilterDropdown.classList.remove("open");
+      if(!e.target.closest("#categoryFilterDropdown")){
+        categoryFilterDropdown.classList.remove("open");
+        categoryFilterDropdown.classList.remove("editing-category");
+      }
     });
 
     // Mirrors the categoryFilterTrigger/categoryFilterList/outside-click trio above — see
     // selectNoteCategoryFilter for why Заметки gets its own independent dropdown.
     noteCategoryFilterTrigger.addEventListener("click", function(){
       noteCategoryFilterDropdown.classList.toggle("open");
+      noteCategoryFilterDropdown.classList.remove("editing-category");
     });
     noteCategoryFilterList.addEventListener("click", function(e){
+      var editBtn = e.target.closest(".category-filter-edit");
+      if(editBtn){ e.stopPropagation(); openNoteCategoryFilterEditInput(editBtn.dataset.category); return; }
       var delBtn = e.target.closest(".category-filter-delete");
       if(delBtn){ e.stopPropagation(); deleteCategory(delBtn.dataset.category, true); return; }
       var row = e.target.closest(".category-filter-option");
       if(row) selectNoteCategoryFilter(row.dataset.category || null);
     });
+    noteCategoryFilterEditConfirmBtn.addEventListener("click", confirmNoteCategoryFilterEdit);
+    noteCategoryFilterEditInput.addEventListener("keydown", function(e){
+      if(e.key === "Enter"){ e.preventDefault(); confirmNoteCategoryFilterEdit(); }
+    });
     document.addEventListener("click", function(e){
       if(!noteCategoryFilterDropdown.classList.contains("open")) return;
-      if(!e.target.closest("#noteCategoryFilterDropdown")) noteCategoryFilterDropdown.classList.remove("open");
+      if(!e.target.closest("#noteCategoryFilterDropdown")){
+        noteCategoryFilterDropdown.classList.remove("open");
+        noteCategoryFilterDropdown.classList.remove("editing-category");
+      }
     });
 
     categoryPickerTrigger.addEventListener("click", function(){
@@ -8982,6 +9539,8 @@
     });
     categoryPickerList.addEventListener("click", function(e){
       if(e.target.closest('[data-action="add-new"]')){ openCategoryNewInput(); return; }
+      var editBtn = e.target.closest(".category-picker-edit");
+      if(editBtn){ e.stopPropagation(); openCategoryEditInput(editBtn.dataset.category); return; }
       var delBtn = e.target.closest(".category-picker-delete");
       // See the matching comment in the categoryFilterList handler above — same reason for
       // stopPropagation() here.
@@ -9055,6 +9614,8 @@
     });
     taskOptionsCategoryPickerList.addEventListener("click", function(e){
       if(e.target.closest('[data-action="add-new"]')){ openTaskOptionsCategoryNewInput(); return; }
+      var editBtn = e.target.closest(".category-picker-edit");
+      if(editBtn){ e.stopPropagation(); openTaskOptionsCategoryEditInput(editBtn.dataset.category); return; }
       var delBtn = e.target.closest(".category-picker-delete");
       if(delBtn){ e.stopPropagation(); deleteCategory(delBtn.dataset.category, taskOptionsType === "note"); return; }
       var row = e.target.closest(".category-picker-option");
@@ -9527,6 +10088,34 @@
     soundToggle.addEventListener("change", toggleSound);
     hapticsToggle.addEventListener("change", toggleHaptics);
 
+    // Native date/time inputs otherwise only open their picker when the tiny calendar/clock icon
+    // itself is tapped — everywhere else in the field just focuses it with no picker, which reads
+    // as broken on a touchscreen (feedback, 2026-08-12). showPicker() opens it from a tap anywhere
+    // in the field; feature-detected + try/caught since it's a fairly recent API and this is
+    // called on every .reminder-input on the page (task reminder date/time, quiet hours), not
+    // just newly-added ones.
+    document.addEventListener("click", function(e){
+      var input = e.target.closest(".reminder-input");
+      if(!input || (input.type !== "time" && input.type !== "date")) return;
+      if(typeof input.showPicker === "function"){
+        try { input.showPicker(); } catch(err) {}
+      }
+    });
+
+    quietHoursAddBtn.addEventListener("click", addQuietHoursRange);
+    quietHoursListEl.addEventListener("change", function(e){
+      var input = e.target.closest(".quiet-hours-input");
+      if(input) updateQuietHoursRange(Number(input.dataset.index), input.dataset.field, input.value);
+    });
+    quietHoursListEl.addEventListener("click", function(e){
+      var confirmBtn = e.target.closest(".quiet-hours-confirm");
+      // Purely reassurance — every field already saved itself on its own change event (see
+      // updateQuietHoursRange) — this button's only job is to make that visible.
+      if(confirmBtn){ showToast(t("settings_quiet_hours_saved_toast")); return; }
+      var delBtn = e.target.closest(".quiet-hours-delete");
+      if(delBtn) deleteQuietHoursRange(Number(delBtn.dataset.index));
+    });
+
     kindnessModalCloseX.addEventListener("click", closeKindnessModal);
     kindnessModalOverlay.addEventListener("click", function(e){
       if(e.target === kindnessModalOverlay) closeKindnessModal();
@@ -9593,10 +10182,18 @@
     categoryFilterTrigger = document.getElementById("categoryFilterTrigger");
     categoryFilterLabel = document.getElementById("categoryFilterLabel");
     categoryFilterList = document.getElementById("categoryFilterList");
+    categoryFilterEditRow = document.getElementById("categoryFilterEditRow");
+    categoryFilterEditInput = document.getElementById("categoryFilterEditInput");
+    categoryFilterEditConfirmBtn = document.getElementById("categoryFilterEditConfirmBtn");
+    categoryFilterEditSwatchRow = document.getElementById("categoryFilterEditSwatchRow");
     noteCategoryFilterDropdown = document.getElementById("noteCategoryFilterDropdown");
     noteCategoryFilterTrigger = document.getElementById("noteCategoryFilterTrigger");
     noteCategoryFilterLabel = document.getElementById("noteCategoryFilterLabel");
     noteCategoryFilterList = document.getElementById("noteCategoryFilterList");
+    noteCategoryFilterEditRow = document.getElementById("noteCategoryFilterEditRow");
+    noteCategoryFilterEditInput = document.getElementById("noteCategoryFilterEditInput");
+    noteCategoryFilterEditConfirmBtn = document.getElementById("noteCategoryFilterEditConfirmBtn");
+    noteCategoryFilterEditSwatchRow = document.getElementById("noteCategoryFilterEditSwatchRow");
     taskList = document.getElementById("taskList");
     taskEmptyHint = document.getElementById("taskEmptyHint");
     tasksOverflowEl = document.getElementById("tasksOverflow");
@@ -9645,6 +10242,7 @@
     categoryNewRow = document.getElementById("categoryNewRow");
     categoryNewInput = document.getElementById("categoryNewInput");
     categoryNewConfirmBtn = document.getElementById("categoryNewConfirmBtn");
+    categoryNewSwatchRow = document.getElementById("categoryNewSwatchRow");
     taskSettingsZone = document.getElementById("taskSettingsZone");
 
     taskDetailModalOverlay = document.getElementById("taskDetailModalOverlay");
@@ -9665,6 +10263,7 @@
     taskOptionsCategoryNewRow = document.getElementById("taskOptionsCategoryNewRow");
     taskOptionsCategoryNewInput = document.getElementById("taskOptionsCategoryNewInput");
     taskOptionsCategoryNewConfirmBtn = document.getElementById("taskOptionsCategoryNewConfirmBtn");
+    taskOptionsCategoryNewSwatchRow = document.getElementById("taskOptionsCategoryNewSwatchRow");
     taskOptionsReminderBlock = document.getElementById("taskOptionsReminderBlock");
     taskOptionsReminderToggle = document.getElementById("taskOptionsReminderToggle");
     taskOptionsReminderFields = document.getElementById("taskOptionsReminderFields");
@@ -9822,6 +10421,8 @@
     gamificationToggle = document.getElementById("gamificationToggle");
     soundToggle = document.getElementById("soundToggle");
     hapticsToggle = document.getElementById("hapticsToggle");
+    quietHoursListEl = document.getElementById("quietHoursList");
+    quietHoursAddBtn = document.getElementById("quietHoursAddBtn");
     kindnessModalOverlay = document.getElementById("kindnessModalOverlay");
     kindnessModalCloseX = document.getElementById("kindnessModalCloseX");
 
@@ -9945,6 +10546,19 @@
     }
 
     if(window.AppDeepLink) window.AppDeepLink.init(handleJoinDeepLink);
+
+    // --kb-modal-max-h (see .add-task-card's own comment) — visualViewport.height already
+    // excludes the on-screen keyboard on Android Chrome/WebView, unlike window.innerHeight (which
+    // often doesn't update for it at all) and unlike dvh (which mostly tracks browser-chrome
+    // changes, not the keyboard specifically) — this tracks the real visible height directly
+    // instead of guessing through a CSS unit that turned out not to cover this case.
+    if(window.visualViewport){
+      var applyKeyboardAwareModalHeight = function(){
+        document.documentElement.style.setProperty("--kb-modal-max-h", (window.visualViewport.height * 0.85) + "px");
+      };
+      window.visualViewport.addEventListener("resize", applyKeyboardAwareModalHeight);
+      applyKeyboardAwareModalHeight();
+    }
   }
 
   if(document.readyState === "loading"){

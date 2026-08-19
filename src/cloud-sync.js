@@ -91,6 +91,19 @@ var freshSignInUid = null; // uid of a sign-in the user just explicitly requeste
                             // consumed by the very next onAuthStateChanged for that uid — see that
                             // listener for why loadOrSeedCloudState is only ever called from there
 
+// Durable (survives a killed process, unlike localEditCount/lastPushedEditCount above) record of
+// "a local edit hasn't been confirmed pushed yet" — set the instant queuePush() is called, cleared
+// only once flushPush()'s setDoc() actually resolves. Closes a real data-loss gap: a task typed
+// while offline saves locally fine (this app is local-first), but its cloud push just sits queued;
+// if the app is then killed (or stays offline through app close) before that push ever completes,
+// the NEXT launch's ordinary session-restore fetch has no in-memory signal that anything's still
+// unpushed (localEditCount/lastPushedEditCount both reset to 0 on a fresh JS environment) and would
+// happily apply the stale cloud copy over it — same failure shape as the pantry-resurrection bug,
+// just for freshly-typed tasks instead of a deleted pantry item. Reported 2026-08-17: a task typed
+// while offline "never got added" — this is the mechanism, not the voice input (ruled out — keyboard
+// only). See loadOrSeedCloudState for where this actually gets consulted.
+var PENDING_PUSH_KEY = "misterLapkinsPendingCloudPush";
+
 // Guards flushPush() against writing before this session actually knows what the authoritative
 // state is. currentUid goes truthy the instant sign-in completes, but loadOrSeedCloudState's
 // getDoc() is still an in-flight network round-trip at that point — any saveState() that happens
@@ -184,6 +197,12 @@ function loadOrSeedCloudState(uid, isFreshSignIn){
   // see initialSyncDone's declaration for the data-loss window this closes.
   initialSyncDone = false;
   var editCountAtFetchStart = localEditCount;
+  // See PENDING_PUSH_KEY's own comment — a truthy value here means the PREVIOUS session ended
+  // with a local edit whose cloud push was never confirmed (offline, or killed before it finished).
+  // Only meaningful for a plain session-restore, same scoping as the mid-fetch-race check right
+  // below it — a fresh sign-in already goes through hasMeaningfulLocalStateFn/onSignInConflictFn.
+  var hadUnconfirmedPushFromLastSession = false;
+  try{ hadUnconfirmedPushFromLastSession = !isFreshSignIn && localStorage.getItem(PENDING_PUSH_KEY) === "1"; }catch(e){}
   getDoc(userDocRef(uid)).then(function(snap){
     // TEMP diagnostic log — fromCache matters: a cache hit here would mean this answer never
     // actually touched the server, which changes what "exists"/appState here can be trusted to mean.
@@ -196,6 +215,18 @@ function loadOrSeedCloudState(uid, isFreshSignIn){
     // local state fresh at prompt time anyway.
     if(!isFreshSignIn && localEditCount !== editCountAtFetchStart){
       console.log("Mister Lapkins: loadOrSeedCloudState bailing, local edit landed mid-fetch");
+      startListening(uid);
+      return;
+    }
+    // Unlike the mid-fetch race above, nothing in THIS session has scheduled a push yet — a fresh
+    // JS environment starts localEditCount/pushTimer from zero, so without this the edit from last
+    // session would just get silently overwritten by whatever's fetched below. Push local state up
+    // ourselves instead of applying the fetch.
+    if(hadUnconfirmedPushFromLastSession && getStateFn){
+      console.warn("Mister Lapkins: loadOrSeedCloudState — unconfirmed push from a previous session, pushing local state instead of applying this fetch");
+      setDoc(userDocRef(uid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() })
+        .then(function(){ try{ localStorage.removeItem(PENDING_PUSH_KEY); }catch(e){} })
+        .catch(function(e){ console.warn("Mister Lapkins: cloud sync push (unconfirmed-session recovery) failed", e); });
       startListening(uid);
       return;
     }
@@ -353,6 +384,9 @@ window.CloudSync = {
   queuePush: function(){
     localEditCount++;
     if(!currentUid) return;
+    // Set synchronously (not inside the debounce) so it's durable even if the process dies before
+    // flushPush ever runs — see PENDING_PUSH_KEY's own comment.
+    try{ localStorage.setItem(PENDING_PUSH_KEY, "1"); }catch(e){}
     if(pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(flushPush, 1500);
   },
@@ -477,6 +511,7 @@ function flushPush(){
     return;
   }
   pushTimer = null;
+  var pushedCount = localEditCount;
   lastPushedEditCount = localEditCount;
   // The success log matters as much as the failure one did — a push that's still in flight (this
   // account's document is large enough, and networks flaky enough, that it can take much longer
@@ -484,6 +519,12 @@ function flushPush(){
   // it, which is exactly what made an earlier data-loss report hard to pin down.
   setDoc(userDocRef(currentUid), { appState: sanitizeForFirestore(getStateFn()), updatedAt: serverTimestamp() }).then(function(){
     console.log("Mister Lapkins: cloud sync push succeeded");
+    // Only clear PENDING_PUSH_KEY if nothing newer has queued since this particular write started
+    // — if it has, that edit's own queuePush() already re-set the flag (redundantly, but
+    // harmlessly) and its own eventual flushPush() is what actually gets to clear it.
+    if(localEditCount === pushedCount){
+      try{ localStorage.removeItem(PENDING_PUSH_KEY); }catch(e){}
+    }
   }).catch(function(e){
     console.warn("Mister Lapkins: cloud sync push failed", e);
   });

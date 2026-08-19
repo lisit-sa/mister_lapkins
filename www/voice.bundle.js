@@ -651,6 +651,9 @@
           }
         }
       }
+      function notifyFailure() {
+        if (window.AppToast) window.AppToast.show("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u0442\u044C \u0440\u0435\u0447\u044C \u2014 \u043F\u0440\u043E\u0432\u0435\u0440\u044C \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439 \u0441\u043D\u043E\u0432\u0430");
+      }
       function startNative(field, btn) {
         SpeechRecognition2.requestPermissions().then(function(status) {
           if (activeField !== field) return;
@@ -661,9 +664,12 @@
           }
           SpeechRecognition2.start({ language: LANG, popup: false, partialResults: false, maxResults: 1 }).then(function(result) {
             if (activeField !== field) return;
-            insertTranscript(field, result && result.matches && result.matches[0]);
+            var text = result && result.matches && result.matches[0];
+            if (text) insertTranscript(field, text);
+            else notifyFailure();
           }).catch(function(e) {
             console.error("AppVoice: native recognition failed", e);
+            notifyFailure();
           }).finally(function() {
             if (activeField === field) clearActive();
             setRecordingUI(field, btn, false);

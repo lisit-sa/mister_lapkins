@@ -71,6 +71,15 @@ function stopListening(){
   }
 }
 
+// Failing silently here used to mean a dictation attempt that didn't work (no network — Android's
+// native recognizer needs one — a denied permission, whatever) looked to the user exactly like a
+// successful one that just transcribed nothing: no error, mic just stops, field stays as it was.
+// A user reported writing a task by voice while offline that then "never got added" — it hadn't;
+// there was nothing in the field to add. This surfaces that instead of swallowing it (2026-08-17).
+function notifyFailure(){
+  if(window.AppToast) window.AppToast.show("Не удалось распознать речь — проверь интернет и попробуй снова");
+}
+
 function startNative(field, btn){
   SpeechRecognition.requestPermissions().then(function(status){
     if(activeField !== field) return; // user tapped a different mic (or stopped) while we waited
@@ -82,9 +91,10 @@ function startNative(field, btn){
     SpeechRecognition.start({ language: LANG, popup: false, partialResults: false, maxResults: 1 })
       .then(function(result){
         if(activeField !== field) return; // stopped/switched before this resolved
-        insertTranscript(field, result && result.matches && result.matches[0]);
+        var text = result && result.matches && result.matches[0];
+        if(text) insertTranscript(field, text); else notifyFailure();
       })
-      .catch(function(e){ console.error("AppVoice: native recognition failed", e); })
+      .catch(function(e){ console.error("AppVoice: native recognition failed", e); notifyFailure(); })
       .finally(function(){
         if(activeField === field) clearActive();
         setRecordingUI(field, btn, false);
