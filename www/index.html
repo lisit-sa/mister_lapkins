@@ -143,9 +143,15 @@
   body.minimal-theme{ --content-tint-alpha: 0; }
   body.minimal-theme .petals-layer,
   body.minimal-theme .steam-container{ display: none; }
-  *{ box-sizing: border-box; }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html,body{ margin:0; padding:0; height:100%; overflow:hidden; }
   button, input, select, textarea{ font-family: inherit; }
+  /* Every button/pill in this app already draws its own hand-drawn border as part of the design
+     (category pills, filter tabs, etc.) — the browser's default focus ring on tap rendered right
+     on top of/around that, reading as the border "redrawing" itself on every press (reported
+     2026-08-21). Touch-only app, no keyboard nav to protect, so a blanket reset is safe — matches
+     the outline:none already used on every text input throughout (see .reminder-input:focus etc.). */
+  button, a{ outline:none; }
   body{
     background: var(--bg);
     font-family: 'ElMessiri', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -550,6 +556,82 @@
     transition: background .2s, color .2s;
   }
   .filter-tab.active{ background: var(--accent); color: var(--on-accent); border-color: var(--accent-dark); }
+  /* List/calendar toggle — same visual weight (border/padding/radius) as the .filter-tab pills it
+     sits between, just fixed-width so it takes only a little from each pill's share of the row
+     rather than adding a whole new flex:1 slot (2026-08-19). Icon is inline SVG (currentColor, no
+     asset dependency), swapped between a calendar and list glyph by toggleTaskViewMode based on
+     which view is currently showing — i.e. it shows what tapping it switches TO, not what's
+     active now. */
+  .task-view-toggle-btn{
+    flex-shrink:0; width:40px; display:flex; align-items:center; justify-content:center;
+    padding:10px 4px; border-radius: var(--radius-md); border:2px solid var(--text);
+    background: var(--surface-soft); color: var(--text); cursor:pointer;
+  }
+  .task-view-toggle-btn svg{ width:18px; height:18px; }
+  .task-view-toggle-btn:active{ transform: translateY(1px); }
+  .task-view-toggle-btn.hidden{ display:none; }
+
+  /* Calendar view (see #calendarView markup, taskViewMode/renderCalendar) — defaults to a single
+     week row rather than a full month grid, which used to eat the whole screen and push the
+     day's task list below the fold (design feedback, 2026-08-19). Tapping calendarPeriodToggle
+     expands the same card into a full month grid for whoever wants it, and back. The whole thing
+     sits on its own frosted card (same rgba(--glass-rgb) treatment as the header/tabbar) instead
+     of directly on the busy background art, so numbers stay legible without needing a background
+     per day cell — ordinary days carry no fill at all, only today/selected get a solid pill. Paw
+     markers (up to 3, reusing icon-paw-dark/light) replace a plain dot for actual visibility. */
+  .calendar-view.hidden{ display:none; }
+  .calendar-view{
+    background: rgba(var(--glass-rgb), 0.92); border:2px solid var(--text); border-radius: var(--radius-lg);
+    padding:12px 12px 14px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .calendar-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .calendar-nav-btn{
+    width:28px; height:28px; border-radius:50%; border:2px solid var(--text); background:transparent;
+    color:var(--text); font-size:16px; font-weight:700; cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .calendar-nav-btn:active{ transform: translateY(1px); }
+  .calendar-period-toggle{
+    display:flex; align-items:center; gap:5px; background:transparent; border:none; color:var(--text);
+    cursor:pointer; padding:4px 8px; border-radius: var(--radius-md); min-width:0;
+  }
+  .calendar-period-toggle:active{ transform: translateY(1px); }
+  .calendar-period-label{ font-size: calc(13.5px * var(--font-scale)); font-weight:700; text-transform:capitalize; white-space:nowrap; }
+  .calendar-period-chevron{ width:12px; height:12px; flex-shrink:0; transition: transform .2s ease; }
+  .calendar-period-toggle.expanded .calendar-period-chevron{ transform: rotate(180deg); }
+  .calendar-weekdays{ display:grid; grid-template-columns: repeat(7, 1fr); text-align:center; margin-bottom:2px; }
+  .calendar-weekdays span{ font-size: calc(10.5px * var(--font-scale)); font-weight:700; opacity:.55; }
+  .calendar-grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap:2px; }
+  .calendar-day{
+    height:40px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:2px; border-radius: var(--radius-md); border:2px solid transparent; background:transparent;
+    font-size: calc(12px * var(--font-scale)); font-weight:700; color: var(--text); cursor:pointer; padding:0;
+  }
+  .calendar-grid-week .calendar-day{ height:52px; }
+  .calendar-day.empty{ visibility:hidden; cursor:default; }
+  .calendar-day.today{ background: var(--surface-soft); border-color: var(--accent-dark); }
+  .calendar-day.selected{ background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .calendar-day-markers{ display:flex; align-items:center; justify-content:center; gap:2px; height:8px; margin-top:-3px; }
+  .calendar-day-marker{ width:8px; height:8px; flex-shrink:0; }
+  .calendar-day-tasks{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+  /* Heading in the "whole period" aggregate list (see renderCalendar's else-branch) — only shown
+     when nothing's selected, so a plain task list doesn't get one at all. Tappable: clicking it
+     drills into that single day, same as tapping its number in the grid above. */
+  .calendar-period-tasks-date{
+    font-size: calc(11.5px * var(--font-scale)); font-weight:700; opacity:.6; text-transform:capitalize;
+    padding:2px 2px 0; cursor:pointer;
+  }
+  .calendar-day-tasks-empty{
+    text-align:center; color: var(--text-muted); font-size: calc(12.5px * var(--font-scale));
+    opacity:.7; margin-top:10px;
+  }
+  .calendar-day-task{
+    display:flex; align-items:center; gap:8px; background: var(--card); border:2px solid var(--text);
+    border-radius: var(--radius-md); padding:10px 12px; cursor:pointer;
+  }
+  .calendar-day-task-time{ font-size: calc(11px * var(--font-scale)); font-weight:700; color: var(--olive); flex-shrink:0; }
+  .calendar-day-task-title{ font-size: calc(13px * var(--font-scale)); font-weight:700; flex:1; min-width:0; word-break:break-word; }
+  .calendar-day-task.completed .calendar-day-task-title{ text-decoration: line-through; opacity:.6; }
   .btn-icon{ width:16px; height:16px; object-fit:contain; flex-shrink:0; }
   /* Small inline icon that sits inside translated sentences/labels in place of an emoji —
      sized in em so it automatically scales with whatever font-size its surrounding text has. */
@@ -909,8 +991,8 @@
   #shoppingListPickerLabel{ color: var(--accent-dark); font-weight:700; }
   .shopping-item-add-row{ display:flex; gap:8px; margin-bottom:16px; }
   .shopping-item-add-input{
-    flex:1; min-width:0; border:1px solid rgba(var(--shadow-rgb),0.16); border-radius: var(--radius-md);
-    background: var(--surface-soft); color: var(--text); font-family:inherit; font-size: calc(14px * var(--font-scale));
+    flex:1; min-width:0; border:2px solid var(--text); border-radius: var(--radius-md);
+    background: var(--bg); color: var(--text); font-family:inherit; font-size: calc(14px * var(--font-scale));
     padding:11px 14px; outline:none;
   }
   .shopping-item-add-input:focus{ border-color: var(--accent-dark); }
@@ -1143,7 +1225,8 @@
   .homecheck-reset-btn{
     display:block; width:100%; border:2px solid var(--text); border-radius: var(--radius-lg);
     background: var(--accent); color: var(--on-accent); font-weight:700; font-size: calc(14.5px * var(--font-scale));
-    padding:14px; cursor:pointer; box-shadow: var(--shadow-soft); margin-bottom:16px; font-family:inherit; line-height: 1;
+    padding:14px; padding-top: 15px;
+    padding-bottom: 11px; cursor:pointer; box-shadow: var(--shadow-soft); margin-bottom:16px; font-family:inherit; line-height: 1;
   }
   .homecheck-reset-btn:active{ transform: translateY(1px); }
   .homecheck-add-row{ display:flex; gap:8px; margin-bottom:16px; }
@@ -2454,6 +2537,17 @@
             <div class="category-swatch-row" id="categoryFilterEditSwatchRow"></div>
           </div>
         </div>
+        <!-- Only meaningful for Задачки — Заметки have no date/reminder concept at all, so this
+             hides whenever currentTaskFilter is "note" (see selectNoteCategoryFilter). Sits
+             between the two filter pills rather than carved out of either one, and rather than a
+             4th bottom-nav tab or a buried sidebar entry — design discussion 2026-08-19: it needs
+             to be reachable right from this screen, but a control that's part-filter/part-view-
+             toggle depending on which half you tap is worse than a fully separate small button.
+             (Briefly tried trailing after both pills instead — reverted, kept it here.) -->
+        <!-- No data-i18n-aria — its aria-label depends on which mode is currently active, not a
+             fixed string, so it's set by updateTaskViewToggleIcon() instead (also called on
+             language switch, see switchLanguage) rather than fighting applyTranslations(). -->
+        <button type="button" class="task-view-toggle-btn" id="taskViewToggleBtn" aria-label="Календарь"></button>
         <div class="category-filter-dropdown" id="noteCategoryFilterDropdown">
           <button type="button" class="filter-tab category-filter-trigger" id="noteCategoryFilterTrigger" aria-haspopup="listbox">
             <img class="btn-icon" src="icons/icon_notes.png" alt="">
@@ -2475,6 +2569,27 @@
       <div class="tasks-overflow" id="tasksOverflow">
         <p class="tasks-overflow-note" data-i18n="tasks_overflow_note">Сегодня этого достаточно <img class="inline-icon" src="icons/icon_heart.png" alt=""></p>
         <button type="button" class="tasks-overflow-btn" id="tasksOverflowBtn"></button>
+      </div>
+      <!-- Only ever shown for Задачки (see taskViewMode/toggleTaskViewMode). Defaults to a single
+           week row — a full month grid ate the whole screen and buried the day's task list below
+           the fold (design feedback, 2026-08-19) — with paw markers (up to 3) on any day that has
+           an active task with a reminder set. Tapping the period label/chevron (calendarPeriodToggle)
+           expands the same card into a full month grid for whoever wants that view; tapping it
+           again collapses back to the week row. Tasks with no reminder (the common case — this
+           app's quick-capture default has no date at all) simply never appear here, only on
+           tapping a day does that day's tasks list below the grid. -->
+      <div class="calendar-view hidden" id="calendarView">
+        <div class="calendar-header">
+          <button type="button" class="calendar-nav-btn" id="calendarPrevBtn">‹</button>
+          <button type="button" class="calendar-period-toggle" id="calendarPeriodToggle">
+            <span class="calendar-period-label" id="calendarPeriodLabel"></span>
+            <svg class="calendar-period-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <button type="button" class="calendar-nav-btn" id="calendarNextBtn">›</button>
+        </div>
+        <div class="calendar-weekdays" id="calendarWeekdays"></div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="calendar-day-tasks" id="calendarDayTasks"></div>
       </div>
     </section>
 
@@ -2688,6 +2803,13 @@
           <span class="lang-toggle">
             <button type="button" class="lang-btn active" data-gender="lord" id="genderLordBtn" data-i18n="gender_lord_btn">Лорд</button>
             <button type="button" class="lang-btn" data-gender="lady" id="genderLadyBtn" data-i18n="gender_lady_btn">Леди</button>
+          </span>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-row-text" data-i18n="settings_week_start_label">Начало недели</span>
+          <span class="lang-toggle">
+            <button type="button" class="lang-btn active" data-week-start="monday" id="weekStartMondayBtn" data-i18n="week_start_monday_btn">Пн</button>
+            <button type="button" class="lang-btn" data-week-start="sunday" id="weekStartSundayBtn" data-i18n="week_start_sunday_btn">Вс</button>
           </span>
         </div>
         <label class="toggle-row" for="catThoughtsToggle">
@@ -3153,6 +3275,7 @@
     <button type="button" class="modal-close-x" id="boxModalCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
     <div id="boxStageBefore">
       <p class="modal-title" data-i18n="box_title">Мистер Лапкинс принёс подарок!</p>
+      <p class="modal-hint hidden" id="boxDeferredCaption" data-i18n="box_deferred_caption">За дело, отмеченное готовым из уведомления</p>
       <div class="gift-box" id="giftBox"><img class="gift-box-icon" src="icons/icon_gift.png" alt=""></div>
       <p class="modal-hint" data-i18n="box_hint">Нажми на коробку</p>
     </div>
@@ -3433,6 +3556,17 @@
       category_new_placeholder: "Название категории",
       aria_add_category: "Добавить категорию",
       aria_save: "Сохранить",
+      aria_calendar_view: "Показать календарь",
+      aria_list_view: "Показать список",
+      aria_calendar_prev: "Предыдущий месяц",
+      aria_calendar_next: "Следующий месяц",
+      aria_calendar_prev_week: "Предыдущая неделя",
+      aria_calendar_next_week: "Следующая неделя",
+      aria_calendar_expand: "Показать месяц",
+      aria_calendar_collapse: "Показать неделю",
+      calendar_day_empty: "На этот день дел нет",
+      calendar_period_empty_week: "На этой неделе дел нет",
+      calendar_period_empty_month: "В этом месяце дел нет",
       empty_task: "Задач пока нет — самое время добавить одну <img class=\"inline-icon\" src=\"icons/icon_sparkles.png\" alt=\"\">",
       empty_note: "Заметок пока нет — запиши что-то важное <img class=\"inline-icon\" src=\"icons/icon_notes.png\" alt=\"\">",
       tasks_overflow_note: "Сегодня этого достаточно <img class=\"inline-icon\" src=\"icons/icon_heart.png\" alt=\"\">",
@@ -3640,6 +3774,9 @@
       settings_gender_label: "Обращение",
       gender_lord_btn: "Лорд",
       gender_lady_btn: "Леди",
+      settings_week_start_label: "Начало недели",
+      week_start_monday_btn: "Пн",
+      week_start_sunday_btn: "Вс",
       address_my_lord: "Мой лорд",
       address_my_lady: "Моя леди",
       notif_body_suffix: ", время пришло! Пора сделать: ",
@@ -3734,6 +3871,17 @@
       category_new_placeholder: "Category name",
       aria_add_category: "Add category",
       aria_save: "Save",
+      aria_calendar_view: "Show calendar",
+      aria_list_view: "Show list",
+      aria_calendar_prev: "Previous month",
+      aria_calendar_next: "Next month",
+      aria_calendar_prev_week: "Previous week",
+      aria_calendar_next_week: "Next week",
+      aria_calendar_expand: "Show month",
+      aria_calendar_collapse: "Show week",
+      calendar_day_empty: "No tasks on this day",
+      calendar_period_empty_week: "No tasks this week",
+      calendar_period_empty_month: "No tasks this month",
       empty_task: "No tasks yet — the perfect time to add one <img class=\"inline-icon\" src=\"icons/icon_sparkles.png\" alt=\"\">",
       empty_note: "No notes yet — jot something down <img class=\"inline-icon\" src=\"icons/icon_notes.png\" alt=\"\">",
       tasks_overflow_note: "That's enough for today <img class=\"inline-icon\" src=\"icons/icon_heart.png\" alt=\"\">",
@@ -3935,6 +4083,9 @@
       settings_gender_label: "Form of address",
       gender_lord_btn: "Lord",
       gender_lady_btn: "Lady",
+      settings_week_start_label: "Week starts on",
+      week_start_monday_btn: "Mon",
+      week_start_sunday_btn: "Sun",
       address_my_lord: "My lord",
       address_my_lady: "My lady",
       notif_body_suffix: ", it's time! Time to do: ",
@@ -4238,6 +4389,7 @@
   // ---------- dom refs ----------
   var quoteTextEl, floatingThoughtEl, thoughtCloseBtn, progressFillEl, progressLabelEl;
   var addTaskTrigger, taskList, taskEmptyHint;
+  var taskViewToggleBtn, calendarView, calendarPrevBtn, calendarNextBtn, calendarPeriodToggle, calendarPeriodLabel, calendarWeekdays, calendarGrid, calendarDayTasks;
   var categoryFilterDropdown, categoryFilterTrigger, categoryFilterLabel, categoryFilterList;
   var categoryFilterEditRow, categoryFilterEditInput, categoryFilterEditConfirmBtn, categoryFilterEditSwatchRow;
   var noteCategoryFilterDropdown, noteCategoryFilterTrigger, noteCategoryFilterLabel, noteCategoryFilterList;
@@ -4290,8 +4442,8 @@
   var selectedPantryIcon = null; // holds a template's image-path icon while it's chosen — see selectPantryTemplate
   var editingPantryId = null; // set by openEditPantryModal, mirrors editingHabitId below
   var tabButtons, tabPanels;
-  var boxModalOverlay, boxModalCloseX, giftBox, boxStageBefore, boxStageAfter, rewardTitleEl, rewardIconEl, rewardLevelEl, rewardNameEl, rewardDescriptionEl, closeModalBtn;
-  var headerLogoBtn, settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle, quietHoursListEl, quietHoursAddBtn;
+  var boxModalOverlay, boxModalCloseX, giftBox, boxStageBefore, boxStageAfter, boxDeferredCaption, rewardTitleEl, rewardIconEl, rewardLevelEl, rewardNameEl, rewardDescriptionEl, closeModalBtn;
+  var headerLogoBtn, settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, weekStartMondayBtn, weekStartSundayBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle, quietHoursListEl, quietHoursAddBtn;
   var accountSignInBtn, accountSignedIn, accountAvatar, accountAvatarFallback, accountName, accountSignOutBtn;
   var accountDangerSection, deleteAccountBtn, deleteAccountModalOverlay, deleteAccountCancelBtn, deleteAccountConfirmBtn, deleteAccountStatus;
   var isSignedIn = false;
@@ -4675,6 +4827,12 @@
       // never land back to back.
       firstBoxAwarded: false,
       lastBoxWasFail: false,
+      // Non-null only between a 3rd-task box roll that happened with nobody looking (see
+      // handleTaskReminderAction's "Готово" notification button / addProgress's deferVisuals) and
+      // the next time showBoxModal actually runs — see both for why this needs to survive a full
+      // app restart rather than living in a plain in-memory var like pendingBoxFailIndex used to
+      // exclusively.
+      pendingBoxReveal: null,
       habits: createDefaultHabits(),
       categories: DEFAULT_CATEGORIES.slice(),
       noteCategories: DEFAULT_CATEGORIES.slice(),
@@ -4692,7 +4850,7 @@
       // exist), NOT checked/photos, which stay IndexedDB-only on this device (see
       // HOMECHECK_DB_NAME/reconcileHomeDevicesWithRoster further down).
       homeDevices: createDefaultHomeDevices(),
-      settings: { lang: "ru", gender: "lord", darkTheme: false, minimalTheme: false, showCatThoughts: true, showAllTasksImmediately: false, gamificationEnabled: true, focusWorkMinutes: 30, focusBreakMinutes: 5, fontScale: FONT_SCALE_MIN, taskReminderSound: TASK_REMINDER_SOUND_KEYS[0], quietHours: [] }
+      settings: { lang: "ru", gender: "lord", darkTheme: false, minimalTheme: false, showCatThoughts: true, showAllTasksImmediately: false, gamificationEnabled: true, focusWorkMinutes: 30, focusBreakMinutes: 5, fontScale: FONT_SCALE_MIN, taskReminderSound: TASK_REMINDER_SOUND_KEYS[0], quietHours: [], weekStartsOn: "monday" }
     };
   }
 
@@ -4834,6 +4992,9 @@
     var points = typeof parsed.points === "number" ? clamp(parsed.points, 0, 2) : 0;
     var firstBoxAwarded = !!parsed.firstBoxAwarded;
     var lastBoxWasFail = !!parsed.lastBoxWasFail;
+    var pendingBoxReveal = (parsed.pendingBoxReveal && typeof parsed.pendingBoxReveal === "object")
+      ? { isFail: !!parsed.pendingBoxReveal.isFail, failIndex: typeof parsed.pendingBoxReveal.failIndex === "number" ? parsed.pendingBoxReveal.failIndex : null, deferred: !!parsed.pendingBoxReveal.deferred }
+      : null;
     var habits = normalizeHabits(parsed);
     var categories = Array.isArray(parsed.categories)
       ? parsed.categories.filter(function(c){ return typeof c === "string" && c.trim(); }).map(function(c){ return c.trim(); })
@@ -4904,10 +5065,11 @@
       focusBreakMinutes: typeof parsedSettings.focusBreakMinutes === "number" ? clamp(Math.round(parsedSettings.focusBreakMinutes), 1, 60) : 5,
       fontScale: typeof parsedSettings.fontScale === "number" ? clamp(parsedSettings.fontScale, FONT_SCALE_MIN, FONT_SCALE_MAX) : FONT_SCALE_MIN,
       taskReminderSound: TASK_REMINDER_SOUND_KEYS.indexOf(parsedSettings.taskReminderSound) !== -1 ? parsedSettings.taskReminderSound : TASK_REMINDER_SOUND_KEYS[0],
-      quietHours: normalizeQuietHours(parsedSettings.quietHours)
+      quietHours: normalizeQuietHours(parsedSettings.quietHours),
+      weekStartsOn: parsedSettings.weekStartsOn === "sunday" ? "sunday" : "monday"
     };
     var homeDeviceRoster = normalizeHomeDevices(parsed);
-    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, habits: habits, categories: categories, noteCategories: noteCategories, categoryColors: categoryColors, noteCategoryColors: noteCategoryColors, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
+    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, pendingBoxReveal: pendingBoxReveal, habits: habits, categories: categories, noteCategories: noteCategories, categoryColors: categoryColors, noteCategoryColors: noteCategoryColors, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
   }
 
   function loadState(){
@@ -5191,6 +5353,21 @@
   }
 
   function renderTasks(){
+    // Calendar mode only ever applies to Задачки (see taskViewToggleBtn's own comment — Заметки
+    // has no date concept to show one for). Branching here rather than in every mutation call
+    // site that already calls renderTasks() (there are dozens) means the calendar just stays in
+    // sync for free, same as the list always has, without touching any of them.
+    taskViewToggleBtn.classList.toggle("hidden", currentTaskFilter !== "task");
+    var showCalendar = taskViewMode === "calendar" && currentTaskFilter === "task";
+    calendarView.classList.toggle("hidden", !showCalendar);
+    taskList.style.display = showCalendar ? "none" : "";
+    if(showCalendar){
+      taskEmptyHint.style.display = "none";
+      tasksOverflowEl.style.display = "none";
+      renderCalendar();
+      return;
+    }
+
     // Задачки: only active, undeleted, unarchived to-dos. Заметки: anything not soft-deleted —
     // notes have no completion/archive concept of their own (see Корзина filtering rules).
     var filtered = state.tasks.filter(function(task){
@@ -5241,6 +5418,242 @@
     }
 
     taskList.innerHTML = shown.map(renderTaskCard).join("");
+  }
+
+  // ---------- calendar view (Задачки only) ----------
+  // Session-only — resets to "list" on reload, same as expandedSubtasksIds/tasksExpanded and
+  // other view-state-not-app-data vars nearby (2026-08-19 design discussion: a dedicated small
+  // toggle between the Задачки/Заметки pills rather than splitting either pill's own tap target,
+  // or a 4th bottom-nav tab, or a buried sidebar entry — see taskViewToggleBtn's own comment).
+  var taskViewMode = "list"; // "list" | "calendar"
+  // Full date (not clamped to day 1) — doubles as the week-row anchor and, when expanded, the
+  // month grid's anchor. shiftCalendarPeriod is the only thing that moves it, and it clamps to
+  // day 1 itself when shifting by month, so this stays correct for both modes without a second
+  // variable. calendarExpanded never changes it, so expanding always shows the month CONTAINING
+  // the currently visible week, and collapsing shows the week containing wherever you'd navigated to.
+  var calendarViewDate = parseISO(todayISO());
+  var calendarSelectedDate = todayISO();
+  var calendarExpanded = false; // false = week row (default), true = full month grid
+
+  var CALENDAR_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>';
+  var LIST_VIEW_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg>';
+  var CALENDAR_MONTH_NAMES = {
+    ru: ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
+    en: ["January","February","March","April","May","June","July","August","September","October","November","December"]
+  };
+  // Genitive form ("17–23 августа") — the month label uses the nominative array above, but a
+  // date RANGE reads naturally only in genitive in Russian.
+  var CALENDAR_MONTH_NAMES_GENITIVE_RU = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+  var CALENDAR_WEEKDAY_NAMES = {
+    ru: ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
+    en: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+  };
+
+  // Shows what tapping the button switches TO, not the view currently on screen.
+  function updateTaskViewToggleIcon(){
+    taskViewToggleBtn.innerHTML = taskViewMode === "list" ? CALENDAR_ICON_SVG : LIST_VIEW_ICON_SVG;
+    taskViewToggleBtn.setAttribute("aria-label", t(taskViewMode === "list" ? "aria_calendar_view" : "aria_list_view"));
+  }
+
+  function toggleTaskViewMode(){
+    taskViewMode = taskViewMode === "list" ? "calendar" : "list";
+    updateTaskViewToggleIcon();
+    renderTasks();
+  }
+
+  function shiftCalendarPeriod(delta){
+    if(calendarExpanded){
+      calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + delta, 1);
+    } else {
+      calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), calendarViewDate.getDate() + delta * 7);
+    }
+    renderCalendar();
+  }
+
+  function toggleCalendarExpanded(){
+    calendarExpanded = !calendarExpanded;
+    renderCalendar();
+  }
+
+  function selectCalendarDay(dateStr){
+    calendarSelectedDate = dateStr;
+    renderCalendar(); // rebuilds the grid too, so .selected moves off the old day correctly
+  }
+
+  // 0=Sunday, 1=Monday — see the "Начало недели" setting (switchWeekStart). Monday is this app's
+  // original/default convention; Sunday exists for locales (Israel among them) that run the week
+  // Sun-Sat (requested 2026-08-20).
+  function weekStartDay(){
+    return state.settings.weekStartsOn === "sunday" ? 0 : 1;
+  }
+
+  function startOfCalendarWeek(date){
+    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    var offset = (d.getDay() - weekStartDay() + 7) % 7; // getDay() is 0=Sun regardless of weekStartDay()
+    d.setDate(d.getDate() - offset);
+    return d;
+  }
+
+  function calendarWeekRangeLabel(weekStart, lang){
+    var weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+    var sameMonth = weekStart.getMonth() === weekEnd.getMonth() && weekStart.getFullYear() === weekEnd.getFullYear();
+    if(lang === "en"){
+      var shortMonths = CALENDAR_MONTH_NAMES.en.map(function(m){ return m.slice(0, 3); });
+      return sameMonth
+        ? shortMonths[weekStart.getMonth()] + " " + weekStart.getDate() + "–" + weekEnd.getDate()
+        : shortMonths[weekStart.getMonth()] + " " + weekStart.getDate() + " – " + shortMonths[weekEnd.getMonth()] + " " + weekEnd.getDate();
+    }
+    return sameMonth
+      ? weekStart.getDate() + "–" + weekEnd.getDate() + " " + CALENDAR_MONTH_NAMES_GENITIVE_RU[weekStart.getMonth()]
+      : weekStart.getDate() + " " + CALENDAR_MONTH_NAMES_GENITIVE_RU[weekStart.getMonth()] + " – " + weekEnd.getDate() + " " + CALENDAR_MONTH_NAMES_GENITIVE_RU[weekEnd.getMonth()];
+  }
+
+  // Date heading for a group of tasks in the "whole period" aggregate list (e.g. "26 августа, ср").
+  function calendarGroupDateLabel(dateObj, lang){
+    var weekdayShort = CALENDAR_WEEKDAY_NAMES[lang][(dateObj.getDay() + 6) % 7];
+    if(lang === "en"){
+      var shortMonths = CALENDAR_MONTH_NAMES.en.map(function(m){ return m.slice(0, 3); });
+      return shortMonths[dateObj.getMonth()] + " " + dateObj.getDate() + ", " + weekdayShort;
+    }
+    return dateObj.getDate() + " " + CALENDAR_MONTH_NAMES_GENITIVE_RU[dateObj.getMonth()] + ", " + weekdayShort;
+  }
+
+  // Same reminderDateTime → local calendar-date string used for both the month grid's dots and
+  // the selected day's task list below it, so a task showing a dot on the 5th is guaranteed to
+  // be exactly what shows up when the 5th is tapped.
+  function taskCalendarDateStr(task){
+    var when = parseReminderDateTime(task.reminderDateTime);
+    return when.getFullYear() + "-" + String(when.getMonth() + 1).padStart(2, "0") + "-" + String(when.getDate()).padStart(2, "0");
+  }
+
+  function calendarEligibleTasks(){
+    // Same category filter as the plain list view, so switching it updates which dots show too
+    // — a task with no reminder at all (the common case for this app's quick-capture default)
+    // simply never has anywhere to show up here, only ones someone deliberately dated do.
+    return state.tasks.filter(function(task){
+      return task.type === "task" && !task.deleted && !task.archived && task.reminderDateTime
+        && (!currentCategoryFilter || task.category === currentCategoryFilter);
+    });
+  }
+
+  function renderCalendar(){
+    var lang = state.settings.lang === "en" ? "en" : "ru";
+    // CALENDAR_WEEKDAY_NAMES is always stored Monday-first — rotate it to start from
+    // weekStartDay() instead of keeping a second copy of the array per start day.
+    var namesBase = CALENDAR_WEEKDAY_NAMES[lang];
+    var weekdayNames = weekStartDay() === 0 ? [namesBase[6]].concat(namesBase.slice(0, 6)) : namesBase;
+    calendarWeekdays.innerHTML = weekdayNames.map(function(w){ return "<span>" + w + "</span>"; }).join("");
+    calendarPeriodToggle.classList.toggle("expanded", calendarExpanded);
+    calendarPeriodToggle.setAttribute("aria-label", t(calendarExpanded ? "aria_calendar_collapse" : "aria_calendar_expand"));
+    calendarPrevBtn.setAttribute("aria-label", t(calendarExpanded ? "aria_calendar_prev" : "aria_calendar_prev_week"));
+    calendarNextBtn.setAttribute("aria-label", t(calendarExpanded ? "aria_calendar_next" : "aria_calendar_next_week"));
+    calendarGrid.classList.toggle("calendar-grid-week", !calendarExpanded);
+
+    var taskCountByDate = {};
+    calendarEligibleTasks().forEach(function(task){
+      var dateStr = taskCalendarDateStr(task);
+      taskCountByDate[dateStr] = (taskCountByDate[dateStr] || 0) + 1;
+    });
+
+    var todayStr = todayISO();
+    // One paw per task, capped at 3 — the count itself matters less than "busy vs. quiet", and
+    // a 4th+ tiny paw would just blur together in an 8px-tall row anyway. Selected day gets a
+    // solid accent-green pill (see .calendar-day.selected) — the usual dark/light-by-theme swap
+    // reads poorly there (dark paws on a mid green, in light theme especially), so that cell
+    // always gets the light/cream paw regardless of theme; everything else keeps the normal
+    // per-theme swap, which already reads fine on both a light card and a dark one (2026-08-19 feedback).
+    var pawMarkerLight = '<svg class="calendar-day-marker"><use href="#icon-paw-light"></use></svg>';
+    var pawMarkerThemed = '<svg class="calendar-day-marker icon-glyph-dark"><use href="#icon-paw-dark"></use></svg>'
+      + '<svg class="calendar-day-marker icon-glyph-light"><use href="#icon-paw-light"></use></svg>';
+
+    // Real (non-blank) days on screen right now — built before the grid HTML so the "still
+    // visible?" check below can run first, and reused again for the aggregate task list.
+    var visibleDates = [];
+    var leadingBlanks = 0;
+    if(calendarExpanded){
+      var year = calendarViewDate.getFullYear();
+      var month = calendarViewDate.getMonth();
+      calendarPeriodLabel.textContent = CALENDAR_MONTH_NAMES[lang][month] + " " + year;
+      leadingBlanks = (new Date(year, month, 1).getDay() - weekStartDay() + 7) % 7;
+      var daysInMonth = new Date(year, month + 1, 0).getDate();
+      for(var day = 1; day <= daysInMonth; day++) visibleDates.push(new Date(year, month, day));
+    } else {
+      var weekStart = startOfCalendarWeek(calendarViewDate);
+      calendarPeriodLabel.textContent = calendarWeekRangeLabel(weekStart, lang);
+      for(var w = 0; w < 7; w++) visibleDates.push(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + w));
+    }
+    var visibleDateStrs = visibleDates.map(function(d){
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    });
+
+    // Navigating to a week/month that no longer contains the previously selected day used to
+    // leave that day's (now nonsensical, off-screen) task list sitting under the grid with
+    // nothing highlighted to explain it. Falling back to an "everything in this period" view
+    // instead answers the question the user actually just asked by paging the calendar — what's
+    // on my plate this week/month — without guessing which day they meant (design feedback,
+    // 2026-08-19: rejected auto-jumping to the same weekday as presumptuous/arbitrary). Today is
+    // the one exception, not a guess: it's already the grid's own default focus (the ring
+    // around .today, and what's selected the first time the calendar ever opens) — paging back to
+    // a week/month that contains it should land on the same today-selected state as opening the
+    // calendar fresh, rather than leaving the ring on 19 while the list below talks about the
+    // whole week (reported 2026-08-19: looked like two views disagreeing with each other).
+    if(!calendarSelectedDate || visibleDateStrs.indexOf(calendarSelectedDate) === -1){
+      calendarSelectedDate = visibleDateStrs.indexOf(todayStr) !== -1 ? todayStr : null;
+    }
+
+    function dayCellHtml(dateObj, dateStr){
+      var isSelected = dateStr === calendarSelectedDate;
+      var classes = "calendar-day"
+        + (dateStr === todayStr ? " today" : "")
+        + (isSelected ? " selected" : "");
+      var count = Math.min(taskCountByDate[dateStr] || 0, 3);
+      var markers = count ? '<span class="calendar-day-markers">' + (isSelected ? pawMarkerLight : pawMarkerThemed).repeat(count) + "</span>" : "";
+      return '<button type="button" class="' + classes + '" data-date="' + dateStr + '">' + dateObj.getDate() + markers + "</button>";
+    }
+
+    var html = "";
+    for(var b = 0; b < leadingBlanks; b++) html += '<div class="calendar-day empty"></div>';
+    for(var d = 0; d < visibleDates.length; d++) html += dayCellHtml(visibleDates[d], visibleDateStrs[d]);
+    calendarGrid.innerHTML = html;
+
+    if(calendarSelectedDate){
+      var dayTasks = calendarEligibleTasks()
+        .filter(function(task){ return taskCalendarDateStr(task) === calendarSelectedDate; })
+        .sort(function(a, b){ return parseReminderDateTime(a.reminderDateTime) - parseReminderDateTime(b.reminderDateTime); });
+
+      calendarDayTasks.innerHTML = dayTasks.length
+        ? dayTasks.map(function(task){
+            return '<div class="calendar-day-task' + (task.completed ? " completed" : "") + '" data-id="' + task.id + '">' +
+              '<span class="calendar-day-task-time">' + formatTimeOnly(task.reminderDateTime) + '</span>' +
+              '<span class="calendar-day-task-title">' + escapeHtml(task.title) + '</span>' +
+            '</div>';
+          }).join("")
+        : '<p class="calendar-day-tasks-empty">' + t("calendar_day_empty") + '</p>';
+    } else {
+      var visibleSet = {};
+      visibleDateStrs.forEach(function(s){ visibleSet[s] = true; });
+      var periodTasks = calendarEligibleTasks()
+        .filter(function(task){ return visibleSet[taskCalendarDateStr(task)]; })
+        .sort(function(a, b){ return parseReminderDateTime(a.reminderDateTime) - parseReminderDateTime(b.reminderDateTime); });
+
+      if(!periodTasks.length){
+        calendarDayTasks.innerHTML = '<p class="calendar-day-tasks-empty">' + t(calendarExpanded ? "calendar_period_empty_month" : "calendar_period_empty_week") + '</p>';
+      } else {
+        var lastDateStr = null;
+        calendarDayTasks.innerHTML = periodTasks.map(function(task){
+          var dateStr = taskCalendarDateStr(task);
+          var groupLabel = "";
+          if(dateStr !== lastDateStr){
+            lastDateStr = dateStr;
+            groupLabel = '<div class="calendar-period-tasks-date" data-date="' + dateStr + '">' + calendarGroupDateLabel(parseReminderDateTime(task.reminderDateTime), lang) + "</div>";
+          }
+          return groupLabel + '<div class="calendar-day-task' + (task.completed ? " completed" : "") + '" data-id="' + task.id + '">' +
+            '<span class="calendar-day-task-time">' + formatTimeOnly(task.reminderDateTime) + '</span>' +
+            '<span class="calendar-day-task-title">' + escapeHtml(task.title) + '</span>' +
+          '</div>';
+        }).join("");
+      }
+    }
   }
 
   // ---------- category filter dropdown ----------
@@ -5369,8 +5782,13 @@
 
   function renderReminderBadgeHtml(obj){
     // Once done, the reminder no longer applies — hide the badge (including any lingering
-    // "carried over" caption) instead of leaving a stale note on a finished item.
-    if(!obj.reminderDateTime || obj.completed) return "";
+    // "carried over" caption) instead of leaving a stale note on a finished item. A recurring
+    // task completed today is the one exception: it's sitting crossed-out on purpose (see
+    // toggleTask/checkReminders), not about to archive, and its reminderDateTime already points
+    // at the NEXT occurrence — hiding the badge there just erased any sign it was a repeating
+    // task at all, or when it'd come back (reported 2026-08-20: "куда делось время повтора").
+    var showWhileCompleted = obj.completed && obj.recurrence && obj.recurrenceCompletedOn;
+    if(!obj.reminderDateTime || (obj.completed && !showWhileCompleted)) return "";
     var recurSuffix = obj.recurrence ? " · " + RECUR_ICON_SVG + " " + recurrenceLabel(obj.recurrence) : "";
     if(obj.reminderCarriedOver){
       var caption = t("task_carried_over_caption").replace("{time}", formatTimeOnly(obj.reminderDateTime));
@@ -7135,13 +7553,16 @@
   // Despite the name, this is the tap handler for every reminder notification with an extra.key
   // (task/subtask/habit/pantry — see scheduleReminder's extra option), not just task ones —
   // window.AppNotifications.onTaskAction(handleTaskReminderAction) below is the single bridge for
-  // all of them. "Отложить на 10 минут" is from the reminder notification's own action buttons
-  // (see registerTaskActions), task/subtask only. A plain tap on a habit/pantry reminder — which
-  // never gets action buttons — just jumps to the tab that shows it; without extra.key on those
-  // (fixed here), tapping did nothing but open the app to whatever tab it last had open. Anything
-  // else — "Готово", or tapping a task/subtask reminder — falls through to cancelReminder;
-  // strictly a no-op for a plain one-shot reminder (the OS already cleared it), but see that
-  // function's comment in src/notifications.js for why it's still worth calling.
+  // all of them. "Отложить на 10 минут"/"Готово" are the reminder notification's own action
+  // buttons (see registerTaskActions), task/subtask only — "Готово" used to just fall through to
+  // cancelReminder (dismiss the alert, task left untouched), which meant checking a task off from
+  // the notification tray didn't actually check it off; it now runs the exact same completion
+  // path as the in-app checkbox (2026-08-20). A plain tap on a habit/pantry reminder — which never
+  // gets action buttons — just jumps to the tab that shows it; without extra.key on those (fixed
+  // here), tapping did nothing but open the app to whatever tab it last had open. A plain tap on a
+  // task/subtask reminder (not a button, the notification body itself) still falls through to
+  // cancelReminder — strictly a no-op for a plain one-shot reminder (the OS already cleared it),
+  // but see that function's comment in src/notifications.js for why it's still worth calling.
   var TASK_SNOOZE_MINUTES = 10;
   function handleTaskReminderAction(actionId, key){
     if(actionId === "snooze"){
@@ -7177,6 +7598,25 @@
       }
       saveState();
       if(activeTab === "tasks") renderTasks();
+      return;
+    }
+    if(actionId === "done"){
+      // Same completion path the in-app checkbox uses (toggleTask/toggleSubtask) — reward,
+      // recurrence advance-and-cross-out, archive delay, all identical, so "Готово" from the
+      // notification tray genuinely finishes the task instead of just dismissing the alert like
+      // it used to (requested 2026-08-20, right after fixing the recurring cross-out itself).
+      if(key.indexOf("task:") === 0){
+        var doneTask = state.tasks.find(function(t){ return t.id === key.slice(5); });
+        if(doneTask && !doneTask.completed) toggleTask(doneTask.id, { deferVisuals: true });
+      } else if(key.indexOf("subtask:") === 0){
+        var doneSubtaskId = key.slice(8);
+        state.tasks.some(function(t){
+          var subtask = t.subtasks.find(function(s){ return s.id === doneSubtaskId; });
+          if(!subtask) return false;
+          if(!subtask.completed) toggleSubtask(t.id, subtask.id);
+          return true;
+        });
+      }
       return;
     }
     // Habits/pantry have no action buttons (actionId is always the plugin's default "tap" for
@@ -7526,6 +7966,24 @@
     var now = new Date();
     var changed = false;
     state.tasks.forEach(function(task){
+      // A deleted task keeps its reminderDateTime (deleteTask only cancels the OS-level alarm at
+      // that moment, it doesn't touch the field) — without this guard, the very next time this
+      // ran after that reminder's time passed, it read as just another missed reminder needing
+      // carry-over, and got silently rescheduled. Forever: each carry-over just sets up the next
+      // one. Reported 2026-08-19 — notifications for a "long since deleted" task kept coming back.
+      if(task.deleted) return;
+      // Completing a recurring task (see toggleTask) leaves it checked/crossed-out for the rest
+      // of the day it was completed on, rather than resetting instantly — this is what actually
+      // un-checks it again once a new day has begun, independent of processReminderLifecycle
+      // below (which only ever looks at reminders that AREN'T done yet).
+      if(task.completed && task.recurrence && task.recurrenceCompletedOn && task.recurrenceCompletedOn !== todayISO()){
+        task.completed = false;
+        task.recurrenceCompletedOn = null;
+        // The day it could still be undone for has passed — see toggleTask's same-day check, this
+        // stops a much-later manual uncheck from restoring a long-stale snapshot.
+        task.recurrencePreCompleteReminderDateTime = null;
+        changed = true;
+      }
       if(processReminderLifecycle(task, now, scheduleTaskReminderNotification)) changed = true;
       task.subtasks.forEach(function(subtask){
         if(processReminderLifecycle(subtask, now, scheduleSubtaskReminderNotification)) changed = true;
@@ -7579,25 +8037,9 @@
     return buildReminderDateTime(dateStr, timeStr);
   }
 
-  // A recurring task (see the Повтор picker in the add-task/settings modals) never actually
-  // archives — completing one instance just rolls its reminder forward to the next occurrence and
-  // un-checks it, same brief see-the-checkmark delay and same quick-undo respect as
-  // scheduleArchiveIfCompleted above, just a different outcome once the delay elapses.
-  function scheduleRecurrenceAdvanceIfCompleted(taskId){
-    setTimeout(function(){
-      var task = state.tasks.find(function(t){ return t.id === taskId; });
-      if(!task || !task.completed || task.archived) return;
-      task.reminderDateTime = advanceReminderByRecurrence(task.reminderDateTime, task.recurrence);
-      task.completed = false;
-      task.reminderFired = false;
-      task.reminderCarriedOver = false;
-      scheduleTaskReminderNotification(task);
-      saveState();
-      renderTasks();
-    }, ARCHIVE_DELAY_MS);
-  }
-
-  function toggleTask(id){
+  // opts (only ever passed by handleTaskReminderAction's "Готово" branch) — see addProgress's
+  // own deferVisuals comment for why completing from a notification defers the reward reveal.
+  function toggleTask(id, opts){
     var task = state.tasks.find(function(t){ return t.id === id; });
     if(!task) return;
     // A task with subtasks can be checked off directly too, independent of how many of its
@@ -7605,16 +8047,48 @@
     // purpose: finishing every subtask doesn't auto-complete the task, since the user might still
     // want to add another step first (see toggleSubtask).
     task.completed = !task.completed;
-    if(task.completed) cancelTaskReminderNotification(task.id);
-    else scheduleTaskReminderNotification(task); // undone — resume its reminder if it still has one
+    if(task.completed){
+      cancelTaskReminderNotification(task.id);
+      // A recurring task (see the Повтор picker) never archives — advance its reminder to the
+      // next occurrence right away and record which day it was completed on (recurrenceCompletedOn),
+      // but leave completed:true so the card stays visibly checked/crossed-out for the rest of
+      // today; checkReminders un-checks it once that day is over. Used to reset back to
+      // unchecked after a brief delay instead (same flash-then-archive timing as a plain task) —
+      // that made repeat completions look like nothing had happened once the flash passed, which
+      // read as "it's not getting marked done" even though the reward and the date advance were
+      // both real (reported 2026-08-20).
+      if(task.recurrence && task.reminderDateTime){
+        // Snapshot the occurrence being completed so unchecking today can put it back exactly —
+        // without this, check→uncheck→check (someone double-tapping, or just changing their
+        // mind) advanced the date every single time completed became true regardless of the
+        // uncheck in between, silently burning through extra occurrences no point was ever
+        // awarded for (reported 2026-08-20: date had jumped several days ahead of the actual
+        // number of completions the header counter showed).
+        task.recurrencePreCompleteReminderDateTime = task.reminderDateTime;
+        task.reminderDateTime = advanceReminderByRecurrence(task.reminderDateTime, task.recurrence);
+        task.reminderFired = false;
+        task.reminderCarriedOver = false;
+        task.recurrenceCompletedOn = todayISO();
+        scheduleTaskReminderNotification(task);
+      }
+    } else {
+      // Undo the advance above if this is the same completion being reversed today — a stale
+      // snapshot from days ago (task left completed past a day-rollover, then somehow unchecked
+      // manually) would restore the wrong date, so this only ever applies same-day.
+      if(task.recurrence && task.recurrenceCompletedOn === todayISO() && task.recurrencePreCompleteReminderDateTime){
+        task.reminderDateTime = task.recurrencePreCompleteReminderDateTime;
+      }
+      task.recurrencePreCompleteReminderDateTime = null;
+      task.recurrenceCompletedOn = null;
+      scheduleTaskReminderNotification(task); // undone — resume its reminder if it still has one
+    }
     if(window.AudioManager) window.AudioManager.playClick();
     if(window.AppHaptics) window.AppHaptics[task.completed ? "success" : "light"]();
     renderTasks();
     saveState();
     if(task.completed){
-      addProgress(1);
-      if(task.recurrence && task.reminderDateTime) scheduleRecurrenceAdvanceIfCompleted(id);
-      else scheduleArchiveIfCompleted(id);
+      addProgress(1, opts);
+      if(!task.recurrence || !task.reminderDateTime) scheduleArchiveIfCompleted(id);
     } else {
       addProgress(-1);
     }
@@ -7838,8 +8312,16 @@
   // flag — callers update that before reaching here. This is only the reward economy: points,
   // the header's story-image/thought-bubble moments, and the treasure gift box all stop cold
   // when gamification is off, so the cat brings nothing back for finishing a task.
-  function addProgress(delta){
+  //
+  // opts.deferVisuals (set by handleTaskReminderAction — completing a task from a notification's
+  // "Готово" button, with the app not actually open in front of anyone) skips the on-screen
+  // reveal: the header story bubble is pure flavor, safe to just skip, but the gift box's outcome
+  // is real content someone would otherwise never see, so it's stashed in state.pendingBoxReveal
+  // and shown the next time showBoxModal actually runs (see init()) instead of firing into an
+  // empty room (requested 2026-08-20).
+  function addProgress(delta, opts){
     if(!state.settings.gamificationEnabled) return;
+    var deferVisuals = !!(opts && opts.deferVisuals);
     state.points = Math.max(0, state.points + delta);
     // Captured before the >=3 reset below, so it's exactly 1/2/3 for a task just completed —
     // that's what drives the header's reward cycle (image on #1/#2, treasure box on #3).
@@ -7855,12 +8337,17 @@
       // still fully random, so two (or more) gifts in a row is completely normal.
       var forcedGift = !state.firstBoxAwarded || state.lastBoxWasFail;
       var isFail = !forcedGift && Math.random() < BOX_FAIL_CHANCE;
-      pendingBoxFailIndex = isFail ? 1 + Math.floor(Math.random() * 5) : null;
+      // deferred marks a box earned via a notification's "Готово" button (see toggleTask/
+      // handleTaskReminderAction) so showBoxModal can explain, on the reveal someone's actually
+      // looking at, why a gift showed up with no completion visibly happening in front of them
+      // (2026-08-21 — reported as "getting gifts for nothing", turned out to be exactly this).
+      state.pendingBoxReveal = { isFail: isFail, failIndex: isFail ? 1 + Math.floor(Math.random() * 5) : null, deferred: deferVisuals };
       state.firstBoxAwarded = true;
       state.lastBoxWasFail = isFail;
     }
     renderProgress();
     saveState();
+    if(deferVisuals) return;
     if(taskNumberInCycle === 1 || taskNumberInCycle === 2){
       triggerHeaderStoryImage();
     }
@@ -7869,10 +8356,23 @@
 
   // ---------- gacha / box modal ----------
   function showBoxModal(){
+    // Pulls the already-rolled fail/success outcome out of the durable state.pendingBoxReveal
+    // (see addProgress) into the in-memory var openGift actually reads — works identically
+    // whether this call is happening in the same tick the roll happened (deferVisuals was false)
+    // or much later after a full restart (deferVisuals was true) — either way state.pendingBoxReveal
+    // is cleared right here, once the reveal has actually reached a screen.
+    var wasDeferred = false;
+    if(state.pendingBoxReveal){
+      pendingBoxFailIndex = state.pendingBoxReveal.isFail ? state.pendingBoxReveal.failIndex : null;
+      wasDeferred = !!state.pendingBoxReveal.deferred;
+      state.pendingBoxReveal = null;
+      saveState();
+    }
     giftBoxOpened = false;
     giftBox.classList.remove("shake");
     boxStageBefore.classList.remove("hidden");
     boxStageAfter.classList.add("hidden");
+    boxDeferredCaption.classList.toggle("hidden", !wasDeferred);
     boxModalOverlay.classList.add("show");
   }
 
@@ -8399,6 +8899,8 @@
     langEnBtn.classList.toggle("active", state.settings.lang === "en");
     genderLordBtn.classList.toggle("active", state.settings.gender === "lord");
     genderLadyBtn.classList.toggle("active", state.settings.gender === "lady");
+    weekStartMondayBtn.classList.toggle("active", state.settings.weekStartsOn !== "sunday");
+    weekStartSundayBtn.classList.toggle("active", state.settings.weekStartsOn === "sunday");
     darkThemeToggle.checked = state.settings.darkTheme;
     minimalThemeToggle.checked = state.settings.minimalTheme;
     fontSizeSlider.value = state.settings.fontScale;
@@ -8425,6 +8927,7 @@
     renderCategoryFilterList();
     updateNoteCategoryFilterLabel();
     renderNoteCategoryFilterList();
+    updateTaskViewToggleIcon();
     renderTasks();
     renderPantry();
     renderCollection();
@@ -8453,6 +8956,16 @@
     state.settings.gender = (gender === "lady") ? "lady" : "lord";
     saveState();
     applySettingsToSidebar();
+  }
+
+  // Israel (and a few other locales) run Sunday-first — the calendar view (see startOfCalendarWeek/
+  // renderCalendar) defaulted to the Monday-first grid this app was originally built around, with
+  // no way to change it (requested 2026-08-20).
+  function switchWeekStart(weekStart){
+    state.settings.weekStartsOn = (weekStart === "sunday") ? "sunday" : "monday";
+    saveState();
+    applySettingsToSidebar();
+    if(taskViewMode === "calendar") renderCalendar();
   }
 
   // "Звук напоминания о делах" — only affects task/subtask reminders (see taskReminderOpts);
@@ -9417,15 +9930,32 @@
     closeAddHabitModal();
   }
 
+  // Android's native <input type="date">/<input type="time"> picker dialog (see reminderDateInput/
+  // reminderTimeInput and their taskOptions- counterparts) renders outside the WebView — dismissing
+  // it can fire a synthetic click back on the page at the dialog's old screen position, with no
+  // real mousedown ever having happened there. If that position landed on a modal's own backdrop,
+  // the plain e.target === overlay check these two modals used closed the whole thing and threw
+  // away whatever time/date was just picked — reported as "picking a reminder time kicks back to
+  // the list without saving", first attempt only (2026-08-20). Requiring a genuine mousedown on the
+  // backdrop first — which a synthetic click never has — closes that gap without weakening the
+  // actual tap-outside-to-close gesture. Only wired up for addTaskModalOverlay/taskOptionsModalOverlay
+  // below, the two modals that actually contain a date/time input.
+  function attachBackdropCloseGuard(overlayEl, closeFn){
+    var mouseDownOnBackdrop = false;
+    overlayEl.addEventListener("mousedown", function(e){ mouseDownOnBackdrop = (e.target === overlayEl); });
+    overlayEl.addEventListener("click", function(e){
+      if(e.target === overlayEl && mouseDownOnBackdrop) closeFn();
+      mouseDownOnBackdrop = false;
+    });
+  }
+
   // ---------- init ----------
   function attachEventListeners(){
     addTaskTrigger.addEventListener("click", openAddTaskModal);
     addTaskCloseX.addEventListener("click", closeAddTaskModal);
     addTaskCancelBtn.addEventListener("click", closeAddTaskModal);
     addTaskSubmitBtn.addEventListener("click", submitAddTaskModal);
-    addTaskModalOverlay.addEventListener("click", function(e){
-      if(e.target === addTaskModalOverlay) closeAddTaskModal(); // backdrop only, not the card
-    });
+    attachBackdropCloseGuard(addTaskModalOverlay, closeAddTaskModal);
 
     reminderToggle.addEventListener("change", function(){
       if(reminderToggle.checked){
@@ -9567,9 +10097,7 @@
     taskOptionsCloseX.addEventListener("click", closeTaskOptionsModal);
     taskOptionsCancelBtn.addEventListener("click", closeTaskOptionsModal);
     taskOptionsSaveBtn.addEventListener("click", saveTaskOptionsModal);
-    taskOptionsModalOverlay.addEventListener("click", function(e){
-      if(e.target === taskOptionsModalOverlay) closeTaskOptionsModal(); // backdrop only, not the card
-    });
+    attachBackdropCloseGuard(taskOptionsModalOverlay, closeTaskOptionsModal);
     taskOptionsTypeButtons.forEach(function(btn){
       btn.addEventListener("click", function(){
         if(btn.classList.contains("disabled")) return; // see applyTaskOptionsTypeAvailability
@@ -9633,6 +10161,21 @@
     tasksOverflowBtn.addEventListener("click", function(){
       tasksExpanded = true;
       renderTasks();
+    });
+
+    taskViewToggleBtn.addEventListener("click", toggleTaskViewMode);
+    calendarPrevBtn.addEventListener("click", function(){ shiftCalendarPeriod(-1); });
+    calendarNextBtn.addEventListener("click", function(){ shiftCalendarPeriod(1); });
+    calendarPeriodToggle.addEventListener("click", toggleCalendarExpanded);
+    calendarGrid.addEventListener("click", function(e){
+      var day = e.target.closest(".calendar-day:not(.empty)");
+      if(day) selectCalendarDay(day.dataset.date);
+    });
+    calendarDayTasks.addEventListener("click", function(e){
+      var dateLabel = e.target.closest(".calendar-period-tasks-date");
+      if(dateLabel){ selectCalendarDay(dateLabel.dataset.date); return; }
+      var card = e.target.closest(".calendar-day-task");
+      if(card) openTaskDetailModal(card.dataset.id);
     });
 
     trashBackBtn.addEventListener("click", function(){ switchTab("tasks"); });
@@ -10051,6 +10594,8 @@
     langEnBtn.addEventListener("click", function(){ switchLanguage("en"); });
     genderLordBtn.addEventListener("click", function(){ switchGender("lord"); });
     genderLadyBtn.addEventListener("click", function(){ switchGender("lady"); });
+    weekStartMondayBtn.addEventListener("click", function(){ switchWeekStart("monday"); });
+    weekStartSundayBtn.addEventListener("click", function(){ switchWeekStart("sunday"); });
     settingsReminderSoundBtn.addEventListener("click", function(){
       switchTab("reminder-sound");
     });
@@ -10198,6 +10743,15 @@
     taskEmptyHint = document.getElementById("taskEmptyHint");
     tasksOverflowEl = document.getElementById("tasksOverflow");
     tasksOverflowBtn = document.getElementById("tasksOverflowBtn");
+    taskViewToggleBtn = document.getElementById("taskViewToggleBtn");
+    calendarView = document.getElementById("calendarView");
+    calendarPrevBtn = document.getElementById("calendarPrevBtn");
+    calendarNextBtn = document.getElementById("calendarNextBtn");
+    calendarPeriodToggle = document.getElementById("calendarPeriodToggle");
+    calendarPeriodLabel = document.getElementById("calendarPeriodLabel");
+    calendarWeekdays = document.getElementById("calendarWeekdays");
+    calendarGrid = document.getElementById("calendarGrid");
+    calendarDayTasks = document.getElementById("calendarDayTasks");
 
     trashBackBtn = document.getElementById("trashBackBtn");
     trashClearBtn = document.getElementById("trashClearBtn");
@@ -10359,6 +10913,7 @@
     boxModalCloseX = document.getElementById("boxModalCloseX");
     giftBox = document.getElementById("giftBox");
     boxStageBefore = document.getElementById("boxStageBefore");
+    boxDeferredCaption = document.getElementById("boxDeferredCaption");
     boxStageAfter = document.getElementById("boxStageAfter");
     rewardTitleEl = document.getElementById("rewardTitle");
     rewardIconEl = document.getElementById("rewardIcon");
@@ -10406,6 +10961,8 @@
     langEnBtn = document.getElementById("langEnBtn");
     genderLordBtn = document.getElementById("genderLordBtn");
     genderLadyBtn = document.getElementById("genderLadyBtn");
+    weekStartMondayBtn = document.getElementById("weekStartMondayBtn");
+    weekStartSundayBtn = document.getElementById("weekStartSundayBtn");
     settingsBackBtn = document.getElementById("settingsBackBtn");
     darkThemeToggle = document.getElementById("darkThemeToggle");
     minimalThemeToggle = document.getElementById("minimalThemeToggle");
@@ -10490,8 +11047,13 @@
     renderCategoryFilterList();
     updateNoteCategoryFilterLabel();
     renderNoteCategoryFilterList();
+    updateTaskViewToggleIcon();
     renderAll();
     attachEventListeners();
+    // A box rolled while nobody was looking (see addProgress's deferVisuals/handleTaskReminderAction's
+    // "Готово" notification button) waits here — the first real moment someone's actually in the
+    // app — rather than trying (and failing) to show a modal from a backgrounded notification tap.
+    if(state.settings.gamificationEnabled && state.pendingBoxReveal) showBoxModal();
     checkReminders();
     setInterval(checkReminders, 20000);
     habitTick();

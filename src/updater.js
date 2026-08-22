@@ -73,16 +73,17 @@ async function checkForUpdate(){
     console.log("AppUpdater: new version available", currentVersion, "->", manifest.version);
     var bundle = await CapacitorUpdater.download({ version: manifest.version, url: manifest.url });
     await CapacitorUpdater.next({ id: bundle.id });
-    console.log("AppUpdater: downloaded and queued", manifest.version, "— reloading now to apply it");
-    // On-device testing 2026-07-31 found the plugin's own "apply on background" trigger never
-    // actually fires here — a queued bundle sat undelivered through repeated background/foreground
-    // cycles (well past the 120s delay) and just kept getting re-downloaded and re-queued forever,
-    // never once installed. reload() applies a next()-queued bundle immediately instead of waiting
-    // on that broken trigger. This does mean a brief reload right after launch on the one session
-    // that first sees a new version — deliberately traded for updates actually arriving at all.
-    // Never resolves if it succeeds (the WebView tears down mid-promise), so nothing after this
-    // matters within checkForUpdate.
-    await CapacitorUpdater.reload();
+    console.log("AppUpdater: downloaded and queued", manifest.version, "— applies on next background/restart");
+    // Used to call CapacitorUpdater.reload() right here to apply immediately, because on-device
+    // testing 2026-07-31 found the plugin's own "apply on background" trigger unreliable — a
+    // queued bundle sat undelivered through repeated background/foreground cycles, re-downloaded
+    // and re-queued forever, never installed. That traded a different problem in: checkForUpdate
+    // runs early in startup, but the fetch+download over the network can easily take long enough
+    // that someone's already mid-typing a task by the time it resolves — the forced reload wiped
+    // that draft with no warning (reported 2026-08-21). Back to queue-and-wait: an update no
+    // longer interrupts an open session, but if bundles start silently not landing again, this
+    // background trigger being flaky is the known suspect — see the deferUpdatesUntilKill comment
+    // below for the same plugin behavior in more detail.
   }catch(e){
     console.error("AppUpdater: update check failed", e);
   }

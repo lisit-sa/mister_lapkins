@@ -8,6 +8,7 @@
 var GIFT_BOX_TEXTS = {
   ru: {
     box_title: "Мистер Лапкинс принёс подарок!",
+    box_deferred_caption: "За дело, отмеченное готовым из уведомления",
     box_hint: "Нажми на коробку",
     btn_yay: "Ура!",
     reward_title_maxed: "Коллекция прокачана!",
@@ -28,6 +29,7 @@ var GIFT_BOX_TEXTS = {
   },
   en: {
     box_title: "Mr. Lapkins brought you a gift!",
+    box_deferred_caption: "For a task you marked done from a notification",
     box_hint: "Tap the box",
     btn_yay: "Yay!",
     reward_title_maxed: "Collection maxed out!",
