@@ -58,6 +58,32 @@ async function deferUpdatesUntilKill(){
   }
 }
 
+// "Busy" = actively typing (a focused text field) or looking at some open modal/sheet — same
+// signals index.html's own isPaywallInterruptionSafe uses for its warning sheets, duplicated
+// here (not imported/shared) since this module only ever talks to the rest of the app through
+// window.AppUpdater and has no access to index.html's internals — it's cheap, plain DOM reads,
+// not worth threading a callback through init() just to avoid repeating two lines.
+function isSafeToApplyUpdate(){
+  var active = document.activeElement;
+  if(active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return false;
+  if(document.querySelector(".modal-overlay.show")) return false;
+  return true;
+}
+
+var RELOAD_RETRY_MS = 5000;
+
+// Reload swaps the WebView's page (see CapacitorUpdater.reload's own effect) — this only ever
+// gets called once a bundle is genuinely queued via next(), so it's safe to just keep retrying
+// until a calm moment shows up; there's no real cost to checking every 5s.
+function reloadWhenSafe(){
+  if(isSafeToApplyUpdate()){
+    console.log("AppUpdater: applying now");
+    CapacitorUpdater.reload();
+    return;
+  }
+  setTimeout(reloadWhenSafe, RELOAD_RETRY_MS);
+}
+
 async function checkForUpdate(){
   await deferUpdatesUntilKill();
   try{
@@ -73,17 +99,18 @@ async function checkForUpdate(){
     console.log("AppUpdater: new version available", currentVersion, "->", manifest.version);
     var bundle = await CapacitorUpdater.download({ version: manifest.version, url: manifest.url });
     await CapacitorUpdater.next({ id: bundle.id });
-    console.log("AppUpdater: downloaded and queued", manifest.version, "— applies on next background/restart");
-    // Used to call CapacitorUpdater.reload() right here to apply immediately, because on-device
-    // testing 2026-07-31 found the plugin's own "apply on background" trigger unreliable — a
-    // queued bundle sat undelivered through repeated background/foreground cycles, re-downloaded
-    // and re-queued forever, never installed. That traded a different problem in: checkForUpdate
-    // runs early in startup, but the fetch+download over the network can easily take long enough
-    // that someone's already mid-typing a task by the time it resolves — the forced reload wiped
-    // that draft with no warning (reported 2026-08-21). Back to queue-and-wait: an update no
-    // longer interrupts an open session, but if bundles start silently not landing again, this
-    // background trigger being flaky is the known suspect — see the deferUpdatesUntilKill comment
-    // below for the same plugin behavior in more detail.
+    console.log("AppUpdater: downloaded and queued", manifest.version, "— applying once it's safe to interrupt");
+    // Back to applying right away (via reloadWhenSafe) instead of waiting on the plugin's own
+    // "apply on background" trigger — that trigger turned out unreliable on-device (2026-07-31:
+    // a queued bundle sat undelivered through repeated background/foreground cycles, endlessly
+    // re-downloaded and re-queued, never once installed — see the deferUpdatesUntilKill comment
+    // above for the same behavior in more detail). Went to queue-and-wait-for-background instead
+    // (2026-08-21) specifically to stop a reload from wiping an in-progress draft — but with
+    // nothing actually forcing the apply, updates on a session that never backgrounds/restarts
+    // just never land at all (reported 2026-08-23: deployed a real update, device never picked it
+    // up). isSafeToApplyUpdate/reloadWhenSafe gets both: reliable, immediate-as-possible delivery
+    // that still never interrupts someone mid-type or mid-modal.
+    reloadWhenSafe();
   }catch(e){
     console.error("AppUpdater: update check failed", e);
   }

@@ -1,4 +1,4 @@
-// Fans raw sound files out from www/sounds/ (wherever it's convenient to drop them) to the
+// Fans raw sound files out from sound-sources/ (wherever it's convenient to drop them) to the
 // places playback actually needs them:
 //   - www/assets/sounds/ — read by the web/browser fallback (NativeAudioWeb.FILE_LOCATION), and
 //     what src/audioManager.js's SOUNDS map paths ("assets/sounds/<file>") resolve against there.
@@ -9,16 +9,20 @@
 //     TASK_REMINDER_SOUNDS in src/notifications.js), renamed to their res/raw resource name.
 //     Android notification channels can only reference a raw resource, never an asset file, so
 //     these need their own copy under their own (lowercase, underscore) names.
+// sound-sources/ lives OUTSIDE www/ on purpose (moved out 2026-09-06) — nothing reads sound files
+// from a bare "sounds/<file>" path (everything goes through the "assets/sounds/<file>" destination
+// above), so keeping the source copy inside www/ just meant `cap sync`'s blanket copy of www/ was
+// shipping a third, unused copy of every sound file in the APK for free (~6-7MB wasted).
 // Run via `npm run sync` (folded in automatically) whenever sound files change, then rebuild the
 // APK — like icons, sounds are native content and are NOT delivered by the OTA updater.
 const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const SRC_DIR = path.join(ROOT, "www", "sounds");
+const SRC_DIR = path.join(ROOT, "sound-sources");
 // Curated "alarm-style" reminder sound options (see the reminder sound picker in Settings —
 // index.html) live in their own subfolder just to keep them apart from the UI-effect sounds
-// (clicks, purrs, etc.) directly in www/sounds/ — everything below still flattens into the same
+// (clicks, purrs, etc.) directly in sound-sources/ — everything below still flattens into the same
 // destination namespaces, so the subfolder is source-side organization only.
 const ALARM_SRC_DIR = path.join(SRC_DIR, "alarm");
 const WEB_DEST_DIR = path.join(ROOT, "www", "assets", "sounds");
@@ -26,7 +30,7 @@ const ANDROID_DEST_DIR = path.join(ROOT, "android", "app", "src", "main", "asset
 const ANDROID_RAW_DEST_DIR = path.join(ROOT, "android", "app", "src", "main", "res", "raw");
 
 // Keep in sync with TASK_REMINDER_SOUNDS in src/notifications.js. Values are paths relative to
-// SRC_DIR (www/sounds/) — an "alarm/" prefix just means the source file lives in that subfolder.
+// SRC_DIR (sound-sources/) — an "alarm/" prefix just means the source file lives in that subfolder.
 const REMINDER_RAW_SOUNDS = {
   "reminder_fairy_tail_happy.mp3": "alarm/fairy_tail_happy.mp3",
   "reminder_last_magic.mp3": "alarm/last_magic.mp3",

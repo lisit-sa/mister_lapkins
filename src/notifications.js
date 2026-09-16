@@ -118,6 +118,34 @@ function cancel(id){
   });
 }
 
+// Cancels any currently-scheduled task/subtask reminder that shouldn't exist anymore, per
+// validKeys (the "task:<id>"/"subtask:<id>" keys index.html computes from the state it just
+// applied). Needed specifically for cloud sync: deleteTask() cancels the OS alarm on whichever
+// device the delete happened on, but a *different* device that already had that same reminder
+// scheduled locally never hears about it — applyRemoteState() just swaps state.tasks wholesale,
+// it doesn't diff against what's actually still scheduled here. Without this, that other
+// device's stale alarm fires anyway, for a task that's long gone. Reported 2026-08-23 — a
+// notification arrived for an already-deleted recurring task. Scoped to task:/subtask: keys only
+// (checked via the prefix) so this never touches Pomodoro's reserved ids, which carry no
+// extra.key at all.
+function reconcileTaskReminders(validKeys){
+  var validSet = {};
+  validKeys.forEach(function(k){ validSet[k] = true; });
+  LocalNotifications.getPending().then(function(result){
+    var pending = (result && result.notifications) || [];
+    var toCancel = pending.filter(function(n){
+      var key = n.extra && n.extra.key;
+      return key && (key.indexOf("task:") === 0 || key.indexOf("subtask:") === 0) && !validSet[key];
+    }).map(function(n){ return { id: n.id }; });
+    if(toCancel.length){
+      console.log("AppNotifications: reconcile cancelling orphaned reminders", toCancel.length);
+      LocalNotifications.cancel({ notifications: toCancel }).catch(function(e){
+        console.error("AppNotifications: reconcile cancel failed", e);
+      });
+    }
+  }).catch(function(e){ console.error("AppNotifications: reconcile getPending failed", e); });
+}
+
 window.AppNotifications = {
   init: init,
   // Reminders — id is the task's or subtask's own string id from state; callers build their own
@@ -136,6 +164,8 @@ window.AppNotifications = {
     cancel(baseId);
     for(var i = 1; i <= TASK_REMINDER_ALARM_REPEATS; i++) cancel(baseId + i);
   },
+  // See reconcileTaskReminders above — call after applying a synced/remote state.
+  reconcileTaskReminders: reconcileTaskReminders,
   // Pomodoro — phase is "work" or "break", picks which of the two ids above to use (see the
   // comment there for why there are two). cancelPomodoroEnd cancels both, since pausing/leaving
   // focus mode should clear whatever's pending regardless of which phase it was for.
@@ -157,18 +187,36 @@ window.AppNotifications = {
   // Registers (or re-registers) the Snooze/Done action buttons shown on task/subtask reminders.
   // Titles are plain strings baked in at registration time, not re-translated live, so index.html
   // calls this once at startup and again whenever the app language changes.
+  //
+  // foreground:false on both — despite the generic-sounding name this is iOS-only (see the plugin's
+  // own ActionType.actions typings); Android's native side (LocalNotificationManager.java) always
+  // uses PendingIntent.getActivity() for every action button regardless of this flag, so it's set
+  // here only for correctness on a future iOS build, NOT because it does anything on Android today.
+  // The actual "Готово still opens the app" fix (reported 2026-09-14) is
+  // minimizeAppAfterNotificationAction in index.html's handleTaskReminderAction, which closes the
+  // app again right after snooze/done finish their (UI-free) work — there's no Android plugin
+  // setting that stops the open from happening in the first place.
   registerTaskActions: function(snoozeTitle, doneTitle){
     LocalNotifications.registerActionTypes({
       types: [{
         id: TASK_ACTION_TYPE_ID,
         actions: [
-          { id: "snooze", title: snoozeTitle },
-          { id: "done", title: doneTitle }
+          { id: "snooze", title: snoozeTitle, foreground: false },
+          { id: "done", title: doneTitle, foreground: false }
         ]
       }]
     }).catch(function(e){ console.error("AppNotifications: registerActionTypes failed", e); });
   },
   // fn(actionId, key) — key is the same "task:<id>"/"subtask:<id>" string scheduleReminder was
   // called with.
-  onTaskAction: function(fn){ onTaskActionFn = fn; }
+  onTaskAction: function(fn){ onTaskActionFn = fn; },
+  // Both added 2026-09-16 for the "Уведомления не работают?" section in Настройки — init() above
+  // already requests permission once on first launch, but if that got denied (or a system dialog
+  // was dismissed without an answer), Android won't show the prompt again from a plain
+  // requestPermissions() call; checkPermissions lets the UI show "already granted" vs not, and
+  // requestPermissions re-attempts the same OS prompt (a no-op if it's already been denied once
+  // with "don't ask again" — Android's own rule, not something this plugin can override without a
+  // Settings-deep-link, which doesn't exist yet).
+  checkPermissions: function(){ return LocalNotifications.checkPermissions(); },
+  requestPermissions: function(){ return LocalNotifications.requestPermissions(); }
 };

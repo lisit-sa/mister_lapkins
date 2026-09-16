@@ -36935,6 +36935,10 @@ This typically indicates that your device does not have a healthy Internet conne
       function userDocRef(uid) {
         return doc(db, "users", uid);
       }
+      function grandfatheredUsersDocRef() {
+        return doc(db, "config", "grandfatheredUsers");
+      }
+      var grandfatheredEmails = null;
       function sanitizeForFirestore(rawState) {
         return JSON.parse(JSON.stringify(rawState));
       }
@@ -37049,6 +37053,21 @@ This typically indicates that your device does not have a healthy Internet conne
         lastHandledAuthUid = user.uid;
         loadOrSeedCloudState(user.uid, isFresh);
       });
+      function fetchGrandfatheredEmails() {
+        if (grandfatheredEmails) return Promise.resolve(grandfatheredEmails);
+        return getDoc(grandfatheredUsersDocRef()).then(function(snap) {
+          var raw = snap.exists() && Array.isArray(snap.data().emails) ? snap.data().emails : [];
+          grandfatheredEmails = raw.filter(function(e) {
+            return typeof e === "string";
+          }).map(function(e) {
+            return e.toLowerCase().trim();
+          });
+          return grandfatheredEmails;
+        }).catch(function(e) {
+          console.warn("Mister Lapkins: fetchGrandfatheredEmails failed", e);
+          return null;
+        });
+      }
       window.CloudSync = {
         init: function(options) {
           getStateFn = options.getState;
@@ -37057,6 +37076,7 @@ This typically indicates that your device does not have a healthy Internet conne
           hasMeaningfulLocalStateFn = options.hasMeaningfulLocalState;
           onSignInConflictFn = options.onSignInConflict;
         },
+        fetchGrandfatheredEmails,
         signIn: function() {
           FirebaseAuthentication.signInWithGoogle().then(function(result) {
             console.log("Mister Lapkins: signInWithGoogle resolved", result && result.user && result.user.uid);

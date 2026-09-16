@@ -8,6 +8,15 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Список email-ов, которым платный доступ не нужен никогда (первые тестировщики,
+    // добавленные ещё до запуска подписки — см. monetization plan). Читает любой залогиненный
+    // клиент при проверке пейволла; редактируется только вручную через консоль Firebase — из
+    // приложения этот документ никогда не пишется, поэтому allow write отсутствует (по
+    // умолчанию запрещено).
+    match /config/grandfatheredUsers {
+      allow read: if request.auth != null;
+    }
+
     // Семьи / Домохозяйства (общие списки покупок) — id документа сам по себе служит кодом
     // приглашения (см. household.create/showShareListSheetForHousehold в коде): это случайная
     // строка Firestore с огромной энтропией, так что allow get ниже безопасен — угадать чужой

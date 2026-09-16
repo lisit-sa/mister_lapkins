@@ -118,6 +118,13 @@ var PENDING_PUSH_KEY = "misterLapkinsPendingCloudPush";
 var initialSyncDone = false;
 
 function userDocRef(uid){ return doc(db, "users", uid); }
+function grandfatheredUsersDocRef(){ return doc(db, "config", "grandfatheredUsers"); }
+
+// Cached in-memory once fetched — the paywall check (index.html) reads this synchronously on
+// every render, so it can't wait on a fresh network round trip each time, and there's no reason
+// to hit Firestore more than once per session for a document that only ever changes when Kristina
+// manually edits it (see firestore.rules — read-only from the client, no live listener needed).
+var grandfatheredEmails = null;
 
 // Firestore's setDoc() rejects (Unsupported field value: undefined) if the object it's given
 // contains an `undefined` anywhere, even nested — unlike localStorage.setItem(JSON.stringify(...))
@@ -348,6 +355,25 @@ onIdTokenChanged(auth, function(user){
   loadOrSeedCloudState(user.uid, isFresh);
 });
 
+// Paywall's grandfather-list check (see the monetization plan) — resolves to an array of
+// lowercased emails, or [] if the doc doesn't exist / the fetch fails (fail toward NOT
+// grandfathered rather than silently waiving the paywall for everyone on a network hiccup;
+// the caller — index.html's paywall gate — is what decides what an unresolved fetch means for
+// someone who's never successfully checked before, since that's a product call, not this
+// module's to make). Cached after the first successful fetch so repeat calls (the gate is
+// re-checked on every relevant render) don't re-hit Firestore each time.
+function fetchGrandfatheredEmails(){
+  if(grandfatheredEmails) return Promise.resolve(grandfatheredEmails);
+  return getDoc(grandfatheredUsersDocRef()).then(function(snap){
+    var raw = snap.exists() && Array.isArray(snap.data().emails) ? snap.data().emails : [];
+    grandfatheredEmails = raw.filter(function(e){ return typeof e === "string"; }).map(function(e){ return e.toLowerCase().trim(); });
+    return grandfatheredEmails;
+  }).catch(function(e){
+    console.warn("Mister Lapkins: fetchGrandfatheredEmails failed", e);
+    return null; // distinct from [] — null means "couldn't check", not "checked, nobody's on it"
+  });
+}
+
 window.CloudSync = {
   init: function(options){
     getStateFn = options.getState;
@@ -356,6 +382,7 @@ window.CloudSync = {
     hasMeaningfulLocalStateFn = options.hasMeaningfulLocalState;
     onSignInConflictFn = options.onSignInConflict;
   },
+  fetchGrandfatheredEmails: fetchGrandfatheredEmails,
   signIn: function(){
     FirebaseAuthentication.signInWithGoogle().then(function(result){
       console.log("Mister Lapkins: signInWithGoogle resolved", result && result.user && result.user.uid);

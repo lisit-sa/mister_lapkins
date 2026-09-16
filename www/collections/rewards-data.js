@@ -3,8 +3,9 @@
    description. It knows nothing about file paths or how it's rendered; index.html turns
    `filename` into a real <img src> by joining it with "collections/<collectionKey>/".
 
-   filename must exactly match a real file inside collections/items/, collections/food/ or
-   collections/summer/ — these are pulled straight from the actual folders, not invented names.
+   filename must exactly match a real file inside collections/items/, collections/food/,
+   collections/summer/ or collections/autumn/ — these are pulled straight from the actual
+   folders, not invented names.
 
    title/description are { ru, en } pairs — index.html picks the right one for the active
    language at render time (see localizedField in renderCollection). Both must stay filled in;
@@ -208,5 +209,34 @@ var REWARDS_DATA = {
     { id: "summer-28", filename: "6 (1).png",     title: { ru: "Водяной пистолет", en: "Water Gun" }, description: { ru: "Ты знаешь, что делать. Ой, ну не в меня же!", en: "You know what to do. Oh, come on, not at me!" } },
     { id: "summer-29", filename: "6.png",         title: { ru: "Арбузный будильник", en: "Watermelon Alarm Clock" }, description: { ru: "Каждые два часа напоминает, что пора есть арбуз", en: "Every two hours, it reminds you it's time for watermelon." } },
     { id: "summer-30", filename: "7.png",         title: { ru: "Мыльный пузырь", en: "Soap Bubble" }, description: { ru: "Самый красивый пузырь, который я когда-либо видел. До сих пор любуюсь", en: "The most beautiful bubble I've ever seen. Still admiring it." } }
+  ],
+  autumn: [
+    { id: "autumn-1",  filename: "1 (1).png",  title: { ru: "Гриб-ночничок", en: "Mushroom Nightlight" }, description: { ru: "Понадобится, чтобы в грозу было не страшно", en: "So you won't feel scared during a thunderstorm." } },
+    { id: "autumn-2",  filename: "1 (2).png",  title: { ru: "Резиновые сапоги", en: "Rubber Boots" }, description: { ru: "В виде уточек, жаль что не крякают при ходьбе", en: "Duck-shaped! Too bad they don't quack when you walk." } },
+    { id: "autumn-3",  filename: "1.png",      title: { ru: "Почтовый ящик для белок", en: "Squirrel Mailbox" }, description: { ru: "Писать они не умеют, поэтому набили в него орехов", en: "They can't write, so they just stuffed it with nuts." } },
+    { id: "autumn-4",  filename: "10 (1).png", title: { ru: "Школьный дневник", en: "School Planner" }, description: { ru: "Думаю, ты не очень любил его в детстве. Поэтому можешь делать с ним что хочешь", en: "I bet you didn't like it as a kid. So feel free to do whatever you want with it." } },
+    { id: "autumn-5",  filename: "10.png",     title: { ru: "Осенние цветы", en: "Autumn Flowers" }, description: { ru: "Просто поставь в вазу и смотри, я видел, так люди делают", en: "Just put them in a vase and stare. I've seen humans do that." } },
+    { id: "autumn-6",  filename: "2 (1).png",  title: { ru: "Лежанка для меня", en: "Pet Bed for Me" }, description: { ru: "Из огромной тыквы. А из мякоти можешь испечь пирог, я ее там на стол свалил", en: "Made from a giant pumpkin! You can bake a pie with the pulp—I dumped it on the table for you." } },
+    { id: "autumn-7",  filename: "2 (2).png",  title: { ru: "Перевернутый зонтик", en: "Upside-Down Umbrella" }, description: { ru: "Поплыли? Доплывем до того конца радуги", en: "Shall we sail? Let's reach the other side of the rainbow." } },
+    { id: "autumn-8",  filename: "2.png",      title: { ru: "Шляпа Снусмумрика", en: "Snufkin's Hat" }, description: { ru: "Снусмумрик тоже немного котик, такой же независимый и любопытный", en: "Snufkin is a bit of a cat too—just as independent and curious." } },
+    { id: "autumn-9",  filename: "3 (1).png",  title: { ru: "Книжка", en: "Storybook" }, description: { ru: "С осенними историями. Я одну уже прочитал, но заснул на третьей странице.", en: "Full of autumn tales. I read one, but fell asleep on page three." } },
+    { id: "autumn-10", filename: "3 (2).png",  title: { ru: "Каштан на колесиках", en: "Chestnut on Wheels" }, description: { ru: "Он очень антистрессово катается по столу", en: "It rolls across the table in a very stress-relieving way." } },
+    { id: "autumn-11", filename: "3.png",      title: { ru: "Плед", en: "Blanket" }, description: { ru: "С лисятами, очень уютный, я раньше на нем лежал", en: "With little foxes! Super cozy, I used to nap on it." } },
+    { id: "autumn-12", filename: "4 (1).png",  title: { ru: "Стог сена", en: "Haystack" }, description: { ru: "Поваляемся вместе, я тебе помурлычу?", en: "Let's lounge together, I'll purr for you!" } },
+    { id: "autumn-13", filename: "4 (2).png",  title: { ru: "Корзинка для грибов", en: "Mushroom Basket" }, description: { ru: "Только не набирай мухоморы", en: "Just don't pick toadstools!" } },
+    { id: "autumn-14", filename: "5 (1).png",  title: { ru: "Краски", en: "Paints" }, description: { ru: "Вдруг решишь нарисовать какой-нибудь осенний пейзаж", en: "In case you decide to paint an autumn landscape." } },
+    { id: "autumn-15", filename: "5 (2).png",  title: { ru: "Желудь", en: "Acorn" }, description: { ru: "Желудь из желудей, желудевее не бывает", en: "The ultimate acorn. It doesn't get any acorny-er than this." } },
+    { id: "autumn-16", filename: "5.png",      title: { ru: "Свечи", en: "Candles" }, description: { ru: "Обещаю их не ронять", en: "I promise not to knock them over." } },
+    { id: "autumn-17", filename: "6 (1).png",  title: { ru: "Костер", en: "Campfire" }, description: { ru: "Я немного боюсь огня, но хотелось бы согреть тебя холодным осенним вечером", en: "I'm a little scared of fire, but I want to keep you warm on a chilly evening." } },
+    { id: "autumn-18", filename: "6 (2).png",  title: { ru: "Деревянный кораблик", en: "Wooden Toy Boat" }, description: { ru: "Знаешь, как весело запускать его по лужам? Просто попробуй", en: "Do you know how fun it is to sail it in puddles? Just give it a try!" } },
+    { id: "autumn-19", filename: "6.png",      title: { ru: "Яблочный пирог", en: "Apple Pie" }, description: { ru: "Какая осень без яблочного пирога с корицей? Ммм как пахнет", en: "What's autumn without cinnamon apple pie? Mmm, smells amazing!" } },
+    { id: "autumn-20", filename: "7 (1).png",  title: { ru: "Посох", en: "Walking Staff" }, description: { ru: "Доверь ему свою прогулку по лесу, он не подведет", en: "Trust it with your forest walk, it won't let you down." } },
+    { id: "autumn-21", filename: "7.png",      title: { ru: "Витамины", en: "Vitamins" }, description: { ru: "Солнце я обратно включить не могу, поэтому держи витаминки", en: "I can't turn the sun back on, so here are some vitamins." } },
+    { id: "autumn-22", filename: "8 (1).png",  title: { ru: "Грабли", en: "Rake" }, description: { ru: "Я собирал листья, но в итоге просто закопался. Попробуй ты?", en: "I tried gathering leaves, but ended up burying myself. Your turn?" } },
+    { id: "autumn-23", filename: "8 (2).png",  title: { ru: "Какао", en: "Hot Cocoa" }, description: { ru: "Если и это тебя не порадует, то я не знаю, что может", en: "If this doesn't cheer you up, I don't know what will." } },
+    { id: "autumn-24", filename: "8.png",      title: { ru: "Осенний пейзаж", en: "Autumn Landscape" }, description: { ru: "Я предпочитаю смотреть на еду, но на осенний пейзаж тоже можно", en: "I prefer looking at food, but an autumn landscape is fine too." } },
+    { id: "autumn-25", filename: "9 (1).png",  title: { ru: "Инжировое варенье", en: "Fig Jam" }, description: { ru: "Не знаю, лечит ли оно от гриппа, но настроение точно улучшает", en: "Not sure if it cures the flu, but it definitely cures bad moods." } },
+    { id: "autumn-26", filename: "9 (2).png",  title: { ru: "Дождевик с крокодилами", en: "Crocodile Raincoat" }, description: { ru: "Он не кусается, хотя я в этом не уверен", en: "It doesn't bite. Although I'm not entirely sure." } },
+    { id: "autumn-27", filename: "9.png",      title: { ru: "Чай с разными вкусами", en: "Assorted Tea" }, description: { ru: "Как-то погрыз один пакетик, ничего не понял", en: "I chewed on a tea bag once. Didn't get the hype." } }
   ]
 };

@@ -143,6 +143,12 @@
   body.minimal-theme{ --content-tint-alpha: 0; }
   body.minimal-theme .petals-layer,
   body.minimal-theme .steam-container{ display: none; }
+  /* Настройки screen only — a dense list of toggles/rows read as cluttered sitting over the busy
+     painted background the rest of the app uses (reported 2026-09-16, comparing against a
+     reference app whose settings screen is flat). Toggled by switchTab, same idea as
+     .minimal-theme's own background-image:none, just scoped to one screen instead of a whole-app
+     setting so it doesn't affect (or require) the Минимализм toggle at all. */
+  body.settings-open .app{ background-image: none; }
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html,body{ margin:0; padding:0; height:100%; overflow:hidden; }
   button, input, select, textarea{ font-family: inherit; }
@@ -536,7 +542,7 @@
   .add-task-trigger{
     display:flex; align-items:center; gap:10px; width:100%; text-align:left; border:2px solid var(--text); border-radius: var(--radius-lg);
     background: var(--card); color: var(--text-muted); font-size: calc(14px * var(--font-scale)); font-family:inherit;
-    padding:16px 18px; cursor:pointer; box-shadow: var(--shadow-soft); margin-bottom:16px;
+    padding:12px 18px; cursor:pointer; box-shadow: var(--shadow-soft); margin-bottom:16px;
   }
   .add-task-trigger:active{ transform: translateY(1px); }
   .trigger-icon{ width:22px; height:22px; object-fit:contain; flex-shrink:0; }
@@ -548,7 +554,16 @@
      apart from EACH OTHER instead of both settling together (design review, 2026-08-12). Moving
      both by the same amount keeps them visually paired regardless of either's "true" center. */
   .add-task-trigger span, .filter-tab span{ position:relative; top:1px; }
-  .task-filter-tabs{ display:flex; gap:8px; margin-bottom:16px; }
+  /* Not screen-width dependent (unlike the narrow-phone breakpoint further below) — this is about
+     font-scale, not viewport: at the default scale "Все задачки"/"Все заметки" fit on one line, so
+     line-height never mattered; bumping font-scale wraps them to 2 lines even on a wide phone, and
+     the default line-height left those two lines looking loosely stacked (reported 2026-09-16, on
+     the reporter's own — not narrow — screen at a larger font-scale). Applies everywhere. */
+  .filter-tab span{ line-height:1.05; }
+  /* position:relative here (not on .category-filter-dropdown — see that rule's own comment) is what
+     lets the open category-filter-list/category-picker-new-row span this whole row's width (full
+     content width) instead of just whichever narrow flex:1 slot happened to trigger it. */
+  .task-filter-tabs{ display:flex; gap:8px; margin-bottom:16px; position:relative; }
   .filter-tab{
     flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
     padding:10px 8px; border-radius: var(--radius-md); border:2px solid var(--text);
@@ -652,8 +667,28 @@
      flex:1 slot a plain .filter-tab held; the trigger button keeps the .filter-tab look so the
      row still reads the same, just with a small arrow and an absolutely-positioned option list
      (same pattern as .pantry-template-picker below). */
-  .category-filter-dropdown{ position:relative; flex:1; }
-  .category-filter-trigger{ width:100%; }
+  /* display:flex here (both new, 2026-09-14 — see the height-mismatch comment below) is what
+     actually lets .category-filter-trigger fill this wrapper's full height; every other child
+     (.category-filter-list, .category-picker-new-row) is position:absolute, so it's already out
+     of flow and unaffected. Deliberately NOT position:relative (was, until 2026-09-16) — that made
+     it the positioning context for .category-filter-list/.category-picker-new-row, pinning the
+     dropdown's open width to this narrow flex:1 slot's own width (roughly half the row, since it
+     shares .task-filter-tabs with the calendar toggle and the other filter). A long category name
+     had nowhere to go but wrap to 2 lines inside that cramped width even though the whole card had
+     plenty of room. position:relative now lives on .task-filter-tabs instead (below), so the open
+     list spans the full row/content width — see that rule's own comment. */
+  .category-filter-dropdown{ flex:1; display:flex; }
+  /* height:100% is the actual height-matching fix (width:100% alone only handled the row's width).
+     .task-filter-tabs' row height is set by its tallest child's content — when "Все заметки" wraps
+     to 2 lines (large font-scale + narrow phone) and "Работа" doesn't, .category-filter-dropdown
+     (a direct flex child, default align-items:stretch) already stretched to match that taller row
+     — but .category-filter-trigger, nested one level inside it, ignored that and just sat at its
+     own shorter content height, leaving blank space in its own wrapper below it: the border/
+     background is on THIS element, not the (invisible) wrapper, so the pill still visibly read as
+     short. Reported 2026-09-14 ("рамка уехала"/"неравномерны по высоте") — fix is height, not text
+     truncation (an earlier ellipsis attempt was explicitly rejected: wrapping to 2 lines is fine,
+     it just needs every pill in the row to end up the same height when that happens). */
+  .category-filter-trigger{ width:100%; height:100%; }
   .category-filter-trigger-arrow{ font-size:13px; opacity:.75; flex-shrink:0; transition: transform .2s ease; top: 1px !important;}
   .open .category-filter-trigger-arrow{ top: 1px !important;}
   .category-filter-dropdown.open .category-filter-trigger-arrow{ transform: rotate(180deg); }
@@ -676,7 +711,13 @@
     border-radius: var(--radius-md); padding:9px 12px; cursor:pointer;
     font-family:inherit; font-size: calc(13px * var(--font-scale)); font-weight:700; color: var(--text);
   }
-  .category-filter-row{ display:flex; align-items:center; gap:2px; }
+  /* align-items:flex-start, not center — a 2-line-wrapped category name (long enough to overflow
+     the pill's share of the dropdown's width) otherwise centered the edit/delete buttons against
+     the wrapped text's full 2-line height, i.e. right at the seam BETWEEN the two lines, visually
+     overlapping the second line (reported 2026-09-16). Top-aligning them instead means they sit
+     level with the first line regardless of how many more the name wraps to. No visible change for
+     the common single-line case — top and center coincide when there's only one line. */
+  .category-filter-row{ display:flex; align-items:flex-start; gap:2px; }
   .category-filter-row .category-filter-option{ flex:1; min-width:0; }
   .category-filter-option:hover, .category-filter-option:active{ background: rgba(var(--shadow-rgb),0.08); }
   .category-filter-option.active{ color: var(--accent-dark); }
@@ -745,7 +786,7 @@
      part of the compensation now lives in its own transform instead of asymmetric padding. */
   .task-drag-handle{
     background:transparent; border:none; cursor:grab; padding:4px; opacity:.4;
-    font-size:18px; line-height:1; color: var(--text); touch-action:none; align-self:center;margin-top:4px;
+    font-size:18px; line-height:1; color: var(--text); touch-action:none; align-self:center;margin-top:3px;
     display:flex; align-items:center; transform: translateY(2px);
   }
   .task-drag-handle:active{ cursor:grabbing; opacity:.9; }
@@ -777,10 +818,33 @@
   .task-body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; cursor:pointer; }
   .task-title{ font-size: calc(15px * var(--font-scale)); font-weight:700; line-height: 1.2; word-break: break-word; margin-top: 2px;}
   .subtask-progress{ font-size: calc(11px * var(--font-scale)); font-weight:700; color: var(--olive); }
-  .task-reminder-badge{ font-size: calc(10.5px * var(--font-scale)); font-weight:600; color: var(--olive); }
+  /* margin-top replaces the 2px .task-body{gap} spacing it used to get for free as one of that
+     flex column's children — now a direct .task-item child (full card width, 2026-09-16, see
+     renderTaskCard's own comment), it needs its own gap from .task-main-row above it. */
+  .task-reminder-badge{ display:block; margin-top:6px; font-size: calc(10.5px * var(--font-scale)); font-weight:600; color: var(--olive); }
   /* Gentle stand-in for a "missed reminder" state — no red, no "overdue" wording, just a
      soft note that Mr. Lapkins quietly moved the reminder to today (see checkReminders). */
   .task-reminder-badge.task-carried-over{ font-style:italic; font-weight:600; opacity:.85; color: var(--accent-dark); }
+
+  /* Narrow-phone breakpoint (2026-09-16) — everything below is comfortable on a ~390-420dp-wide
+     screen (what this was designed/tested on) but reads cramped on a smaller one, worse still with
+     a bumped font-scale: side padding eats more of the already-narrow width, and the filter-tab
+     row's inter-pill/icon gaps look tight relative to the pills' own (now taller, 2-line) height.
+     (The wrapped-label line-height fix lives with .filter-tab span above instead — that one's a
+     font-scale problem, not a screen-width one, so it applies everywhere, not just here.) Placed
+     after every rule it overrides (.content, .task-filter-tabs/.filter-tab, .task-main-row) so the
+     cascade doesn't need any specificity tricks to win — same selectors, later in the source, plain
+     media-gated overrides. 380px chosen as "narrower than any phone this was built on" rather than
+     a specific device's exact viewport; revisit the number if a real device's width lands right on
+     the edge. */
+  @media (max-width: 380px){
+    .content{ padding: 18px 12px 18px; }
+    .task-filter-tabs{ gap:5px; }
+    .filter-tab{ gap:4px; padding:8px 5px; }
+    .task-view-toggle-btn{ padding:8px 3px; }
+    .task-main-row{ gap:6px; }
+    .task-item{ padding:8px 9px; }
+  }
   /* Pastel category word-tag — sits under the title/reminder line only when a task has a
      category set; plain accent tint by default, same as always. .has-color (only present when
      the category actually has a user-chosen one — see categoryColorStyle/renderTaskCard) swaps
@@ -993,7 +1057,7 @@
   .shopping-item-add-input{
     flex:1; min-width:0; border:2px solid var(--text); border-radius: var(--radius-md);
     background: var(--bg); color: var(--text); font-family:inherit; font-size: calc(14px * var(--font-scale));
-    padding:11px 14px; outline:none;
+    padding:9px 14px; outline:none;
   }
   .shopping-item-add-input:focus{ border-color: var(--accent-dark); }
   .shopping-item-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
@@ -1091,7 +1155,19 @@
     display:flex; align-items:center; justify-content:center;
   }
   .collection-tab.active{ background: var(--accent); color: var(--on-accent); border-color: var(--accent-dark); }
-  .collection-progress{ text-align:center; font-size: calc(12.5px * var(--font-scale)); font-weight:600; opacity:.7; margin:0 0 16px; }
+  .collection-progress{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    text-align:center; font-size: calc(12.5px * var(--font-scale)); font-weight:600; opacity:.7; margin:0 0 16px;
+  }
+  /* Small round "?" — same bordered-pill visual language as the rest of the app (.task-view-toggle-
+     btn etc.) rather than a plain low-opacity glyph, so it actually reads as tappable next to a
+     line of otherwise-static muted text. */
+  .collection-info-btn{
+    width:18px; height:18px; flex-shrink:0; border-radius:50%; border:1.5px solid var(--text);
+    background:transparent; color: var(--text); opacity:.6; font-size:11px; font-weight:700;
+    line-height:1; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .collection-info-btn:active{ opacity:1; }
 
   /* Продукты (Запасы/Список) sub-tabs — same look as .collection-tab above but its own class:
      collectionTabButtons is queried document-wide (document.querySelectorAll(".collection-tab")),
@@ -1269,7 +1345,7 @@
     color: var(--on-accent); font-size:15px; font-weight:700;
   }
   .device-info{ flex:1; min-width:0; }
-  .device-name{ font-weight:700; font-size: calc(14px * var(--font-scale)); margin-bottom:1px; word-break:break-word; }
+  .device-name{ font-weight:700; font-size: calc(14px * var(--font-scale)); line-height:1.15; margin-bottom:1px; word-break:break-word; }
   .device-status{ font-size: calc(11.5px * var(--font-scale)); color: var(--text-muted); opacity:.7; }
   .device-status.checked{ color: var(--accent-dark); opacity:1; font-weight:600; }
   .device-check-btn{
@@ -1456,6 +1532,18 @@
   .tab-btn-icon{ width:22px; height:22px; object-fit:contain; display:block; }
   .tab-btn.active{ opacity:1; background: rgba(var(--accent-rgb),0.18); }
 
+  /* Narrow-phone breakpoint, same 380px cutoff as the one further up the file (see its own comment
+     for why 380px) — kept as its own block here instead of folded into that one because this has to
+     come after .tab-btn's base rule above to win the cascade (equal selector specificity, later
+     source position wins), and .tab-btn is defined much further down the file than everything else
+     that breakpoint touches. "Контроль дома" — the longest label — was the one actually wrapping to
+     2 lines on a narrow screen (reported 2026-09-16, same screenshot as the filter-tab-row report);
+     .tab-btn's label is already a fixed 11px regardless of font-scale (see the comment above), so
+     this is purely a screen-width fix, shrinking that further just for narrow phones. */
+  @media (max-width: 380px){
+    .tab-btn{ font-size:9.5px; padding:8px 2px; }
+  }
+
   /* Modal */
   .modal-overlay{
     position:fixed; inset:0; background: rgba(var(--shadow-rgb),0.45);
@@ -1465,10 +1553,23 @@
   .modal-overlay.show{ opacity:1; visibility:visible; pointer-events:auto; }
   .modal-card{
     background: var(--card); border:2px solid var(--text); border-radius: var(--radius-lg);
-    padding:28px 24px; text-align:center; max-width:320px; width:100%; box-shadow: 0 20px 40px rgba(var(--shadow-rgb),0.3);
+    padding:28px 20px; text-align:center; max-width:320px; width:100%; box-shadow: 0 20px 40px rgba(var(--shadow-rgb),0.3);
     transform: scale(.94) translateY(8px); transition: transform .25s ease;
   }
   .modal-overlay.show .modal-card{ transform: scale(1) translateY(0); }
+  /* Narrow-phone breakpoint, same 380px cutoff as the others (see the first one's own comment) —
+     its own block because .modal-card/.modal-overlay/.reminder-input/.reminder-fields are defined
+     here, after that first consolidated block. .modal-overlay's own padding plus .modal-card's own
+     padding compound on a narrow screen to leave surprisingly little width for what's actually
+     inside — the date/time reminder fields were the reported symptom (2026-09-16): "16.09.2..."
+     clipped, native calendar icon overlapping the digits. Tightened both padding layers plus the
+     two fields' own internal padding/gap so there's real room for them again. */
+  @media (max-width: 380px){
+    .modal-overlay{ padding:10px; }
+    .modal-card{ padding:22px 14px; }
+    .reminder-fields{ gap:6px; }
+    .reminder-input{ padding:10px 8px; }
+  }
   .modal-title{ font-size: calc(16px * var(--font-scale)); font-weight:700; margin:0 0 16px; }
   .add-task-card{
     position:relative; text-align:left; padding-top:22px; padding-bottom:20px;
@@ -1512,6 +1613,11 @@
   }
   .bottom-sheet-overlay.show .bottom-sheet-card{ transform: translateY(0); }
   .bottom-sheet-card .modal-title{ padding-right:24px; margin:0 0 14px; }
+  /* .modal-card is centered text, unlike .bottom-sheet-card above — padding-right alone would
+     shift a wrapped 2-line title off-center, so both sides get the same reserved space instead,
+     just enough to clear .modal-close-x's ~28px corner box. Was actually overlapping when the
+     title wrapped to 2 lines (reported 2026-09-16 — "крестик прилепился к заголовку"). */
+  .collection-info-card .modal-title{ padding: 0 22px; line-height:1.2; }
   /* Both fields below deliberately reuse .category-picker-trigger's look (see that class) so the
      "pick a list" dropdown and the "already restocked" tap-target read as the same kind of
      control instead of one looking like a dropdown and the other like a call-to-action button. */
@@ -1569,7 +1675,7 @@
   .hero-field:focus{ border-bottom-color: var(--accent-dark); }
   .hero-field::placeholder{ color: var(--text-muted); opacity:.5; font-weight:400; }
   .task-quick-input{
-    font-weight:700; font-size: calc(19px * var(--font-scale)); margin:0 0 20px;
+    font-weight:700; font-size: calc(19px * var(--font-scale)); margin:0 0 20px; line-height:1.15;
     resize:none; overflow-y:auto; min-height:40px; max-height:160px;
   }
   /* Restyled as a small caption/eyebrow above the hero field rather than a second input that
@@ -1806,6 +1912,14 @@
     display:flex; flex-direction:column; gap:16px;
   }
   .task-settings-zone.hidden{ display:none; }
+  /* Narrow-phone breakpoint, same 380px cutoff as the others — own block again since this rule is
+     defined after all three earlier ones. This is the 3rd compounding padding layer around the
+     date/time fields (.modal-overlay > .modal-card > .task-settings-zone > .reminder-fields), and
+     the one actually missed by the first modal-padding pass: still clipping at 342px wide even
+     after that fix (reported 2026-09-16, via a live 342×567 DevTools check). */
+  @media (max-width: 380px){
+    .task-settings-zone{ padding:14px 8px; }
+  }
 
   .reminder-toggle{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -1814,7 +1928,7 @@
   }
   .reminder-toggle-label{ display:flex; align-items:center; gap:8px; min-width:0; }
   .reminder-toggle-icon{ width:16px; height:16px; object-fit:contain; flex-shrink:0; }
-  .reminder-toggle-text{ font-size: calc(13.5px * var(--font-scale)); font-weight:700; color: var(--text); }
+  .reminder-toggle-text{ margin-top: 4px; font-size: calc(13.5px * var(--font-scale)); font-weight:700; color: var(--text); line-height:1.15; }
   .reminder-switch{ position:relative; display:inline-block; width:42px; height:24px; flex-shrink:0; }
   .reminder-switch input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; z-index:1; }
   .reminder-switch-track{
@@ -1865,6 +1979,18 @@
   .recur-row{ margin-top:10px; }
   .recur-row.hidden{ display:none; }
   .recur-custom-row{ margin:10px 0 0; }
+  /* Day-of-week recurrence (2026-09-16) — 7 toggle pills, same active-state look as .filter-tab so
+     it reads as the same "pick one/several" language already used elsewhere in the app. flex-wrap
+     lets narrow phones drop to two rows instead of squeezing 7 pills into one (Пн/Пт etc. are short
+     enough that 1 row usually fits, but no reason to force it). */
+  .recur-weekdays-row{ display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 0; }
+  .recur-weekday-btn{
+    flex:1; min-width:36px; text-align:center; padding:8px 4px; border-radius: var(--radius-md);
+    border:2px solid var(--text); background: var(--surface-soft); color: var(--text-muted);
+    font-family:inherit; font-size: calc(12px * var(--font-scale)); font-weight:700; cursor:pointer;
+    transition: background .2s, color .2s;
+  }
+  .recur-weekday-btn.active{ background: var(--accent); color: var(--on-accent); border-color: var(--accent-dark); }
 
   .gift-box{ font-size:70px; cursor:pointer; user-select:none; }
   .gift-box-icon{ width:70px; height:70px; object-fit:contain; display:block; pointer-events:none; margin: 0 auto;}
@@ -2091,6 +2217,23 @@
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:36%;
   }
   .sidebar-nav-btn-arrow{ opacity:.35; font-size:14px; flex-shrink:0; }
+  /* Plain divider + label for a sub-group inside a .sidebar-section that doesn't warrant its own
+     full section (icon + uppercase title) — Тихие часы inside Уведомления и звук, 2026-09-16. */
+  .settings-subheading{
+    font-size: calc(12px * var(--font-scale)); font-weight:700; color: var(--text); opacity:.75;
+    margin: 4px 0 8px; padding: 12px 0 0; border-top: 1px solid rgba(var(--shadow-rgb),0.12);
+  }
+  /* "Уведомления не работают?" troubleshooting card (2026-09-16) — same warm-warning red as
+     .battery-status-banner above (a standing status worth noticing, not an urgent alert-red) since
+     it's the same underlying concern (background/notification restrictions), just surfaced inside
+     Настройки instead of only the sidebar menu. */
+  .notif-help-card{
+    border:2px solid var(--danger); background: rgba(var(--danger-rgb),0.08);
+    border-radius: var(--radius-md); padding:12px 12px 4px; margin-bottom:16px;
+  }
+  .notif-help-title{ font-size: calc(13.5px * var(--font-scale)); font-weight:700; color: var(--text); margin:0 0 6px; }
+  .notif-help-card .sidebar-nav-btn{ background: var(--card); margin-bottom:10px; }
+  .notif-help-card .sidebar-nav-btn span{ line-height:1.15; }
   .font-size-slider{
     -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px;
     background: var(--track-bg); outline:none; cursor:pointer; margin:0; display:block;
@@ -2140,6 +2283,69 @@
     animation: appLoadingSpin 0.9s linear infinite;
   }
   @keyframes appLoadingSpin{ to{ transform: rotate(360deg); } }
+
+  /* Subscription paywall — a full, solid cover (same --bg fill as #appLoadingOverlay, on
+     purpose: this is a genuine hard wall, not a dismissible modal) shown after the "peek" — see
+     evaluatePaywallGate/PAYWALL_ENTITLEMENT_ID in the main script — with no X button and no
+     backdrop-click-to-close, matching the "blocked, not degraded-local-mode" decision in the
+     monetization plan. Scrolls internally (overflow-y) since the content can run taller than a
+     small phone's viewport once real Play price strings are in. */
+  #paywallOverlay{
+    position:fixed; inset:0; z-index:9998;
+    background: var(--bg); overflow-y:auto;
+    display:flex; align-items:center; justify-content:center; padding:32px 20px calc(32px + env(safe-area-inset-bottom));
+    /* Same show/hide mechanism as .modal-overlay (opacity/visibility/pointer-events + a .show
+       toggle) rather than the generic .hidden{display:none} utility class — #paywallOverlay's
+       own display:flex above is an ID-selector rule, which .hidden's class-selector display:none
+       can never win against on specificity alone, so .hidden silently did nothing here and the
+       screen showed immediately on every load (reported 2026-08-22). */
+    opacity:0; visibility:hidden; pointer-events:none; transition: opacity .25s ease;
+  }
+  #paywallOverlay.show{ opacity:1; visibility:visible; pointer-events:auto; }
+  .paywall-content{ max-width:360px; width:100%; text-align:center; position:relative; }
+  .paywall-paw{ width:48px; height:48px; margin-bottom:14px; }
+  .paywall-title{ font-size: calc(19px * var(--font-scale)); font-weight:700; margin:0 0 8px; line-height:1.3; }
+  .paywall-subtitle{ font-size: calc(13.5px * var(--font-scale)); opacity:.75; margin:0 0 24px; line-height:1.4; }
+  .paywall-plans{ display:flex; gap:10px; margin-bottom:18px; }
+  /* Explicit override, not just relying on .hidden{display:none} elsewhere in the sheet — same
+     specificity (both plain class selectors), so without this the later-in-source .paywall-plans
+     rule above silently wins regardless of whether "hidden" is actually on the element (found via
+     the sign-in paywall screenshot still showing the plan cards, 2026-08-22). */
+  .paywall-plans.hidden{ display:none; }
+  .paywall-plan{
+    flex:1; position:relative; border:2px solid var(--text); border-radius: var(--radius-md);
+    background: var(--card); color: var(--text); padding:16px 10px 14px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .paywall-plan.active{ border-color: var(--accent-dark); background: rgba(var(--accent-rgb),0.16); box-shadow: 0 0 0 2px var(--accent-dark) inset; }
+  .paywall-plan-badge{
+    position:absolute; top:-12px; left:50%; transform:translateX(-50%); background: var(--accent-dark);
+    color: var(--on-accent); font-size: calc(11px * var(--font-scale)); font-weight:700;
+    padding:4px 12px; border-radius:999px; white-space:nowrap;
+  }
+  .paywall-plan-name{ font-size: calc(13px * var(--font-scale)); font-weight:700; opacity:.7; }
+  .paywall-plan-price{ font-size: calc(17px * var(--font-scale)); font-weight:700; }
+  .paywall-plan-sub{ font-size: calc(10.5px * var(--font-scale)); opacity:.6; }
+  .paywall-cta{
+    display:block; width:100%; border:2px solid var(--text); background: var(--accent); color: var(--on-accent);
+    font-weight:700; padding:14px; border-radius: var(--radius-md); cursor:pointer;
+    font-size: calc(14.5px * var(--font-scale)); box-shadow: var(--shadow-soft); margin-bottom:12px;
+  }
+  .paywall-cta:active{ transform: translateY(1px); }
+  .paywall-cta:disabled{ opacity:.6; cursor:default; }
+  .paywall-fineprint{ font-size: calc(10.5px * var(--font-scale)); opacity:.55; line-height:1.4; margin:0 0 16px; }
+  .paywall-restore{ background:transparent; border:none; color: var(--text); opacity:.6; text-decoration:underline; font-size: calc(12px * var(--font-scale)); cursor:pointer; }
+
+  /* Day 7 / day 12 heads-up sheet (see #paywallWarningSheetOverlay) — left-aligned body copy,
+     same bottom-sheet-card as everything else, own CTA styled a notch lighter than the real
+     paywall's .paywall-cta (this is a friendly nudge, not the actual purchase screen). */
+  .paywall-warning-text{ font-size: calc(13px * var(--font-scale)); line-height:1.5; opacity:.85; margin:0 0 16px; }
+  .paywall-warning-cta{
+    display:block; width:100%; border:2px solid var(--text); background: var(--surface-soft); color: var(--text);
+    font-weight:700; padding:12px; border-radius: var(--radius-md); cursor:pointer;
+    font-size: calc(13.5px * var(--font-scale));
+  }
+  .paywall-warning-cta:active{ transform: translateY(1px); }
 
   /* Voice input mic button — wraps every text field listed in src/voice.js's TARGET_IDS. The
      wrapper takes over the field's old flex slot (flex:1/min-width:0) for fields that live inside
@@ -2654,8 +2860,12 @@
         <button type="button" class="collection-tab active" data-collection="items" data-i18n="collection_tab_items">Предметы</button>
         <button type="button" class="collection-tab" data-collection="food" data-i18n="collection_tab_food">Еда</button>
         <button type="button" class="collection-tab" data-collection="summer" data-i18n="collection_tab_summer">Лето</button>
+        <button type="button" class="collection-tab" data-collection="autumn" data-i18n="collection_tab_autumn">Осень</button>
       </div>
-      <p class="collection-progress" id="collectionProgress">Собрано предметов: 0 / 27</p>
+      <p class="collection-progress" id="collectionProgress">
+        <span id="collectionProgressText">Собрано предметов: 0 / 27</span>
+        <button type="button" class="collection-info-btn" id="collectionInfoBtn" aria-label="Как это работает?" data-i18n-aria="aria_collection_info">?</button>
+      </p>
       <div class="collection-grid" id="collectionGrid"></div>
     </section>
 
@@ -2764,10 +2974,15 @@
         <p class="trash-screen-title" data-i18n="sidebar_nav_settings">Настройки</p>
       </div>
 
+      <!-- Regrouped 2026-09-16 (was one big "Кастомизация" section with everything mixed together)
+           into Внешний вид / Уведомления и звук / Задачи и игра, closer to how most settings
+           screens split things up — a tester comparing against another app's settings flagged the
+           single undifferentiated list as hard to scan. Same .sidebar-section/.sidebar-section-
+           title shell as before, just split and reordered — no new CSS needed. -->
       <div class="sidebar-section">
         <p class="sidebar-section-title">
           <img class="section-title-icon" src="icons/icon_customization.png" alt="">
-          <span data-i18n="sidebar_section_customization">Кастомизация</span>
+          <span data-i18n="sidebar_section_appearance">Внешний вид</span>
         </p>
         <label class="toggle-row" for="darkThemeToggle">
           <span class="toggle-row-text" data-i18n="toggle_dark_theme">Тёмная тема</span>
@@ -2791,13 +3006,13 @@
           </div>
           <input type="range" id="fontSizeSlider" class="font-size-slider" min="1" max="1.3" step="0.05" value="1" aria-label="Размер шрифта" data-i18n-aria="settings_font_size_label">
         </div>
-        <button type="button" class="sidebar-nav-btn" id="settingsReminderSoundBtn">
-          <img class="sidebar-nav-icon" src="icons/icon_bell.png" alt="">
-          <span data-i18n="settings_task_reminder_sound_label">Звук напоминания о делах</span>
-          <span class="sidebar-nav-btn-value" id="reminderSoundCurrentLabel"></span>
-          <span class="sidebar-nav-btn-arrow" aria-hidden="true">›</span>
-        </button>
-        <p class="toggle-hint" data-i18n="task_reminder_sound_hint">Играет только для напоминаний о делах и подзадачах. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.</p>
+      </div>
+
+      <div class="sidebar-section">
+        <p class="sidebar-section-title">
+          <img class="section-title-icon" src="icons/icon_quick.png" alt="">
+          <span data-i18n="sidebar_section_tasks">Задачи и игра</span>
+        </p>
         <div class="toggle-row">
           <span class="toggle-row-text" data-i18n="settings_gender_label">Обращение</span>
           <span class="lang-toggle">
@@ -2837,40 +3052,10 @@
         </label>
         <p class="toggle-hint" data-i18n="toggle_gamification_hint">Отключает игровую геймификацию, награды и механику находок котика, превращая приложение в минималистичный планер.</p>
 
-        <label class="toggle-row" for="soundToggle">
-          <span class="toggle-row-text" data-i18n="toggle_sound">Звуковые эффекты</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="soundToggle" checked>
-            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-          </span>
-        </label>
-
-        <label class="toggle-row" for="hapticsToggle">
-          <span class="toggle-row-text" data-i18n="toggle_haptics">Вибрация</span>
-          <span class="toggle-switch">
-            <input type="checkbox" id="hapticsToggle" checked>
-            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
-          </span>
-        </label>
-
         <button type="button" class="sidebar-nav-btn" id="settingsIdlePhrasesBtn">
           <img class="sidebar-nav-icon" src="icons/icon_thoughts.png" alt="">
           <span data-i18n="sidebar_section_idle_phrases">Мои фразы</span>
         </button>
-      </div>
-
-      <!-- Quiet hours — one or more daily windows during which a "Забота о себе" habit reminder
-           that would otherwise fire gets pushed to the window's end instead (see
-           quietHoursPushedTime). Purely a notification-timing thing — the in-app overdue state is
-           untouched, so opening the app during quiet hours still shows the real status. -->
-      <div class="sidebar-section">
-        <p class="sidebar-section-title">
-          <img class="section-title-icon" src="icons/icon_bell.png" alt="">
-          <span data-i18n="settings_quiet_hours_title">Тихие часы</span>
-        </p>
-        <p class="toggle-hint" data-i18n="settings_quiet_hours_hint">В это время напоминания «Забота о себе» не будут звучать — можно добавить несколько промежутков, например на ночь и на дневной сон.</p>
-        <div id="quietHoursList"></div>
-        <button type="button" class="homecheck-reset-btn" id="quietHoursAddBtn" data-i18n="settings_quiet_hours_add">+ Добавить промежуток</button>
       </div>
 
       <!-- Only meaningful signed in — there's no cloud account to delete otherwise (see
@@ -2881,6 +3066,63 @@
         <p class="sidebar-section-title" data-i18n="sidebar_section_account">⚠️ Аккаунт</p>
         <p class="toggle-hint" data-i18n="delete_account_hint">Удаляет аккаунт и все облачные данные безвозвратно: задачи, заметки, списки покупок, настройки. Фото из «Контроль дома» и так хранятся только на этом телефоне. Не отменяет действующую подписку Google Play, если она у вас есть — её нужно отменить отдельно, в настройках Google Play.</p>
         <button type="button" class="danger-btn" id="deleteAccountBtn" data-i18n="delete_account_btn">Удалить аккаунт и все данные</button>
+      </div>
+
+      <!-- Moved to the very end of Настройки (was 2nd of 3 sections) — 2026-09-16. -->
+      <div class="sidebar-section">
+        <p class="sidebar-section-title">
+          <img class="section-title-icon" src="icons/icon_bell.png" alt="">
+          <span data-i18n="sidebar_section_notifications">Уведомления и звук</span>
+        </p>
+        <!-- "Уведомления не работают?" — testers repeatedly didn't realize a phone-level permission
+             was the actual problem (reported 2026-09-16). notifPermissionBtn/notifBatteryBtn call
+             into the already-existing native plugins (see renderNotifHelpStatus/wiring further
+             down) — no new native code for either; the recents-lock tip below them is plain text
+             because there's no Android API for it at all, just something to tell people. -->
+        <div class="notif-help-card">
+          <p class="notif-help-title" data-i18n="settings_notif_help_title">Уведомления не приходят?</p>
+          <p class="toggle-hint" data-i18n="settings_notif_help_hint">Некоторые телефоны (особенно Xiaomi/MIUI) сами ограничивают уведомления. Попробуй по порядку:</p>
+          <button type="button" class="sidebar-nav-btn" id="notifPermissionBtn">
+            <img class="sidebar-nav-icon" src="icons/icon_bell.png" alt="">
+            <span data-i18n="settings_notif_permission_btn">Включить уведомления</span>
+            <span class="sidebar-nav-btn-value" id="notifPermissionStatus"></span>
+            <span class="sidebar-nav-btn-arrow" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="sidebar-nav-btn" id="notifBatteryBtn">
+            <img class="sidebar-nav-icon" src="icons/icon_habit.png" alt="">
+            <span data-i18n="settings_notif_battery_btn">Разрешить фоновую работу</span>
+            <span class="sidebar-nav-btn-value" id="notifBatteryStatus"></span>
+            <span class="sidebar-nav-btn-arrow" aria-hidden="true">›</span>
+          </button>
+          <p class="toggle-hint" data-i18n="settings_notif_recents_tip">И ещё: не сворачивай приложение свайпом-вверх в списке недавних — на некоторых телефонах это отменяет уже запланированные напоминания. Обычным нажатием «Домой» или закреплением карточки (значок замочка в списке недавних) это не грозит.</p>
+        </div>
+        <button type="button" class="sidebar-nav-btn" id="settingsReminderSoundBtn">
+          <img class="sidebar-nav-icon" src="icons/icon_bell.png" alt="">
+          <span data-i18n="settings_task_reminder_sound_label">Звук напоминания о делах</span>
+          <span class="sidebar-nav-btn-value" id="reminderSoundCurrentLabel"></span>
+          <span class="sidebar-nav-btn-arrow" aria-hidden="true">›</span>
+        </button>
+        <p class="toggle-hint" data-i18n="task_reminder_sound_hint">Играет только для напоминаний о делах и подзадачах. Не выключается, пока не нажмёшь «Отложить»/«Готово» на самом уведомлении.</p>
+        <label class="toggle-row" for="soundToggle">
+          <span class="toggle-row-text" data-i18n="toggle_sound">Звуковые эффекты</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="soundToggle" checked>
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+        <label class="toggle-row" for="hapticsToggle">
+          <span class="toggle-row-text" data-i18n="toggle_haptics">Вибрация</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="hapticsToggle" checked>
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+        <!-- Тихие часы — still grouped with the rest of this section (see its own original
+             comment), just riding along with the section's whole move to the end now. -->
+        <p class="settings-subheading" data-i18n="settings_quiet_hours_title">Тихие часы</p>
+        <p class="toggle-hint" data-i18n="settings_quiet_hours_hint">В это время напоминания «Забота о себе» не будут звучать — можно добавить несколько промежутков, например на ночь и на дневной сон.</p>
+        <div id="quietHoursList"></div>
+        <button type="button" class="homecheck-reset-btn" id="quietHoursAddBtn" data-i18n="settings_quiet_hours_add">+ Добавить промежуток</button>
       </div>
     </section>
 
@@ -2987,6 +3229,7 @@
             <input type="number" id="recurCustomDaysInput" class="pantry-days-input" min="1" max="90" value="3" inputmode="numeric" autocomplete="off">
             <span class="pantry-days-suffix" id="recurCustomDaysSuffix">дня</span>
           </div>
+          <div class="recur-weekdays-row hidden" id="recurWeekdaysRow"></div>
         </div>
       </div>
     </div>
@@ -3066,6 +3309,7 @@
             <input type="number" id="taskOptionsRecurCustomDaysInput" class="pantry-days-input" min="1" max="90" value="3" inputmode="numeric" autocomplete="off">
             <span class="pantry-days-suffix" id="taskOptionsRecurCustomDaysSuffix">дня</span>
           </div>
+          <div class="recur-weekdays-row hidden" id="taskOptionsRecurWeekdaysRow"></div>
         </div>
       </div>
     </div>
@@ -3452,6 +3696,66 @@
   </div>
 </div>
 
+<!-- "?" next to "Собрано предметов: N / M" on the Сокровища tab — testers repeatedly asked how
+     the collection actually fills up (reported 2026-09-16), so this just explains the mechanic in
+     plain words rather than leaving people to guess from the header's own 0/3 progress bar. Same
+     simple modal-card pattern as kindnessModalOverlay right above (just close-X, no extra button). -->
+<div class="modal-overlay" id="collectionInfoModalOverlay">
+  <div class="modal-card collection-info-card">
+    <button type="button" class="modal-close-x" id="collectionInfoModalCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
+    <p class="modal-title" data-i18n="collection_info_title">Откуда берутся сокровища?</p>
+    <p data-i18n="collection_info_text">Мистер Лапкинс приносит подарок за каждые 3 выполненных дела — иногда с сокровищем, а иногда с пустыми лапками. Продолжай выполнять дела, и коллекция понемногу соберётся сама!</p>
+  </div>
+</div>
+
+<!-- Hard subscription paywall — see #paywallOverlay's own CSS comment and evaluatePaywallGate in
+     the main script. Hidden by default; only JS ever shows it (never a data-i18n-driven default
+     visible state), since whether it should show depends on sign-in/grandfather/entitlement
+     status that isn't known at parse time. paywallCloseX only ever appears when this was opened
+     early/voluntarily (see openPaywallFromWarningSheet's showPaywall(true)) — the real day-14
+     hard cutoff (showPaywall(false)) keeps it hidden, matching "blocked, not degraded-local-mode"
+     from the monetization plan (design feedback 2026-08-23: someone just previewing plans off the
+     day-7/12 heads-up needs a way back out, the actual forced screen still doesn't). -->
+<div class="paywall-overlay" id="paywallOverlay">
+  <div class="paywall-content">
+    <button type="button" class="modal-close-x hidden" id="paywallCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
+    <svg class="paywall-paw icon-glyph-dark"><use href="#icon-paw-dark"></use></svg>
+    <svg class="paywall-paw icon-glyph-light"><use href="#icon-paw-light"></use></svg>
+    <p class="paywall-title" id="paywallTitle" data-i18n="paywall_title">Мистер Лапкинс готов помогать тебе каждый день</p>
+    <p class="paywall-subtitle" id="paywallSubtitle" data-i18n="paywall_subtitle_expired">Пробный период закончился — продолжи с подпиской</p>
+    <div class="paywall-plans" id="paywallPlans">
+      <button type="button" class="paywall-plan active" data-plan="annual" id="paywallAnnualBtn">
+        <span class="paywall-plan-badge" id="paywallAnnualBadge" data-i18n="paywall_best_value">Выгоднее</span>
+        <span class="paywall-plan-name" data-i18n="paywall_plan_annual">Год</span>
+        <span class="paywall-plan-price" id="paywallAnnualPrice">—</span>
+        <span class="paywall-plan-sub" id="paywallAnnualSub"></span>
+      </button>
+      <button type="button" class="paywall-plan" data-plan="monthly" id="paywallMonthlyBtn">
+        <span class="paywall-plan-name" data-i18n="paywall_plan_monthly">Месяц</span>
+        <span class="paywall-plan-price" id="paywallMonthlyPrice">—</span>
+      </button>
+    </div>
+    <button type="button" class="paywall-cta" id="paywallCtaBtn" data-i18n="paywall_cta_subscribe">Оформить подписку</button>
+    <p class="paywall-fineprint" data-i18n="paywall_fineprint">Отменить можно в любой момент в Google Play.</p>
+    <button type="button" class="paywall-restore" id="paywallRestoreBtn" data-i18n="paywall_restore">Восстановить покупку</button>
+  </div>
+</div>
+
+<!-- The two heads-up notices before the hard paywall (day 7 / day 12 — see evaluatePaywallGate)
+     — a dismissible bottom sheet rather than the app's usual auto-hiding showToast(), since this
+     message is longer than a normal toast fits and matters enough to actually be read, not
+     flash by (design feedback 2026-08-22). Title/text/CTA are all set dynamically (see
+     showPaywallWarningSheet) since the same sheet serves both messages, and the CTA opens the
+     real paywall right away for anyone who doesn't want to wait for the actual cutoff. -->
+<div class="modal-overlay bottom-sheet-overlay" id="paywallWarningSheetOverlay">
+  <div class="bottom-sheet-card">
+    <button type="button" class="modal-close-x" id="paywallWarningSheetCloseX" aria-label="Закрыть" data-i18n-aria="aria_close">✕</button>
+    <p class="modal-title" id="paywallWarningSheetTitle"></p>
+    <p class="paywall-warning-text" id="paywallWarningSheetText"></p>
+    <button type="button" class="paywall-warning-cta" id="paywallWarningSheetCtaBtn"></button>
+  </div>
+</div>
+
 <!-- Reward data for the two treasure collections — kept as its own file so the content
      (titles/descriptions/filenames) can be edited without touching any app logic. Must load
      before the main script below, which reads the REWARDS_DATA global it defines. -->
@@ -3507,6 +3811,11 @@
      again after editing the source, then `npx cap sync android`, before this takes effect on
      device. -->
 <script src="voice.bundle.js"></script>
+<!-- Google Play Billing subscriptions via RevenueCat (@revenuecat/purchases-capacitor) — see
+     src/billing.js. Talks to the rest of the (unbundled) app only through window.AppBilling.
+     Run `npm run build:billing` again after editing the source, then `npx cap sync android`,
+     before this takes effect on device. -->
+<script src="billing.bundle.js"></script>
 <script>
 (function(){
   "use strict";
@@ -3597,7 +3906,11 @@
       collection_tab_items: "Предметы",
       collection_tab_food: "Еда",
       collection_tab_summer: "Лето",
+      collection_tab_autumn: "Осень",
       collection_progress_template: "Собрано предметов: {count} / {total}",
+      aria_collection_info: "Как это работает?",
+      collection_info_title: "Откуда берутся сокровища?",
+      collection_info_text: "Мистер Лапкинс приносит подарок за каждые 3 выполненных дела — иногда он приходит с сокровищем, а иногда с пустыми лапками. Продолжай выполнять дела, и коллекция понемногу соберётся сама!",
 
       tab_tasks: "Дела",
       tab_pantry: "Покупки",
@@ -3646,6 +3959,8 @@
       recur_weekly: "Каждую неделю",
       recur_custom_option: "Каждые N дней",
       recur_custom_prefix: "Каждые",
+      recur_weekdays_option: "По дням недели",
+      recur_weekdays_prefix: "По",
       btn_cancel: "Отмена",
       btn_add: "Добавить",
       btn_save: "Сохранить",
@@ -3750,6 +4065,16 @@
       delete_account_error: "Не получилось удалить аккаунт. Проверьте соединение и попробуйте ещё раз.",
       sidebar_section_lang: "Язык / Language",
       sidebar_section_customization: "Кастомизация",
+      sidebar_section_appearance: "Внешний вид",
+      sidebar_section_notifications: "Уведомления и звук",
+      sidebar_section_tasks: "Задачи и игра",
+      settings_notif_help_title: "Уведомления не приходят?",
+      settings_notif_help_hint: "Некоторые телефоны (особенно Xiaomi/MIUI) сами ограничивают уведомления. Попробуй по порядку:",
+      settings_notif_permission_btn: "Включить уведомления",
+      settings_notif_battery_btn: "Разрешить фоновую работу",
+      settings_notif_recents_tip: "И ещё: не сворачивай приложение свайпом-вверх в списке недавних — на некоторых телефонах это отменяет уже запланированные напоминания. Обычным нажатием «Домой» или закреплением карточки (значок замочка в списке недавних) это не грозит.",
+      notif_status_allowed: "Разрешено",
+      notif_status_blocked: "Запрещено",
       toggle_dark_theme: "Тёмная тема",
       toggle_minimal_theme: "Минимализм (без фона)",
       toggle_minimal_theme_hint: "Убирает фоновую картинку — работает вместе с тёмной/светлой темой, значки остаются",
@@ -3777,6 +4102,29 @@
       settings_week_start_label: "Начало недели",
       week_start_monday_btn: "Пн",
       week_start_sunday_btn: "Вс",
+
+      paywall_title: "Мистер Лапкинс готов помогать тебе каждый день",
+      paywall_subtitle_trial: "Полный доступ ко всем функциям — 14 дней бесплатно",
+      paywall_subtitle_expired: "Пробный период закончился — продолжи с подпиской",
+      paywall_best_value: "Выгоднее",
+      paywall_annual_permonth_template: "≈{price}/мес",
+      paywall_annual_discount_template: "Выгода {percent}%",
+      paywall_plan_annual: "Год",
+      paywall_plan_monthly: "Месяц",
+      paywall_cta_trial: "Начать 14 дней бесплатно",
+      paywall_cta_subscribe: "Оформить подписку",
+      paywall_fineprint: "Отменить можно в любой момент в Google Play.",
+      paywall_subtitle_signin: "Войди через Google, чтобы продолжить",
+      paywall_cta_signin: "Войти через Google",
+      paywall_restore: "Восстановить покупку",
+      paywall_restore_none_found: "Активная подписка не найдена",
+      paywall_offerings_unavailable: "Не удалось загрузить цены — проверь интернет и попробуй снова",
+      paywall_warning_week_title: "Мистер Лапкинс с тобой уже 7 дней! 🐾",
+      paywall_warning_week_text: "Первые 14 дней доступа абсолютно бесплатны — без скрытых списаний и привязки карты. Чтобы Мистер Лапкинс продолжал помогать тебе с задачами и дальше, через неделю понадобится подписка.",
+      paywall_warning_week_cta: "Посмотреть тарифы",
+      paywall_warning_final_title: "Ещё 2 дня бесплатного доступа 🐾",
+      paywall_warning_final_text: "Осталось всего {days_left} {days_word} бесплатного доступа. Оформи подписку заранее, чтобы Мистер Лапкинс не терял твои задачи.",
+      paywall_warning_final_cta: "Оформить подписку",
       address_my_lord: "Мой лорд",
       address_my_lady: "Моя леди",
       notif_body_suffix: ", время пришло! Пора сделать: ",
@@ -3912,7 +4260,11 @@
       collection_tab_items: "Items",
       collection_tab_food: "Food",
       collection_tab_summer: "Summer",
+      collection_tab_autumn: "Autumn",
       collection_progress_template: "Collected: {count} / {total}",
+      aria_collection_info: "How does this work?",
+      collection_info_title: "Where do treasures come from?",
+      collection_info_text: "Mr. Lapkins brings a gift for every 3 tasks you complete — sometimes he shows up with a treasure, sometimes with empty paws. Keep checking things off, and the collection fills up on its own!",
 
       tab_tasks: "Tasks",
       tab_pantry: "Shopping",
@@ -3961,6 +4313,8 @@
       recur_weekly: "Every week",
       recur_custom_option: "Every N days",
       recur_custom_prefix: "Every",
+      recur_weekdays_option: "On selected weekdays",
+      recur_weekdays_prefix: "On",
       btn_cancel: "Cancel",
       btn_add: "Add",
       btn_save: "Save",
@@ -4059,6 +4413,16 @@
       delete_account_error: "Couldn't delete the account. Check your connection and try again.",
       sidebar_section_lang: "Язык / Language",
       sidebar_section_customization: "Customization",
+      sidebar_section_appearance: "Appearance",
+      sidebar_section_notifications: "Notifications & sound",
+      sidebar_section_tasks: "Tasks & game",
+      settings_notif_help_title: "Notifications not arriving?",
+      settings_notif_help_hint: "Some phones (especially Xiaomi/MIUI) restrict notifications on their own. Try these in order:",
+      settings_notif_permission_btn: "Enable notifications",
+      settings_notif_battery_btn: "Allow background activity",
+      settings_notif_recents_tip: "One more thing: don't swipe the app away in the recent-apps list — on some phones that cancels already-scheduled reminders. A plain Home button press or pinning the card (the lock icon in recents) is safe.",
+      notif_status_allowed: "Allowed",
+      notif_status_blocked: "Blocked",
       toggle_dark_theme: "Dark theme",
       toggle_minimal_theme: "Minimalist (no background)",
       toggle_minimal_theme_hint: "Removes the background image — works together with dark/light theme, icons stay as they are",
@@ -4086,6 +4450,29 @@
       settings_week_start_label: "Week starts on",
       week_start_monday_btn: "Mon",
       week_start_sunday_btn: "Sun",
+
+      paywall_title: "Mr. Lapkins is ready to help every day",
+      paywall_subtitle_trial: "Full access to everything — 14 days free",
+      paywall_subtitle_expired: "Your free trial has ended — subscribe to keep going",
+      paywall_best_value: "Best value",
+      paywall_annual_permonth_template: "≈{price}/mo",
+      paywall_annual_discount_template: "Save {percent}%",
+      paywall_plan_annual: "Year",
+      paywall_plan_monthly: "Month",
+      paywall_cta_trial: "Start 14 days free",
+      paywall_cta_subscribe: "Subscribe",
+      paywall_fineprint: "Cancel anytime in Google Play.",
+      paywall_subtitle_signin: "Sign in with Google to continue",
+      paywall_cta_signin: "Sign in with Google",
+      paywall_restore: "Restore purchase",
+      paywall_restore_none_found: "No active subscription found",
+      paywall_offerings_unavailable: "Couldn't load prices — check your connection and try again",
+      paywall_warning_week_title: "Mr. Lapkins has been with you for 7 days! 🐾",
+      paywall_warning_week_text: "Your first 14 days are completely free — no hidden charges, no card required. For Mr. Lapkins to keep helping with your tasks after that, a subscription will be needed in a week.",
+      paywall_warning_week_cta: "See plans",
+      paywall_warning_final_title: "2 days of free access left 🐾",
+      paywall_warning_final_text: "Only {days_left} {days_word} of free access remain. Subscribe now so Mr. Lapkins doesn't lose track of your tasks.",
+      paywall_warning_final_cta: "Subscribe",
       address_my_lord: "My lord",
       address_my_lady: "My lady",
       notif_body_suffix: ", it's time! Time to do: ",
@@ -4189,7 +4576,7 @@
   // collections/rewards-data.js file loaded above. This just turns each entry's bare
   // filename into a real image path — the data file itself doesn't need to know how
   // (or where) its images get served from.
-  var COLLECTION_KEYS = ["items", "food", "summer"];
+  var COLLECTION_KEYS = ["items", "food", "summer", "autumn"];
   var ITEMS_DATABASE = {};
   COLLECTION_KEYS.forEach(function(key){
     ITEMS_DATABASE[key] = REWARDS_DATA[key].map(function(entry){
@@ -4404,13 +4791,13 @@
   var categoryPicker, categoryPickerTrigger, categoryPickerLabel, categoryPickerList, categoryNewRow, categoryNewInput, categoryNewConfirmBtn, categoryNewSwatchRow;
   var taskSettingsZone;
   var reminderToggle, reminderFields, reminderDateInput, reminderTimeInput;
-  var recurPicker, recurPickerTrigger, recurPickerLabel, recurPickerList, recurCustomRow, recurCustomDaysInput, recurCustomDaysSuffix;
+  var recurPicker, recurPickerTrigger, recurPickerLabel, recurPickerList, recurCustomRow, recurCustomDaysInput, recurCustomDaysSuffix, recurWeekdaysRow;
   var taskDetailModalOverlay, taskDetailCloseX, taskDetailTitleInput, taskDetailTextarea, taskDetailSaveBtn;
   var taskOptionsModalOverlay, taskOptionsCloseX, taskOptionsTypeButtons, taskOptionsCancelBtn, taskOptionsSaveBtn;
   var taskOptionsCategoryPicker, taskOptionsCategoryPickerTrigger, taskOptionsCategoryPickerLabel, taskOptionsCategoryPickerList;
   var taskOptionsCategoryNewRow, taskOptionsCategoryNewInput, taskOptionsCategoryNewConfirmBtn, taskOptionsCategoryNewSwatchRow;
   var taskOptionsReminderBlock, taskOptionsReminderToggle, taskOptionsReminderFields, taskOptionsReminderDateInput, taskOptionsReminderTimeInput;
-  var taskOptionsRecurPicker, taskOptionsRecurPickerTrigger, taskOptionsRecurPickerLabel, taskOptionsRecurPickerList, taskOptionsRecurCustomRow, taskOptionsRecurCustomDaysInput, taskOptionsRecurCustomDaysSuffix;
+  var taskOptionsRecurPicker, taskOptionsRecurPickerTrigger, taskOptionsRecurPickerLabel, taskOptionsRecurPickerList, taskOptionsRecurCustomRow, taskOptionsRecurCustomDaysInput, taskOptionsRecurCustomDaysSuffix, taskOptionsRecurWeekdaysRow;
   var pantryList, collectionGrid, collectionTabButtons, collectionProgressEl;
   var pantryMenuPopover, pantryMenuTargetId = null;
   var productsSubtabButtons, productsSubtabPantryEl, productsSubtabShoppingEl;
@@ -4443,11 +4830,14 @@
   var editingPantryId = null; // set by openEditPantryModal, mirrors editingHabitId below
   var tabButtons, tabPanels;
   var boxModalOverlay, boxModalCloseX, giftBox, boxStageBefore, boxStageAfter, boxDeferredCaption, rewardTitleEl, rewardIconEl, rewardLevelEl, rewardNameEl, rewardDescriptionEl, closeModalBtn;
+  var paywallOverlay, paywallCloseX, paywallTitle, paywallSubtitle, paywallPlans, paywallAnnualBtn, paywallMonthlyBtn, paywallAnnualPrice, paywallMonthlyPrice, paywallAnnualBadge, paywallAnnualSub, paywallCtaBtn, paywallRestoreBtn;
+  var paywallWarningSheetOverlay, paywallWarningSheetCloseX, paywallWarningSheetTitle, paywallWarningSheetText, paywallWarningSheetCtaBtn;
   var headerLogoBtn, settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, weekStartMondayBtn, weekStartSundayBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle, quietHoursListEl, quietHoursAddBtn;
   var accountSignInBtn, accountSignedIn, accountAvatar, accountAvatarFallback, accountName, accountSignOutBtn;
   var accountDangerSection, deleteAccountBtn, deleteAccountModalOverlay, deleteAccountCancelBtn, deleteAccountConfirmBtn, deleteAccountStatus;
   var isSignedIn = false;
   var currentUserUid = null;
+  var currentUserEmail = null; // see evaluatePaywallGate — this is what the grandfather-list check compares against
   // Flips true the first time updateAccountUI actually runs. isSignedIn defaults to false at
   // load, but CloudSync only learns the real auth state asynchronously from the native plugin's
   // authStateChange event — see maybeSuggestSignIn, which must not treat "haven't heard yet" as
@@ -4457,7 +4847,9 @@
   var signinConflictModalOverlay, signinConflictUseLocalBtn, signinConflictUseCloudBtn;
   var signinSuggestModalOverlay, signinSuggestOkBtn, signinSuggestSkipBtn;
   var batteryHintModalOverlay, batteryHintOkBtn, batteryHintSkipBtn, batteryStatusBanner, batteryStatusFixBtn;
+  var notifPermissionBtn, notifPermissionStatus, notifBatteryBtn, notifBatteryStatus;
   var sidebarSettingsBtn, sidebarKindnessBtn, settingsBackBtn, kindnessModalOverlay, kindnessModalCloseX;
+  var collectionInfoBtn, collectionInfoModalOverlay, collectionInfoModalCloseX;
   var progressWrapEl;
   var habitList, addHabitTrigger;
   var addHabitModalOverlay, addHabitModalTitleEl, habitIconInput, habitNameInput, habitIntervalInput, habitUnitButtons;
@@ -4833,6 +5225,17 @@
       // app restart rather than living in a plain in-memory var like pendingBoxFailIndex used to
       // exclusively.
       pendingBoxReveal: null,
+      // Paywall "peek" window (see evaluatePaywallGate/the monetization plan) — the subscribe
+      // screen only ever shows once this is PAYWALL_PEEK_DAYS in the past, so a brand new
+      // install gets a full week of normal free use first. Set once, here, on a genuinely fresh
+      // install; normalizeState below defaults an existing save that predates this field to
+      // Date.now() too (not some retroactive earlier date) — same reasoning: nobody already using
+      // the app should suddenly find their week already used up the moment this update lands.
+      firstLaunchAt: Date.now(),
+      // See evaluatePaywallGate — each fires (a toast) exactly once, tracked here so it survives
+      // a restart instead of re-showing every session between when it first fires and the cutoff.
+      paywallWeekWarningShown: false,
+      paywallFinalWarningShown: false,
       habits: createDefaultHabits(),
       categories: DEFAULT_CATEGORIES.slice(),
       noteCategories: DEFAULT_CATEGORIES.slice(),
@@ -4975,6 +5378,14 @@
         if(t.recurrence.type === "daily" || t.recurrence.type === "weekly") recurrence = { type: t.recurrence.type };
         else if(t.recurrence.type === "custom" && typeof t.recurrence.days === "number" && t.recurrence.days >= 1){
           recurrence = { type: "custom", days: Math.min(Math.round(t.recurrence.days), 90) };
+        } else if(t.recurrence.type === "weekdays" && Array.isArray(t.recurrence.days)){
+          // Dedup + sort + range-check (0-6, Monday-first — see recurrenceLabel's comment) same
+          // spirit as the custom-days clamp above. An empty result (nothing valid survived) falls
+          // back to no recurrence at all, same as finalizeRecurrence does when nothing's toggled.
+          var validWeekdays = Array.from(new Set(t.recurrence.days.filter(function(d){
+            return typeof d === "number" && d >= 0 && d <= 6;
+          }))).sort(function(a, b){ return a - b; });
+          if(validWeekdays.length) recurrence = { type: "weekdays", days: validWeekdays };
         }
       }
       // Manual drag order (see renderTasks/startTaskDrag). Saves from before drag reordering
@@ -4995,6 +5406,12 @@
     var pendingBoxReveal = (parsed.pendingBoxReveal && typeof parsed.pendingBoxReveal === "object")
       ? { isFail: !!parsed.pendingBoxReveal.isFail, failIndex: typeof parsed.pendingBoxReveal.failIndex === "number" ? parsed.pendingBoxReveal.failIndex : null, deferred: !!parsed.pendingBoxReveal.deferred }
       : null;
+    // See createDefaultState's own comment — a save from before this field existed gets "now",
+    // not some earlier date, so an update landing on an existing install doesn't retroactively
+    // eat into their free window.
+    var firstLaunchAt = typeof parsed.firstLaunchAt === "number" ? parsed.firstLaunchAt : Date.now();
+    var paywallWeekWarningShown = !!parsed.paywallWeekWarningShown;
+    var paywallFinalWarningShown = !!parsed.paywallFinalWarningShown;
     var habits = normalizeHabits(parsed);
     var categories = Array.isArray(parsed.categories)
       ? parsed.categories.filter(function(c){ return typeof c === "string" && c.trim(); }).map(function(c){ return c.trim(); })
@@ -5069,19 +5486,34 @@
       weekStartsOn: parsedSettings.weekStartsOn === "sunday" ? "sunday" : "monday"
     };
     var homeDeviceRoster = normalizeHomeDevices(parsed);
-    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, pendingBoxReveal: pendingBoxReveal, habits: habits, categories: categories, noteCategories: noteCategories, categoryColors: categoryColors, noteCategoryColors: noteCategoryColors, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
+    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, pendingBoxReveal: pendingBoxReveal, firstLaunchAt: firstLaunchAt, paywallWeekWarningShown: paywallWeekWarningShown, paywallFinalWarningShown: paywallFinalWarningShown, habits: habits, categories: categories, noteCategories: noteCategories, categoryColors: categoryColors, noteCategoryColors: noteCategoryColors, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
+  }
+
+  // Local-only write (not saveState()/queuePush()) — firstLaunchAt is internal bookkeeping for
+  // the paywall clock (see evaluatePaywallGate), not something that needs an immediate cloud
+  // push; it rides along naturally the next time anything else saves. Without persisting it the
+  // instant it's first defaulted, a low-engagement session that opens/closes the app without ever
+  // triggering a real save would see this default silently regenerate to "now" on every single
+  // launch, and the clock would never actually move (2026-08-22).
+  function persistFirstLaunchAt(normalizedState){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedState)); }catch(e){}
   }
 
   function loadState(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
       if(raw){
-        return normalizeState(JSON.parse(raw));
+        var parsedRaw = JSON.parse(raw);
+        var normalized = normalizeState(parsedRaw);
+        if(typeof parsedRaw.firstLaunchAt !== "number") persistFirstLaunchAt(normalized);
+        return normalized;
       }
     }catch(e){
       console.warn("mister Lapkins: failed to load saved state", e);
     }
-    return createDefaultState();
+    var fresh = createDefaultState();
+    persistFirstLaunchAt(fresh);
+    return fresh;
   }
 
   function saveState(){
@@ -5134,12 +5566,35 @@
     // schedules from before the sync in place.
     rescheduleAllHabitReminders();
     rescheduleAllPantryReminders();
+    // See reconcileTaskReminders' own comment (src/notifications.js) — a task/subtask reminder
+    // deleted on a DIFFERENT device never gets its OS-level alarm cancelled on this one just by
+    // this state swap; this diffs what's actually scheduled here against what the just-applied
+    // state says should exist, and cancels the rest.
+    if(window.AppNotifications){
+      var validReminderKeys = [];
+      state.tasks.forEach(function(t){
+        if(!t.deleted && t.reminderDateTime) validReminderKeys.push("task:" + t.id);
+        t.subtasks.forEach(function(s){
+          if(!s.deleted && s.reminderDateTime) validReminderKeys.push("subtask:" + s.id);
+        });
+      });
+      window.AppNotifications.reconcileTaskReminders(validReminderKeys);
+    }
   }
 
   function updateAccountUI(user){
     isSignedIn = !!user;
     currentUserUid = user ? user.uid : null;
+    currentUserEmail = user ? (user.email || null) : null;
     authStateResolved = true;
+    // Ties RevenueCat's customer record to this Firebase account (not an anonymous per-device
+    // id) so a subscription carries across devices signed into the same Google account — see
+    // src/billing.js.
+    if(window.AppBilling){
+      if(user) window.AppBilling.identify(user.uid);
+      else window.AppBilling.signOut();
+    }
+    resolvePaywallStatus();
     accountSignInBtn.classList.toggle("hidden", !!user);
     accountSignedIn.classList.toggle("hidden", !user);
     accountDangerSection.classList.toggle("hidden", !user);
@@ -5336,6 +5791,25 @@
     window.AppBattery.isIgnoringOptimizations().then(function(ignoring){
       batteryStatusBanner.classList.toggle("hidden", ignoring);
     });
+  }
+
+  // "Уведомления не работают?" card's two status labels (see #tab-settings markup) — called
+  // whenever Настройки is opened (see switchTab) so it's never showing a stale answer from an
+  // earlier visit. Both native calls already exist for other reasons (AppNotifications.init's own
+  // permission check, AppBattery's sidebar banner above) — this just surfaces the same information
+  // inline in Настройки instead of only the one-time popup/sidebar banner.
+  function renderNotifHelpStatus(){
+    if(window.AppNotifications){
+      window.AppNotifications.checkPermissions().then(function(result){
+        var granted = result && result.display === "granted";
+        notifPermissionStatus.textContent = granted ? t("notif_status_allowed") : t("notif_status_blocked");
+      }).catch(function(){ notifPermissionStatus.textContent = ""; });
+    }
+    if(window.AppBattery){
+      window.AppBattery.isIgnoringOptimizations().then(function(ignoring){
+        notifBatteryStatus.textContent = ignoring ? t("notif_status_allowed") : t("notif_status_blocked");
+      }).catch(function(){ notifBatteryStatus.textContent = ""; });
+    }
   }
 
   // ---------- rendering ----------
@@ -5859,11 +6333,17 @@
       '<div class="task-main-row">' +
         dragHandleHtml +
         '<button class="task-check ' + (task.completed ? "checked" : "") + '" aria-label="' + t("aria_mark_done") + '"></button>' +
-        '<div class="task-body">' + titleHtml + renderReminderBadgeHtml(task) + categoryTagHtml + '</div>' +
+        '<div class="task-body">' + titleHtml + categoryTagHtml + '</div>' +
         '<button class="task-add-step" data-parent-id="' + task.id + '" aria-label="' + t("aria_add_step") + '"><img class="edit-icon-img" src="icons/icon_plus.png" alt=""></button>' +
         '<button class="task-edit" aria-label="' + t("aria_edit") + '"><img class="edit-icon-img" src="icons/icon_change.png" alt=""></button>' +
         '<button class="task-delete" aria-label="' + t("aria_delete") + '">🗑️</button>' +
       '</div>' +
+      // Full card width now, not squeezed into .task-body's narrow column (shared with the
+      // checkbox/action buttons on the same row) — a long badge (recurrence suffix, or the
+      // "Лапкинс перенёс..." carried-over caption) was wrapping awkwardly and visually stretching
+      // the card (reported 2026-09-16). .task-item is itself a column flex container, so this span
+      // becomes a full-width block automatically with no extra wrapper needed.
+      renderReminderBadgeHtml(task) +
       arrowHtml +
       '</li>' +
       subtaskCardsHtml;
@@ -6387,9 +6867,13 @@
         // A snapshot can land mid-drag (another member's edit, or this device's own reorderItem
         // write echoing back) — skip the re-render while shoppingDragState is active so it can't
         // yank the hand-shuffled DOM out from under an in-progress drag (see startShoppingDrag).
-        // The cache above still updates so onShoppingDragEnd's final render picks up whatever
-        // arrived in the meantime.
-        if(!shoppingDragState) renderShoppingItems();
+        // Same reasoning for editingShoppingItemId: a snapshot landing while someone's mid-rename
+        // tore down and recreated the focused <input> (renderShoppingItems always rebuilds the
+        // whole list from scratch), which blurred and refocused it — on Android that flickers the
+        // on-screen keyboard closed/open, reported 2026-09-14 as "keyboard jumps" while editing a
+        // shared list's item. The cache above still updates either way, so the next real render
+        // (drag end, or commitEditShoppingItem finishing the edit) picks up whatever arrived.
+        if(!shoppingDragState && !editingShoppingItemId) renderShoppingItems();
       });
     }
   }
@@ -6592,7 +7076,23 @@
 
     if(editingShoppingItemId){
       var input = shoppingItemList.querySelector(".shopping-item-edit-input") || shoppingBoughtList.querySelector(".shopping-item-edit-input");
-      if(input){ input.focus(); input.select(); }
+      // Deferred a frame (was a synchronous focus()+select() right after the innerHTML swap above
+      // that created this exact node) — focusing a freshly-inserted input before the browser has
+      // actually laid out/painted it is what made the on-screen keyboard flicker open-close-open on
+      // Android WebView (reported 2026-09-14, repros on a personal — non-shared — list, so it's
+      // unrelated to the household live-subscription re-render fixed alongside this). Giving layout
+      // one rAF to settle before asking for focus is the standard fix for this exact class of bug.
+      if(input){
+        // Caret at the end, not select() (was highlighting the whole name) — editing a product name
+        // almost always means fixing/appending a typo at the end, and select-all meant the very
+        // first keystroke wiped the whole thing instead of landing where you'd expect (reported
+        // 2026-09-14, right after the focus-timing fix above shipped).
+        requestAnimationFrame(function(){
+          input.focus();
+          var len = input.value.length;
+          input.setSelectionRange(len, len);
+        });
+      }
     }
   }
 
@@ -7563,6 +8063,22 @@
   // task/subtask reminder (not a button, the notification body itself) still falls through to
   // cancelReminder — strictly a no-op for a plain one-shot reminder (the OS already cleared it),
   // but see that function's comment in src/notifications.js for why it's still worth calling.
+  //
+  // minimizeAppAfterNotificationAction (called at the end of the snooze/done branches only, never
+  // for a plain tap or the habit/pantry jumps) — @capacitor/local-notifications' `foreground`
+  // action option (registerTaskActions in src/notifications.js) is iOS-only despite reading like a
+  // generic flag; on Android its native code always launches the Activity via
+  // PendingIntent.getActivity() for every action button, full stop, so there's no plugin setting
+  // that keeps a "Готово"/"Отложить" tap from opening the app. Both branches only ever need to run
+  // JS (state mutation, no UI), so immediately minimizing right after gets back to the same
+  // "completed with nobody looking" result the deferVisuals design already assumes — the app still
+  // flashes open for an instant (that part isn't fixable without patching the native plugin), but
+  // it no longer stays open. Reported 2026-09-14.
+  function minimizeAppAfterNotificationAction(){
+    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+      window.Capacitor.Plugins.App.minimizeApp();
+    }
+  }
   var TASK_SNOOZE_MINUTES = 10;
   function handleTaskReminderAction(actionId, key){
     if(actionId === "snooze"){
@@ -7598,6 +8114,7 @@
       }
       saveState();
       if(activeTab === "tasks") renderTasks();
+      minimizeAppAfterNotificationAction();
       return;
     }
     if(actionId === "done"){
@@ -7617,6 +8134,7 @@
           return true;
         });
       }
+      minimizeAppAfterNotificationAction();
       return;
     }
     // Habits/pantry have no action buttons (actionId is always the plugin's default "tap" for
@@ -7767,9 +8285,17 @@
   // moment the app (or a sync) resurrects something, while still actually delivering the
   // reminder for a genuinely-overdue item that's still real (rather than silently dropping it).
   var PAST_DUE_REMINDER_DELAY_MS = 30 * 60000;
+  // Was comparing `when` against now+30min instead of against now — that clamped every
+  // legitimately-future reminder due within the next 30 minutes too, not just actually-overdue
+  // ones, silently rewriting (say) "in 2 minutes" into "in 30 minutes" with nothing in the UI to
+  // show it happened (the task card keeps displaying the original, now-wrong, time — only the
+  // real OS alarm — visible via LocalNotifications.getPending(), not anything in-app — reflected
+  // the clamp). Reported 2026-09-14: a reminder set for 12:43 never fired, and the actual scheduled
+  // alarm turned out to be 13:12:13 — exactly 30:00 after the edit was saved, matching this bug
+  // precisely. Only clamp when `when` is genuinely in the past now; a real near-term future
+  // reminder (quick manual test, or anything else due inside 30 minutes) is left alone.
   function clampPastDue(when){
-    var earliestAllowed = new Date(Date.now() + PAST_DUE_REMINDER_DELAY_MS);
-    return when < earliestAllowed ? earliestAllowed : when;
+    return when < new Date() ? new Date(Date.now() + PAST_DUE_REMINDER_DELAY_MS) : when;
   }
 
   function schedulePantryReminderNotification(item){
@@ -8030,7 +8556,20 @@
   // advancing by the task's own recurrence interval instead of a fixed one day.
   function advanceReminderByRecurrence(reminderDateTime, recurrence){
     var when = parseReminderDateTime(reminderDateTime);
-    var days = recurrence.type === "weekly" ? 7 : recurrence.type === "custom" ? (recurrence.days || 1) : 1;
+    var days;
+    if(recurrence.type === "weekdays" && recurrence.days && recurrence.days.length){
+      // Not a fixed jump like the other types — search forward day by day for the next date whose
+      // weekday is one of the selected ones (Monday-first indices, see recurrenceLabel's comment;
+      // (getDay()+6)%7 converts from JS's native Sunday-first getDay()). Capped at 7 so a single
+      // selected day still resolves (exactly one week later) instead of looping forever — normalizeState
+      // guarantees recurrence.days is never empty for a "weekdays" recurrence, but this stays a safe
+      // no-op fallback (days stays undefined, falls through to the +1-day default below) just in case
+      // a future bug ever lets one through anyway.
+      for(var i = 1; i <= 7; i++){
+        if(recurrence.days.indexOf((when.getDay() + 6 + i) % 7) !== -1){ days = i; break; }
+      }
+    }
+    if(days === undefined) days = recurrence.type === "weekly" ? 7 : recurrence.type === "custom" ? (recurrence.days || 1) : 1;
     var next = new Date(when.getFullYear(), when.getMonth(), when.getDate() + days, when.getHours(), when.getMinutes());
     var dateStr = next.getFullYear() + "-" + String(next.getMonth() + 1).padStart(2, "0") + "-" + String(next.getDate()).padStart(2, "0");
     var timeStr = String(next.getHours()).padStart(2, "0") + ":" + String(next.getMinutes()).padStart(2, "0");
@@ -8453,6 +8992,249 @@
     lastUnlockedId = null;
     lastUnlockedCollection = null;
     pendingBoxFailIndex = null; // in case the modal was closed (X/backdrop) before the box was ever opened
+  }
+
+  // ---------- subscription paywall ----------
+  // See #paywallOverlay's own CSS comment and the monetization plan (2026-08-22 revision — no
+  // Play trial offer at all anymore; our own firstLaunchAt clock grants a free window instead,
+  // with two heads-up toasts before the real hard cutoff):
+  //   day 0–6:  totally free, no mention of payment at all.
+  //   day 7:    one-time toast — a week's notice.
+  //   day 12:   one-time toast — 2 days left.
+  //   day 14+:  hard paywall (this screen), a real subscription purchase, no trial.
+  // Grandfathered emails (config/grandfatheredUsers) and anyone already entitled skip all of this
+  // forever — see evaluatePaywallGate.
+  var PAYWALL_WARNING_WEEK_DAYS = 7;
+  var PAYWALL_WARNING_FINAL_DAYS = 12;
+  var PAYWALL_CUTOFF_DAYS = 14;
+  var PAYWALL_DAY_MS = 24 * 60 * 60 * 1000;
+
+  var paywallMode = "subscribe"; // "subscribe" | "signin" — see setPaywallMode
+  // null = not resolved yet (never show anything on a null — that's "don't know", not "no").
+  var paywallGrandfathered = null;
+  var paywallEntitled = null;
+  // True only while the paywall is open because someone tapped a warning sheet's CTA early, not
+  // because the real day-14 cutoff kicked in — evaluatePaywallGate's periodic re-check needs this
+  // so it doesn't yank an early self-opened preview closed out from under them the next time it
+  // runs (still under 14 days, so its own "not cutoff yet" branch would otherwise force-hide
+  // whatever's open — reported 2026-08-23: the preview "closed itself" within about a minute).
+  var paywallShownVoluntarily = false;
+
+  // Annual pre-selected by default, not monthly — it's the plan actually worth steering people
+  // toward (design feedback 2026-08-22: the pre-selected/highlighted card reads as "the
+  // recommended one", so it needs to be the better-value option, not whichever happened to be
+  // first in the markup).
+  var paywallSelectedPlan = "annual";
+  var paywallPackages = null; // { monthly, annual } Package objects from AppBilling.getOfferingPackages()
+
+  function daysSinceFirstLaunch(){
+    return (Date.now() - (state.firstLaunchAt || Date.now())) / PAYWALL_DAY_MS;
+  }
+
+  function hidePaywall(){
+    paywallOverlay.classList.remove("show");
+    paywallShownVoluntarily = false;
+  }
+
+  function setPaywallMode(mode){
+    paywallMode = mode;
+    var signin = mode === "signin";
+    paywallPlans.classList.toggle("hidden", signin);
+    paywallRestoreBtn.classList.toggle("hidden", signin);
+    paywallSubtitle.textContent = t(signin ? "paywall_subtitle_signin" : "paywall_subtitle_expired");
+    paywallCtaBtn.textContent = t(signin ? "paywall_cta_signin" : "paywall_cta_subscribe");
+  }
+
+  // closable — true for a voluntary early look (see openPaywallFromWarningSheet), false/omitted
+  // for the real day-14 hard cutoff (see evaluatePaywallGate) — see paywallCloseX's own comment
+  // on the markup for why these two callers need to differ here.
+  function showPaywall(closable){
+    setPaywallMode(isSignedIn ? "subscribe" : "signin");
+    if(isSignedIn) refreshPaywallOfferings();
+    paywallShownVoluntarily = !!closable;
+    paywallCloseX.classList.toggle("hidden", !closable);
+    paywallOverlay.classList.add("show");
+  }
+
+  // Re-fetches grandfather-list + entitlement status and re-runs the gate off the result — call
+  // whenever either could plausibly have changed: sign-in/out (see updateAccountUI), a purchase
+  // or restore completing, or AppBilling's own live entitlement-change listener (see billing.js).
+  function resolvePaywallStatus(){
+    if(!isSignedIn){
+      // Can't check the (email-keyed) grandfather list or a meaningful entitlement without an
+      // account — the gate below treats "signed out, past the cutoff" as "ask them to sign in
+      // first", not "let them through" or "block with nothing they can do about it".
+      paywallGrandfathered = false;
+      paywallEntitled = false;
+      evaluatePaywallGate();
+      return;
+    }
+    var email = (currentUserEmail || "").toLowerCase();
+    var grandfatherPromise = window.CloudSync
+      ? window.CloudSync.fetchGrandfatheredEmails().then(function(emails){ return emails ? emails.indexOf(email) !== -1 : false; })
+      : Promise.resolve(false);
+    var entitledPromise = window.AppBilling ? window.AppBilling.isEntitled() : Promise.resolve(false);
+    Promise.all([grandfatherPromise, entitledPromise]).then(function(results){
+      paywallGrandfathered = !!results[0];
+      paywallEntitled = !!results[1];
+      evaluatePaywallGate();
+    });
+  }
+
+  // The actual decision — call this (not showPaywall/hidePaywall directly) from anywhere that
+  // might need to react to time passing or status changing. Safe to call often; it's cheap and
+  // every branch is idempotent.
+  function evaluatePaywallGate(){
+    // Unresolved (resolvePaywallStatus hasn't returned yet, e.g. the first second or two of a
+    // cold launch before auth settles) — do nothing rather than risk showing the wall to someone
+    // who might turn out to be grandfathered/entitled once the real answer comes back.
+    if(paywallGrandfathered === null || paywallEntitled === null) return;
+    if(paywallGrandfathered === true || paywallEntitled === true){
+      hidePaywall();
+      return;
+    }
+    var days = daysSinceFirstLaunch();
+    if(days >= PAYWALL_CUTOFF_DAYS){
+      showPaywall();
+      return;
+    }
+    // Still under the cutoff — nothing here forces the wall shut, only stops forcing it OPEN.
+    // A voluntary early preview (see openPaywallFromWarningSheet) stays exactly as the user left
+    // it — open or closed — until they close it themselves or a purchase/restore resolves it.
+    if(!paywallShownVoluntarily) hidePaywall();
+    // No sign-in gate here on purpose — grandfathered/entitled are already resolved to real
+    // booleans (not null) for a signed-out session too, deliberately defaulted false in
+    // resolvePaywallStatus (see its own comment), so someone who just hasn't signed in yet still
+    // gets fair warning rather than being surprised by the hard cutoff with no lead-up.
+    //
+    // Neither warning marks itself "shown" until it actually manages to display — if the person's
+    // mid-typing or already has some other modal open (see isPaywallInterruptionSafe), this just
+    // quietly does nothing and tries again on the next evaluatePaywallGate call (the 60s interval,
+    // or the next natural trigger) rather than either interrupting them or silently burning the
+    // one-time flag on a message nobody saw (design feedback 2026-08-22).
+    if(!isPaywallInterruptionSafe()) return;
+    if(days >= PAYWALL_WARNING_FINAL_DAYS && !state.paywallFinalWarningShown){
+      state.paywallFinalWarningShown = true;
+      saveState();
+      showPaywallWarningSheet("final");
+    } else if(days >= PAYWALL_WARNING_WEEK_DAYS && !state.paywallWeekWarningShown){
+      state.paywallWeekWarningShown = true;
+      saveState();
+      showPaywallWarningSheet("week");
+    }
+  }
+
+  // "Busy" = actively typing (a focused text field) or already looking at some other modal/sheet
+  // — the paywall's own heads-up notices are important enough to actually be read, not just
+  // flashed past, so they wait for a calm moment instead of interrupting whatever's in progress.
+  function isPaywallInterruptionSafe(){
+    var active = document.activeElement;
+    if(active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return false;
+    if(document.querySelector(".modal-overlay.show")) return false;
+    return true;
+  }
+
+  // stage is "week" (day 7) or "final" (day 12) — picks which trio of i18n keys to render. The
+  // "final" stage's count is computed fresh rather than hardcoded "2 дня" — this only fires once
+  // (see evaluatePaywallGate's !state.paywallFinalWarningShown guard), but "once" isn't
+  // necessarily "exactly on day 12": someone who doesn't open the app that day still gets it the
+  // next time they do, possibly day 13, where "2 дня" would already be wrong (design feedback
+  // 2026-08-22). Math.ceil so "0 days left" (late on day 13) still reads as "1 день", not 0.
+  function showPaywallWarningSheet(stage){
+    paywallWarningSheetTitle.textContent = t("paywall_warning_" + stage + "_title");
+    var text = t("paywall_warning_" + stage + "_text");
+    if(stage === "final"){
+      var daysLeft = Math.max(1, Math.ceil(PAYWALL_CUTOFF_DAYS - daysSinceFirstLaunch()));
+      text = text.replace("{days_left}", daysLeft).replace("{days_word}", pantryDaysWord(daysLeft));
+    }
+    paywallWarningSheetText.textContent = text;
+    paywallWarningSheetCtaBtn.textContent = t("paywall_warning_" + stage + "_cta");
+    paywallWarningSheetOverlay.classList.add("show");
+  }
+
+  function closePaywallWarningSheet(){
+    paywallWarningSheetOverlay.classList.remove("show");
+  }
+
+  // Someone ready to subscribe at day 7 shouldn't have to wait for the actual day-14 cutoff
+  // (design feedback 2026-08-22) — jumps straight to the real paywall screen.
+  function openPaywallFromWarningSheet(){
+    closePaywallWarningSheet();
+    showPaywall(true);
+  }
+
+  function handlePaywallCtaClick(){
+    if(paywallMode === "signin"){
+      if(window.CloudSync) window.CloudSync.signIn();
+    } else {
+      startPaywallPurchase();
+    }
+  }
+
+  function selectPaywallPlan(plan){
+    paywallSelectedPlan = plan;
+    paywallMonthlyBtn.classList.toggle("active", plan === "monthly");
+    paywallAnnualBtn.classList.toggle("active", plan === "annual");
+  }
+
+  function formatPaywallCurrency(amount, currencyCode){
+    try{
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: currencyCode, maximumFractionDigits: 2 }).format(amount);
+    }catch(e){
+      return amount.toFixed(2);
+    }
+  }
+
+  // Populates real Play-localized price strings, the annual plan's per-month equivalent, and its
+  // discount badge — called whenever the paywall is about to show (offerings can't usefully be
+  // fetched earlier than that; nothing else in the app needs them). All computed from the actual
+  // fetched prices rather than the $2/$14 baked into copy, so a non-USD storefront's real
+  // converted prices still produce an accurate per-month figure and percentage.
+  function refreshPaywallOfferings(){
+    if(!window.AppBilling) return;
+    window.AppBilling.getOfferingPackages().then(function(packages){
+      paywallPackages = packages;
+      var monthly = packages && packages.monthly;
+      var annual = packages && packages.annual;
+      if(monthly) paywallMonthlyPrice.textContent = monthly.product.priceString;
+      if(annual){
+        paywallAnnualPrice.textContent = annual.product.priceString;
+        var perMonth = annual.product.price / 12;
+        paywallAnnualSub.textContent = t("paywall_annual_permonth_template").replace("{price}", formatPaywallCurrency(perMonth, annual.product.currencyCode));
+      }
+      if(monthly && annual){
+        var fullYearAtMonthlyRate = monthly.product.price * 12;
+        var percentOff = Math.round((1 - (annual.product.price / fullYearAtMonthlyRate)) * 100);
+        if(percentOff > 0) paywallAnnualBadge.textContent = t("paywall_annual_discount_template").replace("{percent}", percentOff);
+      }
+    });
+  }
+
+  function startPaywallPurchase(){
+    if(!window.AppBilling) return;
+    var pkg = paywallPackages && paywallPackages[paywallSelectedPlan];
+    if(!pkg){
+      showToast(t("paywall_offerings_unavailable"));
+      return;
+    }
+    paywallCtaBtn.disabled = true;
+    window.AppBilling.purchasePackage(pkg).then(function(entitled){
+      paywallCtaBtn.disabled = false;
+      paywallEntitled = entitled;
+      if(entitled) hidePaywall();
+    }).catch(function(e){
+      paywallCtaBtn.disabled = false;
+      if(!(e && e.userCancelled)) console.error("Paywall: purchase failed", e);
+    });
+  }
+
+  function restorePaywallPurchase(){
+    if(!window.AppBilling) return;
+    window.AppBilling.restorePurchases().then(function(entitled){
+      paywallEntitled = entitled;
+      if(entitled) hidePaywall();
+      else showToast(t("paywall_restore_none_found"));
+    });
   }
 
   // ---------- cherry blossom petals ----------
@@ -8894,6 +9676,14 @@
     kindnessModalOverlay.classList.remove("show");
   }
 
+  function openCollectionInfoModal(){
+    collectionInfoModalOverlay.classList.add("show");
+  }
+
+  function closeCollectionInfoModal(){
+    collectionInfoModalOverlay.classList.remove("show");
+  }
+
   function applySettingsToSidebar(){
     langRuBtn.classList.toggle("active", state.settings.lang === "ru");
     langEnBtn.classList.toggle("active", state.settings.lang === "en");
@@ -9078,8 +9868,10 @@
     activeTab = tab;
     tabButtons.forEach(function(b){ b.classList.toggle("active", b.dataset.tab === tab); });
     tabPanels.forEach(function(p){ p.classList.toggle("active", p.id === "tab-" + tab); });
+    document.body.classList.toggle("settings-open", tab === "settings");
     if(tab === "pantry") renderPantry();
     if(tab === "collection") renderCollection();
+    if(tab === "settings") renderNotifHelpStatus();
     if(tab === "habits"){
       renderHabits();
       // Забота о себе runs entirely on habit reminder notifications (see
@@ -9318,6 +10110,10 @@
   // rather than having a toggle of its own (see every reminderToggle/taskOptionsReminderToggle
   // change handler in attachEventListeners). Reuses pantryDaysWord for the same "3 дня"-style
   // pluralized day count the pantry "Хватает на" field already needed.
+  // recurrence.days for "weekdays" is an array of Monday-first indices (0=Mon..6=Sun) — same
+  // convention CALENDAR_WEEKDAY_NAMES already uses, so no separate mapping table is needed here;
+  // advanceReminderByRecurrence is the only place that has to convert to/from JS's native
+  // getDay() (0=Sun..6=Sat), same (getDay()+6)%7 idiom already used by calendarGroupDateLabel.
   function recurrenceLabel(recurrence){
     if(!recurrence) return t("recur_none");
     if(recurrence.type === "daily") return t("recur_daily");
@@ -9325,6 +10121,11 @@
     if(recurrence.type === "custom"){
       var n = recurrence.days || 1;
       return t("recur_custom_prefix") + " " + n + " " + pantryDaysWord(n);
+    }
+    if(recurrence.type === "weekdays" && recurrence.days && recurrence.days.length){
+      var names = CALENDAR_WEEKDAY_NAMES[state.settings.lang];
+      var picked = recurrence.days.slice().sort(function(a, b){ return a - b; }).map(function(d){ return names[d]; });
+      return t("recur_weekdays_prefix") + " " + picked.join(", ");
     }
     return t("recur_none");
   }
@@ -9335,7 +10136,8 @@
       { value: "", label: t("recur_none") },
       { value: "daily", label: t("recur_daily") },
       { value: "weekly", label: t("recur_weekly") },
-      { value: "custom", label: t("recur_custom_option") }
+      { value: "custom", label: t("recur_custom_option") },
+      { value: "weekdays", label: t("recur_weekdays_option") }
     ];
     listEl.innerHTML = options.map(function(o){
       return '<button type="button" class="category-picker-option' + (type === o.value ? " active" : "") + '" data-recur="' + o.value + '">' + o.label + '</button>';
@@ -9347,15 +10149,38 @@
     suffixEl.textContent = pantryDaysWord(isNaN(n) || n < 1 ? 1 : n);
   }
 
+  // selectedDays: array of Monday-first indices (see recurrenceLabel's comment). Re-rendered from
+  // scratch each time (same as everything else driven by applyTranslations/switchLanguage) rather
+  // than patched in place, since the button labels themselves are language-dependent.
+  function renderRecurWeekdaysRow(rowEl, selectedDays){
+    var names = CALENDAR_WEEKDAY_NAMES[state.settings.lang];
+    var selected = selectedDays || [];
+    rowEl.innerHTML = names.map(function(name, i){
+      return '<button type="button" class="recur-weekday-btn' + (selected.indexOf(i) !== -1 ? " active" : "") + '" data-day="' + i + '">' + name + '</button>';
+    }).join("");
+  }
+
+  // Reads which .recur-weekday-btn pills are currently toggled on in rowEl — the source of truth
+  // for "weekdays" recurrence is the buttons themselves (same reasoning as the custom-days number
+  // input: reading the live DOM state at the point it's needed avoids having to keep a parallel JS
+  // array in sync on every single toggle click).
+  function activeRecurWeekdays(rowEl){
+    return Array.prototype.slice.call(rowEl.querySelectorAll(".recur-weekday-btn.active"))
+      .map(function(btn){ return parseInt(btn.dataset.day, 10); })
+      .sort(function(a, b){ return a - b; });
+  }
+
   function setRecurPickerValue(recurrence){
     modalTaskRecurrence = recurrence;
     recurPickerLabel.textContent = recurrenceLabel(recurrence);
     recurPickerLabel.classList.toggle("placeholder", !recurrence);
     recurCustomRow.classList.toggle("hidden", !recurrence || recurrence.type !== "custom");
+    recurWeekdaysRow.classList.toggle("hidden", !recurrence || recurrence.type !== "weekdays");
     if(recurrence && recurrence.type === "custom"){
       recurCustomDaysInput.value = recurrence.days;
       updateRecurCustomSuffix(recurCustomDaysInput, recurCustomDaysSuffix);
     }
+    if(recurrence && recurrence.type === "weekdays") renderRecurWeekdaysRow(recurWeekdaysRow, recurrence.days);
     renderRecurPickerOptions(recurPickerList, recurrence);
     recurPicker.classList.remove("open");
   }
@@ -9367,10 +10192,12 @@
     taskOptionsRecurPickerLabel.textContent = recurrenceLabel(recurrence);
     taskOptionsRecurPickerLabel.classList.toggle("placeholder", !recurrence);
     taskOptionsRecurCustomRow.classList.toggle("hidden", !recurrence || recurrence.type !== "custom");
+    taskOptionsRecurWeekdaysRow.classList.toggle("hidden", !recurrence || recurrence.type !== "weekdays");
     if(recurrence && recurrence.type === "custom"){
       taskOptionsRecurCustomDaysInput.value = recurrence.days;
       updateRecurCustomSuffix(taskOptionsRecurCustomDaysInput, taskOptionsRecurCustomDaysSuffix);
     }
+    if(recurrence && recurrence.type === "weekdays") renderRecurWeekdaysRow(taskOptionsRecurWeekdaysRow, recurrence.days);
     renderRecurPickerOptions(taskOptionsRecurPickerList, recurrence);
     taskOptionsRecurPicker.classList.remove("open");
   }
@@ -9494,11 +10321,20 @@
   // own .days — the user can type a new number without re-clicking "Каждые N дней" in the list
   // (that only fires on first selecting the custom option), so the stored value would otherwise
   // go stale the moment they edit the field.
-  function finalizeRecurrence(recurrence, customDaysInputEl){
+  function finalizeRecurrence(recurrence, customDaysInputEl, weekdaysRowEl){
     if(!recurrence) return null;
-    if(recurrence.type !== "custom") return recurrence;
-    var n = parseInt(customDaysInputEl.value, 10);
-    return { type: "custom", days: isNaN(n) || n < 1 ? 1 : Math.min(n, 90) };
+    if(recurrence.type === "custom"){
+      var n = parseInt(customDaysInputEl.value, 10);
+      return { type: "custom", days: isNaN(n) || n < 1 ? 1 : Math.min(n, 90) };
+    }
+    if(recurrence.type === "weekdays"){
+      var days = activeRecurWeekdays(weekdaysRowEl);
+      // Nobody toggled a single day on — same as picking "custom" and clearing the number field,
+      // there's nothing left to actually repeat on, so this falls back to no recurrence at all
+      // rather than silently picking a day for them.
+      return days.length ? { type: "weekdays", days: days } : null;
+    }
+    return recurrence;
   }
 
   function submitAddTaskModal(){
@@ -9512,7 +10348,7 @@
     } else if(editingSubtaskParentId){
       addSubtask(editingSubtaskParentId, val, reminderDateTime);
     } else {
-      var recurrence = reminderDateTime ? finalizeRecurrence(modalTaskRecurrence, recurCustomDaysInput) : null;
+      var recurrence = reminderDateTime ? finalizeRecurrence(modalTaskRecurrence, recurCustomDaysInput, recurWeekdaysRow) : null;
       addTask(titleVal, val, modalTaskType, reminderDateTime, modalTaskCategory, recurrence);
     }
     closeAddTaskModal();
@@ -9695,7 +10531,7 @@
       task.reminderCarriedOver = false;
     }
     task.reminderDateTime = reminderDateTime;
-    task.recurrence = reminderDateTime ? finalizeRecurrence(taskOptionsRecurrence, taskOptionsRecurCustomDaysInput) : null;
+    task.recurrence = reminderDateTime ? finalizeRecurrence(taskOptionsRecurrence, taskOptionsRecurCustomDaysInput, taskOptionsRecurWeekdaysRow) : null;
     if(reminderDateTime) scheduleTaskReminderNotification(task);
     else cancelTaskReminderNotification(task.id);
     saveState();
@@ -9976,10 +10812,30 @@
       var row = e.target.closest(".category-picker-option");
       if(!row) return;
       var value = row.dataset.recur;
-      setRecurPickerValue(value ? { type: value, days: value === "custom" ? parseInt(recurCustomDaysInput.value, 10) || 3 : undefined } : null);
+      var days;
+      if(value === "custom") days = parseInt(recurCustomDaysInput.value, 10) || 3;
+      // Re-selecting "weekdays" (e.g. after briefly switching to another option) keeps whatever was
+      // already toggled instead of resetting — only a genuinely fresh pick defaults to Monday.
+      else if(value === "weekdays") days = (modalTaskRecurrence && modalTaskRecurrence.type === "weekdays" && modalTaskRecurrence.days && modalTaskRecurrence.days.length) ? modalTaskRecurrence.days : [0];
+      setRecurPickerValue(value ? { type: value, days: days } : null);
     });
     recurCustomDaysInput.addEventListener("input", function(){
       updateRecurCustomSuffix(recurCustomDaysInput, recurCustomDaysSuffix);
+      // Was only updating the suffix word (дня/дней) — the trigger label above ("Каждые 3 дня")
+      // kept showing whatever number was picked from the dropdown, never the number actually typed
+      // here, until the picker was reopened (reported 2026-09-16). modalTaskRecurrence itself was
+      // never stale (finalizeRecurrence re-reads this input fresh at submit time), so this is a
+      // display-only fix, not a data one.
+      var n = parseInt(recurCustomDaysInput.value, 10);
+      recurPickerLabel.textContent = recurrenceLabel({ type: "custom", days: isNaN(n) || n < 1 ? 1 : n });
+    });
+    // Same "read the live DOM, don't trust a parallel JS var" reasoning as the custom-days input
+    // above — toggle the tapped pill, then re-derive the label from whichever pills are active now.
+    recurWeekdaysRow.addEventListener("click", function(e){
+      var btn = e.target.closest(".recur-weekday-btn");
+      if(!btn) return;
+      btn.classList.toggle("active");
+      recurPickerLabel.textContent = recurrenceLabel({ type: "weekdays", days: activeRecurWeekdays(recurWeekdaysRow) });
     });
     document.addEventListener("click", function(e){
       if(!recurPicker.classList.contains("open")) return;
@@ -10127,10 +10983,23 @@
       var row = e.target.closest(".category-picker-option");
       if(!row) return;
       var value = row.dataset.recur;
-      setTaskOptionsRecurPickerValue(value ? { type: value, days: value === "custom" ? parseInt(taskOptionsRecurCustomDaysInput.value, 10) || 3 : undefined } : null);
+      var days;
+      if(value === "custom") days = parseInt(taskOptionsRecurCustomDaysInput.value, 10) || 3;
+      else if(value === "weekdays") days = (taskOptionsRecurrence && taskOptionsRecurrence.type === "weekdays" && taskOptionsRecurrence.days && taskOptionsRecurrence.days.length) ? taskOptionsRecurrence.days : [0];
+      setTaskOptionsRecurPickerValue(value ? { type: value, days: days } : null);
     });
     taskOptionsRecurCustomDaysInput.addEventListener("input", function(){
       updateRecurCustomSuffix(taskOptionsRecurCustomDaysInput, taskOptionsRecurCustomDaysSuffix);
+      // See recurCustomDaysInput's own "input" listener above — same display-only label-sync fix,
+      // mirrored here for the task-settings popup's independent instance.
+      var n = parseInt(taskOptionsRecurCustomDaysInput.value, 10);
+      taskOptionsRecurPickerLabel.textContent = recurrenceLabel({ type: "custom", days: isNaN(n) || n < 1 ? 1 : n });
+    });
+    taskOptionsRecurWeekdaysRow.addEventListener("click", function(e){
+      var btn = e.target.closest(".recur-weekday-btn");
+      if(!btn) return;
+      btn.classList.toggle("active");
+      taskOptionsRecurPickerLabel.textContent = recurrenceLabel({ type: "weekdays", days: activeRecurWeekdays(taskOptionsRecurWeekdaysRow) });
     });
     document.addEventListener("click", function(e){
       if(!taskOptionsRecurPicker.classList.contains("open")) return;
@@ -10245,6 +11114,12 @@
     replenishSheetOverlay.addEventListener("click", function(e){
       if(e.target === replenishSheetOverlay) closeReplenishSheet(); // backdrop only, not the card
     });
+
+    paywallWarningSheetCloseX.addEventListener("click", closePaywallWarningSheet);
+    paywallWarningSheetOverlay.addEventListener("click", function(e){
+      if(e.target === paywallWarningSheetOverlay) closePaywallWarningSheet(); // backdrop only, not the card
+    });
+    paywallWarningSheetCtaBtn.addEventListener("click", openPaywallFromWarningSheet);
     replenishListPickerTrigger.addEventListener("click", function(){
       replenishListPicker.classList.toggle("open");
     });
@@ -10374,7 +11249,24 @@
     shoppingListsWrap.addEventListener("focusout", function(e){
       var input = e.target.closest(".shopping-item-edit-input");
       if(!input) return;
-      commitEditShoppingItem(input.dataset.id, input.value);
+      // Deferred, not committed synchronously — on-device testing 2026-09-14 (live CDP session,
+      // not just the report) caught this input blurring on its own within a few hundred ms of
+      // opening, before any tap or keystroke, while visualViewport was still oscillating as the
+      // keyboard animated in (adjustResize + Android WebView IME quirk, worse on some MIUI keyboard
+      // builds). Committing synchronously on THAT blur re-rendered (destroying the input) before
+      // the keyboard had even settled, so typing was never possible — every attempt after the first
+      // closed itself instantly. Waiting one tick and checking whether an edit input is still
+      // focused (this one regained focus, or a fresh one — e.g. escape/save already handled it,
+      // which nulls editingShoppingItemId first, or the item was deleted mid-edit) means a real
+      // "tapped away to something else" blur still closes/saves normally, just ~150ms later; a
+      // spurious refocus-immediately blur no longer does.
+      var id = input.dataset.id, value = input.value;
+      setTimeout(function(){
+        if(editingShoppingItemId !== id) return;
+        var active = document.activeElement;
+        if(active && active.classList && active.classList.contains("shopping-item-edit-input")) return;
+        commitEditShoppingItem(id, value);
+      }, 150);
     });
     shoppingBoughtToggle.addEventListener("click", toggleShoppingBoughtExpanded);
     shoppingBoughtClearBtn.addEventListener("click", clearBoughtItems);
@@ -10509,6 +11401,20 @@
     batteryStatusFixBtn.addEventListener("click", function(){
       if(window.AppBattery) window.AppBattery.requestIgnoreOptimizations();
     });
+    // Re-checks both after the OS dialog closes either way (accepted or dismissed) — there's no
+    // direct callback for that, so this just re-reads the real permission state a beat later
+    // rather than assuming the tap succeeded.
+    notifPermissionBtn.addEventListener("click", function(){
+      if(!window.AppNotifications) return;
+      window.AppNotifications.requestPermissions().then(function(){
+        setTimeout(renderNotifHelpStatus, 400);
+      });
+    });
+    notifBatteryBtn.addEventListener("click", function(){
+      if(!window.AppBattery) return;
+      window.AppBattery.requestIgnoreOptimizations();
+      setTimeout(renderNotifHelpStatus, 400);
+    });
     batteryHintModalOverlay.addEventListener("click", function(e){
       if(e.target === batteryHintModalOverlay) closeBatteryHint(); // backdrop only
     });
@@ -10566,6 +11472,12 @@
     boxModalOverlay.addEventListener("click", function(e){
       if(e.target === boxModalOverlay) closeBoxModal(); // backdrop only, not the card
     });
+
+    paywallCloseX.addEventListener("click", hidePaywall);
+    paywallMonthlyBtn.addEventListener("click", function(){ selectPaywallPlan("monthly"); });
+    paywallAnnualBtn.addEventListener("click", function(){ selectPaywallPlan("annual"); });
+    paywallCtaBtn.addEventListener("click", handlePaywallCtaClick);
+    paywallRestoreBtn.addEventListener("click", restorePaywallPurchase);
 
     thoughtCloseBtn.addEventListener("click", dismissFloatingThoughtEarly);
 
@@ -10665,6 +11577,11 @@
     kindnessModalOverlay.addEventListener("click", function(e){
       if(e.target === kindnessModalOverlay) closeKindnessModal();
     });
+    collectionInfoBtn.addEventListener("click", openCollectionInfoModal);
+    collectionInfoModalCloseX.addEventListener("click", closeCollectionInfoModal);
+    collectionInfoModalOverlay.addEventListener("click", function(e){
+      if(e.target === collectionInfoModalOverlay) closeCollectionInfoModal();
+    });
 
     // Hardware/gesture back button — same set of popups the backdrop-click handlers above cover.
     // Registering a "backButton" listener at all makes us fully responsible for it (Capacitor's
@@ -10680,6 +11597,7 @@
         [addHabitModalOverlay, closeAddHabitModal],
         [boxModalOverlay, closeBoxModal],
         [kindnessModalOverlay, closeKindnessModal],
+        [collectionInfoModalOverlay, closeCollectionInfoModal],
         [deleteAccountModalOverlay, closeDeleteAccountModal]
       ];
       // Full-page sub-screens reached via the sidebar (each has its own "←" — see e.g.
@@ -10714,6 +11632,10 @@
     // Must fire before any other startup work — see the comment on notifyReady in
     // src/updater.js for why this can't wait behind state load / rendering / anything else.
     if(window.AppUpdater) window.AppUpdater.notifyReady();
+    // Fire-and-forget — nothing in this session waits on it. updateAccountUI (below) calls
+    // identify()/signOut() once the signed-in state is known; configure() itself doesn't
+    // depend on that having happened first (see src/billing.js).
+    if(window.AppBilling) window.AppBilling.init();
 
     quoteTextEl = document.getElementById("quoteText");
     floatingThoughtEl = document.getElementById("floatingThought");
@@ -10789,6 +11711,7 @@
     recurCustomRow = document.getElementById("recurCustomRow");
     recurCustomDaysInput = document.getElementById("recurCustomDaysInput");
     recurCustomDaysSuffix = document.getElementById("recurCustomDaysSuffix");
+    recurWeekdaysRow = document.getElementById("recurWeekdaysRow");
     categoryPicker = document.getElementById("categoryPicker");
     categoryPickerTrigger = document.getElementById("categoryPickerTrigger");
     categoryPickerLabel = document.getElementById("categoryPickerLabel");
@@ -10830,6 +11753,7 @@
     taskOptionsRecurCustomRow = document.getElementById("taskOptionsRecurCustomRow");
     taskOptionsRecurCustomDaysInput = document.getElementById("taskOptionsRecurCustomDaysInput");
     taskOptionsRecurCustomDaysSuffix = document.getElementById("taskOptionsRecurCustomDaysSuffix");
+    taskOptionsRecurWeekdaysRow = document.getElementById("taskOptionsRecurWeekdaysRow");
 
     addPantryTrigger = document.getElementById("addPantryTrigger");
     pantryList = document.getElementById("pantryList");
@@ -10904,7 +11828,10 @@
 
     collectionGrid = document.getElementById("collectionGrid");
     collectionTabButtons = Array.prototype.slice.call(document.querySelectorAll(".collection-tab"));
-    collectionProgressEl = document.getElementById("collectionProgress");
+    // Points at the inner <span> (see #collectionProgress's markup), not the <p> wrapper itself —
+    // that <p> also holds collectionInfoBtn now, which a plain .textContent assignment here would
+    // otherwise wipe out on every render.
+    collectionProgressEl = document.getElementById("collectionProgressText");
 
     tabButtons = Array.prototype.slice.call(document.querySelectorAll(".tab-btn"));
     tabPanels = Array.prototype.slice.call(document.querySelectorAll(".tab-panel"));
@@ -10921,6 +11848,25 @@
     rewardNameEl = document.getElementById("rewardName");
     rewardDescriptionEl = document.getElementById("rewardDescription");
     closeModalBtn = document.getElementById("closeModalBtn");
+
+    paywallOverlay = document.getElementById("paywallOverlay");
+    paywallCloseX = document.getElementById("paywallCloseX");
+    paywallTitle = document.getElementById("paywallTitle");
+    paywallSubtitle = document.getElementById("paywallSubtitle");
+    paywallPlans = document.getElementById("paywallPlans");
+    paywallAnnualBtn = document.getElementById("paywallAnnualBtn");
+    paywallMonthlyBtn = document.getElementById("paywallMonthlyBtn");
+    paywallAnnualPrice = document.getElementById("paywallAnnualPrice");
+    paywallMonthlyPrice = document.getElementById("paywallMonthlyPrice");
+    paywallAnnualBadge = document.getElementById("paywallAnnualBadge");
+    paywallAnnualSub = document.getElementById("paywallAnnualSub");
+    paywallCtaBtn = document.getElementById("paywallCtaBtn");
+    paywallRestoreBtn = document.getElementById("paywallRestoreBtn");
+    paywallWarningSheetOverlay = document.getElementById("paywallWarningSheetOverlay");
+    paywallWarningSheetCloseX = document.getElementById("paywallWarningSheetCloseX");
+    paywallWarningSheetTitle = document.getElementById("paywallWarningSheetTitle");
+    paywallWarningSheetText = document.getElementById("paywallWarningSheetText");
+    paywallWarningSheetCtaBtn = document.getElementById("paywallWarningSheetCtaBtn");
 
     accountSignInBtn = document.getElementById("accountSignInBtn");
     accountSignedIn = document.getElementById("accountSignedIn");
@@ -10947,6 +11893,10 @@
     batteryHintSkipBtn = document.getElementById("batteryHintSkipBtn");
     batteryStatusBanner = document.getElementById("batteryStatusBanner");
     batteryStatusFixBtn = document.getElementById("batteryStatusFixBtn");
+    notifPermissionBtn = document.getElementById("notifPermissionBtn");
+    notifPermissionStatus = document.getElementById("notifPermissionStatus");
+    notifBatteryBtn = document.getElementById("notifBatteryBtn");
+    notifBatteryStatus = document.getElementById("notifBatteryStatus");
 
     headerLogoBtn = document.getElementById("headerLogoBtn");
     settingsBtn = document.getElementById("settingsBtn");
@@ -10982,6 +11932,9 @@
     quietHoursAddBtn = document.getElementById("quietHoursAddBtn");
     kindnessModalOverlay = document.getElementById("kindnessModalOverlay");
     kindnessModalCloseX = document.getElementById("kindnessModalCloseX");
+    collectionInfoBtn = document.getElementById("collectionInfoBtn");
+    collectionInfoModalOverlay = document.getElementById("collectionInfoModalOverlay");
+    collectionInfoModalCloseX = document.getElementById("collectionInfoModalCloseX");
 
     habitList = document.getElementById("habitList");
     addHabitTrigger = document.getElementById("addHabitTrigger");
@@ -11060,6 +12013,19 @@
     setInterval(habitTick, 5000);
     schedulePetals();
     initHeaderStoryWindow();
+
+    // Re-checks the paywall gate as real time passes while the app just sits open (crossing day
+    // 7/12/14 doesn't need a relaunch to notice) — resolvePaywallStatus's own network calls are
+    // cheap/cached (see cloud-sync.js/billing.js), so a plain re-evaluate is enough most ticks;
+    // this deliberately doesn't re-fetch grandfather/entitlement status every time, only on
+    // sign-in/purchase/restore/the live entitlement listener below.
+    setInterval(evaluatePaywallGate, 60000);
+    if(window.AppBilling){
+      window.AppBilling.onStatusChange(function(entitled){
+        paywallEntitled = entitled;
+        evaluatePaywallGate();
+      });
+    }
 
     if(window.CloudSync){
       window.CloudSync.init({

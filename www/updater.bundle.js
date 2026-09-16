@@ -1100,6 +1100,21 @@
           console.error("AppUpdater: setMultiDelay failed", e);
         }
       }
+      function isSafeToApplyUpdate() {
+        var active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return false;
+        if (document.querySelector(".modal-overlay.show")) return false;
+        return true;
+      }
+      var RELOAD_RETRY_MS = 5e3;
+      function reloadWhenSafe() {
+        if (isSafeToApplyUpdate()) {
+          console.log("AppUpdater: applying now");
+          CapacitorUpdater.reload();
+          return;
+        }
+        setTimeout(reloadWhenSafe, RELOAD_RETRY_MS);
+      }
       async function checkForUpdate() {
         await deferUpdatesUntilKill();
         try {
@@ -1119,7 +1134,8 @@
           console.log("AppUpdater: new version available", currentVersion, "->", manifest.version);
           var bundle = await CapacitorUpdater.download({ version: manifest.version, url: manifest.url });
           await CapacitorUpdater.next({ id: bundle.id });
-          console.log("AppUpdater: downloaded and queued", manifest.version, "\u2014 applies on next background/restart");
+          console.log("AppUpdater: downloaded and queued", manifest.version, "\u2014 applying once it's safe to interrupt");
+          reloadWhenSafe();
         } catch (e) {
           console.error("AppUpdater: update check failed", e);
         }
