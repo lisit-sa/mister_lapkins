@@ -139,4 +139,15 @@
          Replaces the old <input type="file" capture> approach (2026-09-27), which never needed an
          explicit CAMERA permission since the OS's own camera app handled that permission itself. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Declaring android.permission.CAMERA above makes the Android build tools IMPLICITLY add
+         <uses-feature android:name="android.hardware.camera" required="true"> unless told
+         otherwise — that implicit requirement is what made Play Console report ~433 devices
+         (tablets, TVs, Android Auto, Chromebooks — anything without a camera) as newly
+         unsupported for this release. The "Контроль дома" camera shortcut is an optional
+         convenience, not something the app needs to function, so every camera-related feature
+         is explicitly marked not required here to keep the app installable on cameraless
+         devices exactly as before this permission was added (2026-09-27). -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>
