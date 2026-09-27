@@ -50,10 +50,10 @@ public class WidgetBridgePlugin extends Plugin {
 
     // "Контроль дома" widget (2026-09-27) — separate from updateSnapshot/MrLapkinsWidgetProvider
     // above (see HomeControlWidgetProvider's own top comment for why it's a whole separate widget).
-    // devices: [{id, name, checked}] — checked/photos live only in this device's IndexedDB (never
-    // synced), so index.html computes this from the in-memory homeDevices mirror, not state.
-    // Photos themselves are deliberately NOT included — the widget only ever needs to show whether
-    // a device is checked, and base64 photo data would bloat SharedPreferences for no reason.
+    // devices: [{id, name, checked, photo}] — checked/photos live only in this device's IndexedDB
+    // (never synced), so index.html computes this from the in-memory homeDevices mirror, not state.
+    // photo is only ever the LATEST shot, already compressed — see updateHomeControlWidgetSnapshot's
+    // own comment in index.html for why the widget doesn't get the full gallery.
     @PluginMethod
     public void updateHomeControlSnapshot(PluginCall call) {
         JSArray devices = call.getArray("devices");
@@ -97,20 +97,28 @@ public class WidgetBridgePlugin extends Plugin {
         call.resolve(ret);
     }
 
-    // Fires the OS's own "add this widget to your home screen?" confirmation directly for
-    // MrLapkinsWidgetProvider, rather than making someone find Mr. Lapkins by hand in the system's
-    // general widget picker. The successCallback (3rd param) is what tells us the widget actually
-    // got placed — on MIUI specifically there's no dismissable confirmation UI at all (it just adds
-    // the widget straight away), so without this someone tapping the button has zero feedback that
-    // anything happened at all and would likely just keep tapping it (reported by Kristina,
-    // 2026-09-17). See MrLapkinsWidgetProvider.ACTION_PIN_SUCCESS for the actual toast.
+    // Fires the OS's own "add this widget to your home screen?" confirmation directly for whichever
+    // widget was picked, rather than making someone find Mr. Lapkins by hand in the system's general
+    // widget picker. "widget" is "home_control" for HomeControlWidgetProvider, anything else
+    // (including omitted) defaults to MrLapkinsWidgetProvider — see index.html's sidebar, which now
+    // shows one button per widget (2026-09-27, was a single button before "Контроль дома" existed).
+    // The successCallback (3rd param) is what tells us the widget actually got placed — on MIUI
+    // specifically there's no dismissable confirmation UI at all (it just adds the widget straight
+    // away), so without this someone tapping the button has zero feedback that anything happened at
+    // all and would likely just keep tapping it (reported by Kristina, 2026-09-17). Reuses
+    // MrLapkinsWidgetProvider's own toast broadcast for both widgets — the confirmation message
+    // ("Виджет добавлен...") doesn't need to say which one, so there's no reason to duplicate it.
     @PluginMethod
     public void requestPinWidget(PluginCall call) {
+        String widget = call.getString("widget", "tasks");
+        Class<?> providerClass = "home_control".equals(widget)
+            ? HomeControlWidgetProvider.class
+            : MrLapkinsWidgetProvider.class;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 AppWidgetManager manager = AppWidgetManager.getInstance(getContext());
                 if (manager.isRequestPinAppWidgetSupported()) {
-                    ComponentName provider = new ComponentName(getContext(), MrLapkinsWidgetProvider.class);
+                    ComponentName provider = new ComponentName(getContext(), providerClass);
                     manager.requestPinAppWidget(provider, null, MrLapkinsWidgetProvider.pinSuccessPendingIntent(getContext()));
                 }
             } catch (IllegalStateException e) {

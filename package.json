@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && npm run build:voice && npm run build:billing && npm run build:widgetbridge && npm run build:appupdate && cap sync android && npm run sync:sounds",
+    "sync": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && npm run build:voice && npm run build:billing && npm run build:widgetbridge && npm run build:appupdate && npm run build:camera && cap sync android && npm run sync:sounds",
     "sync:sounds": "node scripts/sync-sounds.js",
     "open:android": "cap open android",
     "build:cloudsync": "esbuild src/cloud-sync.js --bundle --format=iife --outfile=www/cloud-sync.bundle.js",
@@ -20,9 +20,10 @@
     "build:billing": "esbuild src/billing.js --bundle --format=iife --outfile=www/billing.bundle.js",
     "build:widgetbridge": "esbuild src/widgetBridge.js --bundle --format=iife --outfile=www/widgetBridge.bundle.js",
     "build:appupdate": "esbuild src/appUpdate.js --bundle --format=iife --outfile=www/appUpdate.bundle.js",
+    "build:camera": "esbuild src/camera.js --bundle --format=iife --outfile=www/camera.bundle.js",
     "icons:prep": "node scripts/prep-icon.js",
     "icons": "npm run icons:prep && capacitor-assets generate --android",
-    "release": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && npm run build:voice && npm run build:billing && npm run build:widgetbridge && npm run build:appupdate && node scripts/release.js",
+    "release": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && npm run build:voice && npm run build:billing && npm run build:widgetbridge && npm run build:appupdate && npm run build:camera && node scripts/release.js",
     "deploy": "npm run release && firebase deploy --only hosting"
   },
   "repository": {
@@ -44,6 +45,7 @@
     "@capacitor-firebase/authentication": "^8.3.0",
     "@capacitor/android": "^8.4.2",
     "@capacitor/app": "^8.1.1",
+    "@capacitor/camera": "^8.2.4",
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
     "@capacitor/haptics": "^8.0.2",

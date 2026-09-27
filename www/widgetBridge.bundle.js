@@ -570,9 +570,11 @@
           });
         },
         // Fires the OS's own "add this widget to your home screen?" confirmation directly, instead of
-        // making someone find Mr. Lapkins by hand in the system's general widget picker.
-        requestPinWidget: function() {
-          return WidgetBridge.requestPinWidget().catch(function(e) {
+        // making someone find Mr. Lapkins by hand in the system's general widget picker. widget: "tasks"
+        // (default, the Дела/Покупки widget) or "home_control" — index.html's sidebar now shows one
+        // button per widget (2026-09-27) rather than a single one, since there's more than one to pick.
+        requestPinWidget: function(widget) {
+          return WidgetBridge.requestPinWidget({ widget: widget || "tasks" }).catch(function(e) {
             console.warn("AppWidgetBridge: requestPinWidget failed", e);
             return false;
           });

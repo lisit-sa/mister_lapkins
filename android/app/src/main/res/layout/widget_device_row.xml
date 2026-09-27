@@ -35,12 +35,32 @@
             android:layout_height="wrap_content"
             android:textColor="@color/widget_text_muted"
             android:textSize="11sp" />
+
+        <!-- "Light" version of the app's photo gallery (2026-09-27) — just the latest photo, not
+             the full scrollable set the in-app "Контроль дома" tab shows, and no per-photo delete
+             here. Sending every stored photo (or full-resolution ones) to the widget would bloat
+             its SharedPreferences file for a home-screen widget that's supposed to stay small and
+             quick to refresh; one already-compressed thumbnail per device is the compromise
+             Kristina picked over the fuller (but heavier) alternative. GONE (see
+             HomeControlListService.getViewAt) when the device has no photo yet. -->
+        <ImageView
+            android:id="@+id/widget_row_thumb"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginTop="4dp"
+            android:scaleType="fitStart"
+            android:adjustViewBounds="true" />
     </LinearLayout>
 
-    <TextView
+    <!-- The app's own hand-drawn camera icon (www/icons/icon_camera.png, copied in as
+         widget_camera_icon.png — 2026-09-27, replaces the plain 📷 emoji) rather than a system
+         font glyph, matching the illustrated style the rest of the app uses for its icons. Doubles
+         as "add another photo" once one already exists — same tap target, openCameraForDevice
+         doesn't distinguish first photo from a retake. -->
+    <ImageView
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:gravity="center"
-        android:text="📷"
-        android:textSize="16sp" />
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_camera_icon"
+        android:contentDescription="@string/home_control_camera_desc" />
 </LinearLayout>

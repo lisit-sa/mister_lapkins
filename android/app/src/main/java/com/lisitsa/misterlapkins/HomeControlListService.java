@@ -3,6 +3,10 @@ package com.lisitsa.misterlapkins;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.util.Base64;
+import android.view.View;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 import java.util.ArrayList;
@@ -49,7 +53,7 @@ public class HomeControlListService extends RemoteViewsService {
                     String name = obj.optString("name", "");
                     String id = obj.optString("id", "");
                     if (name.length() > 0 && id.length() > 0) {
-                        rows.add(new Row(id, name, obj.optBoolean("checked", false)));
+                        rows.add(new Row(id, name, obj.optBoolean("checked", false), obj.optString("photo", "")));
                     }
                 }
             } catch (Exception e) {
@@ -76,11 +80,40 @@ public class HomeControlListService extends RemoteViewsService {
             views.setTextViewText(R.id.widget_row_status, context.getString(
                 row.checked ? R.string.home_control_status_checked : R.string.home_control_status_unchecked));
 
+            // "Light" photo thumbnail (2026-09-27, see widget_device_row.xml's own comment) — only
+            // ever the latest one, already compressed by compressImageToBase64() in index.html
+            // before it's ever sent here, so no extra resizing needed on this side. Decoding runs
+            // on this factory's own binder thread (never the main thread — same guarantee
+            // onDataSetChanged/loadRows already rely on), so a slow decode can't jank the UI.
+            Bitmap thumb = decodePhoto(row.photoDataUrl);
+            if (thumb != null) {
+                views.setViewVisibility(R.id.widget_row_thumb, View.VISIBLE);
+                views.setImageViewBitmap(R.id.widget_row_thumb, thumb);
+            } else {
+                views.setViewVisibility(R.id.widget_row_thumb, View.GONE);
+            }
+
             Intent fillIn = new Intent();
             fillIn.putExtra("deviceId", row.id);
             views.setOnClickFillInIntent(R.id.widget_row_root, fillIn);
 
             return views;
+        }
+
+        // photo is stored as a full data: URL (canvas.toDataURL's own format, see
+        // compressImageToBase64 in index.html) — strip the "data:image/jpeg;base64," prefix before
+        // handing the rest to Base64.decode. Returns null for anything malformed/empty rather than
+        // throwing, since a missing/corrupt photo just means "show no thumbnail", not a real error.
+        private static Bitmap decodePhoto(String dataUrl) {
+            if (dataUrl == null || dataUrl.length() == 0) return null;
+            int comma = dataUrl.indexOf(',');
+            if (comma < 0) return null;
+            try {
+                byte[] bytes = Base64.decode(dataUrl.substring(comma + 1), Base64.DEFAULT);
+                return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            } catch (Exception e) {
+                return null;
+            }
         }
 
         @Override
@@ -107,7 +140,13 @@ public class HomeControlListService extends RemoteViewsService {
             final String id;
             final String name;
             final boolean checked;
-            Row(String id, String name, boolean checked) { this.id = id; this.name = name; this.checked = checked; }
+            final String photoDataUrl;
+            Row(String id, String name, boolean checked, String photoDataUrl) {
+                this.id = id;
+                this.name = name;
+                this.checked = checked;
+                this.photoDataUrl = photoDataUrl;
+            }
         }
     }
 }

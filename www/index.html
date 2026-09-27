@@ -2063,6 +2063,22 @@
      single centered label the plain nav rows use. */
   .sidebar-nav-lang{ justify-content:space-between; cursor:default; }
   .sidebar-nav-label{ flex:1; }
+
+  /* "Добавить виджет" accordion (2026-09-27) — same expand/collapse language as
+     .shopping-bought-toggle/.shopping-bought-chevron, just reusing sidebar-nav-btn's own look for
+     the toggle row itself instead of a plain text link. */
+  .sidebar-nav-chevron{ display:inline-block; transition: transform .2s ease; opacity:.7; }
+  #sidebarAddWidgetToggleBtn.expanded .sidebar-nav-chevron{ transform: rotate(180deg); }
+  /* Negative top margin pulls this right up against the toggle button above it (which already
+     carries the standard 18px sidebar-nav-btn bottom margin) — reads as one connected control
+     rather than a gap-separated second block. Sub-buttons keep the full sidebar-nav-btn look
+     (matches every other row here) but a bit smaller/indented so they still read as "under" the
+     toggle rather than equal siblings of it. */
+  .sidebar-add-widget-options{ margin-top:-10px; margin-bottom:18px; padding-left:14px; }
+  .sidebar-add-widget-options .sidebar-add-widget-option{
+    margin-bottom:8px; padding:9px 14px; font-size: calc(13px * var(--font-scale));
+  }
+  .sidebar-add-widget-options .sidebar-add-widget-option:last-child{ margin-bottom:0; }
   .sidebar-nav-lang .lang-toggle{ flex-shrink:0; }
   .sidebar-nav-lang .lang-btn{ flex:none; padding:7px 14px; font-size: calc(12.5px * var(--font-scale)); }
   .sidebar-privacy-link{
@@ -2283,6 +2299,25 @@
     animation: appLoadingSpin 0.9s linear infinite;
   }
   @keyframes appLoadingSpin{ to{ transform: rotate(360deg); } }
+
+  /* Same look as #appLoadingOverlay, different job (2026-09-27): covers the app's own screen
+     during the brief "flash open" a "Контроль дома" widget quick-action (camera, "Я дома") causes,
+     between the deep link opening the app and minimizeAppAfterNotificationAction() actually
+     backgrounding it again — showing whatever tab happened to be open there read as glitchy/
+     context-less to Kristina, since the whole point of a widget quick-action is never really
+     "opening the app". Toggled via .show (not removed from the DOM like the one-time startup
+     cover above), since this needs to reappear for every widget action in a session, not just once. */
+  #widgetActionOverlay{
+    position:fixed; inset:0; z-index:10000;
+    display:flex; align-items:center; justify-content:center;
+    background: var(--bg);
+    opacity:0; pointer-events:none;
+    /* No transition (2026-09-27, removed) — a fade-in here meant the real screen underneath was
+       still partly visible through it for that whole duration, which was still readable as "seeing
+       the main screen" even with the fix below. Nothing needs the hide to be gentle either, since
+       by the time it's hidden the app is already backgrounded. */
+  }
+  #widgetActionOverlay.show{ opacity:1; pointer-events:auto; }
 
   /* Subscription paywall — a full, solid cover (same --bg fill as #appLoadingOverlay, on
      purpose: this is a genuine hard wall, not a dismissible modal) shown after the "peek" — see
@@ -2648,6 +2683,10 @@
 })();
 </script>
 <div id="appLoadingOverlay" aria-hidden="true">
+  <svg class="app-loading-spinner icon-glyph-dark"><use href="#icon-paw-dark"></use></svg>
+  <svg class="app-loading-spinner icon-glyph-light"><use href="#icon-paw-light"></use></svg>
+</div>
+<div id="widgetActionOverlay" aria-hidden="true">
   <svg class="app-loading-spinner icon-glyph-dark"><use href="#icon-paw-dark"></use></svg>
   <svg class="app-loading-spinner icon-glyph-light"><use href="#icon-paw-light"></use></svg>
 </div>
@@ -3453,11 +3492,6 @@
   <button type="button" class="pantry-menu-option danger" data-action="delete">🗑️ <span data-i18n="aria_delete">Удалить</span></button>
 </div>
 
-<!-- Контроль дома: hidden camera input reused for every device (see openCameraForDevice) —
-     capture="environment" makes iOS/Android open the rear camera directly instead of the
-     photo gallery. -->
-<input type="file" accept="image/*" capture="environment" id="deviceCameraInput" class="hidden">
-
 <!-- Контроль дома lightbox — reuses the same .image-gallery-overlay/.gallery-image/.gallery-close-btn
      styling as the header story viewer above, just with its own elements/state so opening one
      never interferes with the other. -->
@@ -3603,15 +3637,31 @@
 
   <!-- Requests the OS's own "add widget to home screen" flow directly, via
        AppWidgetManager.requestPinAppWidget() (WidgetBridgePlugin.java) — Kristina wanted an
-       easier way to find/add the widget than making people dig through the system's own widget
-       picker themselves (2026-09-17). Hidden entirely (not just disabled) when the launcher
-       doesn't support the pin-request API at all (checked once when the sidebar opens, see
-       refreshAddWidgetButtonVisibility) — a dead button that silently does nothing on tap would
-       be worse than no button. -->
-  <button type="button" class="sidebar-nav-btn hidden" id="sidebarAddWidgetBtn">
+       easier way to find/add a widget than making people dig through the system's own widget
+       picker themselves (2026-09-17). One toggle button expanding to a choice between the two
+       widgets (2026-09-27, third revision — first was a single button before "Контроль дома"
+       existed, then briefly two separate top-level buttons; Kristina preferred this accordion,
+       same expand/collapse pattern as the shopping list's "Куплено" section — see
+       .shopping-bought-toggle/toggleShoppingBoughtExpanded). Hidden entirely (not just disabled)
+       when the launcher doesn't support the pin-request API at all (checked once when the sidebar
+       opens, see refreshAddWidgetButtonVisibility) — a dead button that silently does nothing on
+       tap would be worse than no button. Always starts collapsed on a fresh sidebar open (see
+       openSidebar) rather than remembering the last state. -->
+  <button type="button" class="sidebar-nav-btn hidden" id="sidebarAddWidgetToggleBtn">
     <span class="sidebar-nav-icon">▦</span>
-    <span data-i18n="sidebar_nav_add_widget">Добавить виджет</span>
+    <span class="sidebar-nav-label" data-i18n="sidebar_nav_add_widget">Добавить виджет</span>
+    <span class="sidebar-nav-chevron" aria-hidden="true">▾</span>
   </button>
+  <div class="sidebar-add-widget-options hidden" id="sidebarAddWidgetOptions">
+    <button type="button" class="sidebar-nav-btn sidebar-add-widget-option" id="sidebarAddWidgetTasksBtn">
+      <span class="sidebar-nav-icon">▦</span>
+      <span data-i18n="widget_option_tasks">Дела и покупки</span>
+    </button>
+    <button type="button" class="sidebar-nav-btn sidebar-add-widget-option" id="sidebarAddWidgetHomeControlBtn">
+      <span class="sidebar-nav-icon">📷</span>
+      <span data-i18n="widget_option_home_control">Контроль дома</span>
+    </button>
+  </div>
 
   <button type="button" class="sidebar-nav-btn" id="sidebarKindnessBtn">
     <svg class="sidebar-nav-icon icon-glyph-dark"><use href="#icon-paw-dark"></use></svg>
@@ -3838,6 +3888,9 @@
 <!-- Google Play In-App Updates prompt (src/appUpdate.js) — native plugin, so like widgetBridge it
      only takes effect after a native rebuild, not an OTA web update alone. -->
 <script src="appUpdate.bundle.js"></script>
+<!-- Native camera (src/camera.js) — replaces the old WebView file-chooser mechanism, see that
+     module's own comment for why (a "Контроль дома" widget tap couldn't reliably trigger it). -->
+<script src="camera.bundle.js"></script>
 <script>
 (function(){
   "use strict";
@@ -3911,6 +3964,8 @@
       aria_delete_forever: "Удалить навсегда",
       sidebar_nav_trash: "Корзина",
       sidebar_nav_add_widget: "Добавить виджет",
+      widget_option_tasks: "Дела и покупки",
+      widget_option_home_control: "Контроль дома",
       app_update_downloaded: "Новая версия приложения загружена. Перезапустить сейчас, чтобы обновиться?",
       trash_screen_title: "Корзина",
       trash_clear_all: "Очистить всё",
@@ -4267,6 +4322,8 @@
       aria_delete_forever: "Delete forever",
       sidebar_nav_trash: "Trash",
       sidebar_nav_add_widget: "Add widget",
+      widget_option_tasks: "Tasks & shopping",
+      widget_option_home_control: "Home check",
       app_update_downloaded: "A new version of the app has been downloaded. Restart now to update?",
       trash_screen_title: "Trash",
       trash_clear_all: "Clear all",
@@ -4875,7 +4932,7 @@
   var batteryHintModalOverlay, batteryHintOkBtn, batteryHintSkipBtn, batteryStatusBanner, batteryStatusFixBtn;
   var notifPermissionBtn, notifPermissionStatus, notifBatteryBtn, notifBatteryStatus;
   var sidebarSettingsBtn, sidebarKindnessBtn, settingsBackBtn, kindnessModalOverlay, kindnessModalCloseX;
-  var sidebarAddWidgetBtn;
+  var sidebarAddWidgetToggleBtn, sidebarAddWidgetOptions, sidebarAddWidgetTasksBtn, sidebarAddWidgetHomeControlBtn;
   var collectionInfoBtn, collectionInfoModalOverlay, collectionInfoModalCloseX;
   var progressWrapEl;
   var habitList, addHabitTrigger;
@@ -4884,7 +4941,7 @@
   var headerStoryImgEl, headerMoodHeartEl, imageGalleryOverlay, galleryImageEl, galleryCloseBtn;
   var habitsBtn, habitsBackBtn, homeCheckResetBtn, homeCheckAddInput, homeCheckAddBtn;
   var fabDrawer, fabDrawerHandle, fabDrawerDock, fabDrawerAutoCloseTimer = null;
-  var deviceListEl, deviceEmptyHint, deviceCameraInput;
+  var deviceListEl, deviceEmptyHint;
   var homeCheckLightboxOverlay, homeCheckLightboxImage, homeCheckLightboxClose;
   var focusBtn, focusModeOverlay, focusModeCard, focusCloseBtn, focusPhaseLabel, focusCatImg, focusPhaseText, focusRingProgress, focusTimerText, focusStartPauseBtn, focusSkipBtn;
   var focusSettingsBtn, focusSettingsView, focusWorkMinutesInput, focusBreakMinutesInput, focusSettingsSaveBtn, focusSettingsCancelBtn;
@@ -5620,6 +5677,39 @@
     if(!el || el.classList.contains("app-loading-overlay--fade")) return;
     el.classList.add("app-loading-overlay--fade");
     el.addEventListener("transitionend", function(){ el.remove(); }, { once: true });
+  }
+
+  // #widgetActionOverlay (2026-09-27, see its own CSS comment) — shown right when a "Контроль
+  // дома" widget quick-action starts (see handleWidgetAction's device-camera/reset-devices cases)
+  // so the brief flash-open shows a neutral loader instead of whatever tab happened to be open.
+  //
+  // Deliberately stays engaged (NOT hidden) once minimizeAppAfterNotificationAction() backgrounds
+  // the app — the key realization (2026-09-27, after an earlier attempt still leaked the real
+  // screen): whenever Android resumes an already-running Activity, it instantly redraws whatever
+  // the WebView's surface last had composited, before any JS runs at all. If that last frame was
+  // the real app screen (because something had already hidden the overlay while still
+  // backgrounded), the NEXT widget tap's very first frame is that real screen again, no matter how
+  // fast JS reacts afterward. Leaving the overlay engaged across the whole backgrounded period
+  // means that persisted last frame IS the overlay, so the next resume — widget-triggered or a
+  // genuine reopen — starts from a neutral loader instead.
+  //
+  // widgetOverlayBusy tracks whether a widget action's own async work (camera capture, reset) is
+  // still actually running — true from showWidgetActionOverlay() until
+  // minimizeAppAfterNotificationAction() marks it done. Genuinely clearing the overlay only ever
+  // happens while this is false, which is what tells a real interaction/appStateChange apart from
+  // "a widget action just started and hasn't reached minimize yet" without needing to guess at
+  // event ordering (tried an artificial delay for that first — still felt laggy on a real reopen,
+  // see the pointerdown listener below for why).
+  var widgetOverlayBusy = false;
+  function showWidgetActionOverlay(){
+    var el = document.getElementById("widgetActionOverlay");
+    if(!el) return;
+    widgetOverlayBusy = true;
+    el.classList.add("show");
+  }
+  function hideWidgetActionOverlay(){
+    var el = document.getElementById("widgetActionOverlay");
+    if(el) el.classList.remove("show");
   }
 
   // Applied when a signed-in account's cloud state arrives — either right after sign-in
@@ -7148,14 +7238,24 @@
       renderShoppingItems();
     } else if(action === "device-camera" && id){
       // "Контроль дома" widget's camera-shutter row (2026-09-27, see HomeControlWidgetProvider.java)
-      // — openCameraForDevice doesn't care which tab is showing, it just opens the hidden file
-      // input directly, so no tab switch is needed here the way edit-shopping needs one.
-      openCameraForDevice(id);
+      // — openCameraForDevice doesn't care which tab is showing, so no tab switch is needed here
+      // the way edit-shopping needs one. minimizeAfter: true is what sends the app back to the
+      // home screen once the photo's saved (or the camera's cancelled/fails) — see
+      // openCameraForDevice's own comment on why that only applies to a widget-triggered capture.
+      // showWidgetActionOverlay() covers the screen for that same brief window, so it shows a
+      // neutral loader instead of whatever tab happened to be open (Kristina's own follow-up,
+      // 2026-09-27, right after minimizeAfter shipped).
+      showWidgetActionOverlay();
+      openCameraForDevice(id, { minimizeAfter: true });
     } else if(action === "reset-devices"){
       // "Я дома" footer button — runs resetAllHomeDevices() for real right away rather than
       // queuing it for next launch (Kristina's own call, 2026-09-27: it deletes stored photos, not
-      // something to leave half-applied).
-      resetAllHomeDevices();
+      // something to leave half-applied). minimizeAfter: true sends the app back to the home screen
+      // once it's done — same fix/reasoning as openCameraForDevice's own minimizeAfter, reported
+      // right after that one shipped (2026-09-27): "Я дома" opened the app and just stayed there.
+      // showWidgetActionOverlay() covers the same brief flash with a neutral loader.
+      showWidgetActionOverlay();
+      resetAllHomeDevices({ minimizeAfter: true });
     }
   }
 
@@ -7668,7 +7768,6 @@
 
   var homeDevices = []; // in-memory mirror of the IndexedDB store, kept in sync on every write
   var homeCheckLoaded = false; // guards the one-time reconcile-with-roster on first open
-  var pendingCameraDeviceId = null; // which device the open <input type=file> capture belongs to
 
   function deviceDisplayName(d){
     return d.isDefault && d.i18nKey ? t(d.i18nKey) : (d.name || "");
@@ -7731,14 +7830,22 @@
   // "Контроль дома" widget (2026-09-27, see HomeControlWidgetProvider.java) — recomputes the
   // native-side snapshot every time renderHomeDevices() runs, the one function every device
   // mutation (check, photo, add, delete, reset, cloud reconcile) already funnels through, same
-  // "cheap enough to just call it every time" reasoning as updateWidgetSnapshot(). Only
-  // id/name/checked go across — checked/photos live purely in this device's own IndexedDB (see
-  // normalizeDevice's own comment), never synced, so this is already inherently per-device data;
-  // photos themselves are deliberately left out, the widget only needs to know checked or not.
+  // "cheap enough to just call it every time" reasoning as updateWidgetSnapshot(). checked/photos
+  // live purely in this device's own IndexedDB (see normalizeDevice's own comment), never synced,
+  // so this is already inherently per-device data. photo is only ever the LATEST shot, already
+  // compressed by compressImageToBase64 — the widget shows one small thumbnail per device, not the
+  // full scrollable gallery the in-app tab has (Kristina's own call, 2026-09-27: sending every
+  // photo, or full-resolution ones, would bloat the widget's own storage for not much benefit on a
+  // home-screen widget that's supposed to stay light).
   function updateHomeControlWidgetSnapshot(){
     if(!window.AppWidgetBridge || !window.AppWidgetBridge.updateHomeControlSnapshot) return;
     window.AppWidgetBridge.updateHomeControlSnapshot(homeDevices.map(function(d){
-      return { id: d.id, name: deviceDisplayName(d), checked: d.checked };
+      return {
+        id: d.id,
+        name: deviceDisplayName(d),
+        checked: d.checked,
+        photo: d.photos.length ? d.photos[d.photos.length - 1].photo : ""
+      };
     }));
   }
 
@@ -7791,26 +7898,44 @@
   }
 
   // The "Сделать фото" button — always goes straight to the camera, no confirm step (the
-  // checkbox above is the trust-based, no-photo way to check a device). capture="environment" on
-  // the input (see markup) is what makes iOS/Android open the rear camera directly instead of the
-  // gallery. Also doubles as "add another photo" (see the + button in renderHomeDevices) and,
-  // combined with deleteDevicePhoto, as "retake" — delete the bad shot, then add a fresh one.
-  function openCameraForDevice(id){
-    pendingCameraDeviceId = id;
+  // checkbox above is the trust-based, no-photo way to check a device). Also doubles as "add
+  // another photo" (see the + button in renderHomeDevices) and, combined with deleteDevicePhoto,
+  // as "retake" — delete the bad shot, then add a fresh one.
+  //
+  // Goes through window.AppCamera (src/camera.js, the native @capacitor/camera plugin) rather than
+  // the old hidden <input type="file" capture="environment"> (2026-09-27) — that one couldn't be
+  // triggered reliably from the "Контроль дома" widget's camera-shutter row: opening it from a
+  // widget tap (which arrives here via a deep link, not a real touch on this page) hit Chrome's
+  // "file chooser dialog can only be shown with a user activation" guard and silently did nothing.
+  // The native camera call has no such requirement, only that MainActivity be resumed — already
+  // true by the time the widget's deep link gets here. fetch()+compressImageToBase64 keeps the
+  // exact same resize/compress step the old file-input path used, just fed from the native
+  // camera's result instead of a picked File.
+  // opts.minimizeAfter (2026-09-27) — set only when this capture started from the "Контроль дома"
+  // widget's camera-shutter row (see handleWidgetAction's "device-camera" case). Kristina found it
+  // disorienting to snap one photo from the widget and then just be left sitting in the full app —
+  // the whole point of tapping it from the home screen was a quick in-and-out capture, not a reason
+  // to open the app. minimizeAppAfterNotificationAction() (originally built for the notification
+  // Snooze/Done buttons — see its own comment) is the exact same "flash open, then get out of the
+  // way" behavior, reused here rather than duplicated. Runs at the very end regardless of success/
+  // cancel/error (the .catch().then() below), so even backing out of the camera still returns to
+  // the home screen instead of stranding someone mid-flow. An in-app tap on "Сделать фото" (opts
+  // omitted) behaves exactly as before — no minimize, since someone already in this screen likely
+  // wants to see the result or shoot the next device right away.
+  function openCameraForDevice(id, opts){
+    opts = opts || {};
     // Arms a fresh OTA background-delay right before the camera backgrounds the app — see
     // AppUpdater.deferForCameraCapture's own comment (src/updater.js) for why this has to happen
     // right here rather than once at startup or on every foreground.
     if(window.AppUpdater) window.AppUpdater.deferForCameraCapture();
-    deviceCameraInput.value = ""; // guarantees a change event even when retaking the same shot
-    deviceCameraInput.click();
-  }
-
-  function handleDeviceCameraChange(){
-    var file = deviceCameraInput.files && deviceCameraInput.files[0];
-    var id = pendingCameraDeviceId;
-    pendingCameraDeviceId = null;
-    if(!file || !id) return;
-    compressImageToBase64(file, 800, 0.7).then(function(base64){
+    if(!window.AppCamera) return;
+    window.AppCamera.takePhoto().then(function(webPath){
+      if(!webPath) return null;
+      return fetch(webPath).then(function(r){ return r.blob(); }).then(function(blob){
+        return compressImageToBase64(blob, 800, 0.7);
+      });
+    }).then(function(base64){
+      if(!base64) return;
       var device = homeDevices.find(function(d){ return d.id === id; });
       if(!device) return;
       var now = new Date();
@@ -7822,6 +7947,8 @@
       return dbPutDevice(device).then(renderHomeDevices);
     }).catch(function(e){
       console.warn("mister Lapkins: failed to process device photo", e);
+    }).then(function(){
+      if(opts.minimizeAfter) minimizeAppAfterNotificationAction();
     });
   }
 
@@ -7858,11 +7985,22 @@
 
   // "Я дома" — one tap clears every checkbox AND purges every stored photo from IndexedDB, so
   // nothing lingers once the anxiety it was there to soothe is actually resolved.
-  function resetAllHomeDevices(){
+  // opts.minimizeAfter (2026-09-27) — same reasoning as openCameraForDevice's own opts.minimizeAfter
+  // comment: set only from the "Контроль дома" widget's footer button (see handleWidgetAction's
+  // "reset-devices" case), so tapping it there sends the app back to the home screen once the
+  // reset's actually done, instead of leaving it sitting open. The in-app button
+  // (homeCheckResetBtn's click listener) calls this directly as the event handler, so opts there is
+  // just the click Event — harmless, since Event has no minimizeAfter property either.
+  function resetAllHomeDevices(opts){
+    opts = opts || {};
     homeDevices.forEach(function(d){ d.checked = false; d.photos = []; });
     dbClearDevices().then(function(){
       return Promise.all(homeDevices.map(dbPutDevice));
-    }).then(renderHomeDevices);
+    }).then(renderHomeDevices).catch(function(e){
+      console.warn("mister Lapkins: failed to reset home-check devices", e);
+    }).then(function(){
+      if(opts.minimizeAfter) minimizeAppAfterNotificationAction();
+    });
   }
 
   function openHomeCheckLightbox(src){
@@ -8233,6 +8371,13 @@
     if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
       window.Capacitor.Plugins.App.minimizeApp();
     }
+    // Marks the widget action's async work as done (harmless no-op for the notification Snooze/
+    // Done callers above, which never touch this flag otherwise) — NOT the same as clearing
+    // #widgetActionOverlay itself, which deliberately stays engaged across the whole backgrounded
+    // period (see showWidgetActionOverlay's own comment). This just tells the pointerdown/
+    // appStateChange listeners further down it's now safe to actually hide it once a real
+    // interaction proves this is a genuine reopen, not another widget action still in flight.
+    widgetOverlayBusy = false;
   }
   var TASK_SNOOZE_MINUTES = 10;
   function handleTaskReminderAction(actionId, key){
@@ -9813,19 +9958,36 @@
     settingsSidebar.setAttribute("aria-hidden", "false");
     refreshBatteryStatusBanner();
     refreshAddWidgetButtonVisibility();
+    collapseAddWidgetOptions(); // always starts collapsed on a fresh open — see its own comment
   }
 
   // Hidden (not just left visible-but-broken) on any launcher that doesn't support
   // AppWidgetManager.requestPinAppWidget() at all — checked fresh every time the menu opens
-  // rather than once at startup, same reasoning as refreshBatteryStatusBanner just above it.
+  // rather than once at startup, same reasoning as refreshBatteryStatusBanner just above it. One
+  // toggle button covers both widgets, since support is a launcher-wide capability, not per-widget.
   function refreshAddWidgetButtonVisibility(){
     if(!window.AppWidgetBridge || !window.AppWidgetBridge.isPinWidgetSupported){
-      sidebarAddWidgetBtn.classList.add("hidden");
+      sidebarAddWidgetToggleBtn.classList.add("hidden");
       return;
     }
     window.AppWidgetBridge.isPinWidgetSupported().then(function(supported){
-      sidebarAddWidgetBtn.classList.toggle("hidden", !supported);
+      sidebarAddWidgetToggleBtn.classList.toggle("hidden", !supported);
     });
+  }
+
+  function toggleAddWidgetOptions(){
+    var expanding = sidebarAddWidgetOptions.classList.contains("hidden");
+    sidebarAddWidgetOptions.classList.toggle("hidden", !expanding);
+    sidebarAddWidgetToggleBtn.classList.toggle("expanded", expanding);
+  }
+
+  // Reset to collapsed every time the sidebar opens (see openSidebar) — remembering "left open
+  // from last time" would mean a returning user occasionally sees the widget choices already
+  // expanded for no reason they'd recall, same one-shot-per-open reasoning as
+  // toggleShoppingBoughtExpanded's own state NOT persisting across a full app relaunch.
+  function collapseAddWidgetOptions(){
+    sidebarAddWidgetOptions.classList.add("hidden");
+    sidebarAddWidgetToggleBtn.classList.remove("expanded");
   }
 
   function closeSidebar(){
@@ -11543,7 +11705,6 @@
       else if(e.target.closest(".device-check-btn")) openCameraForDevice(id);
       else if(e.target.closest(".device-delete")) deleteHomeDevice(id);
     });
-    deviceCameraInput.addEventListener("change", handleDeviceCameraChange);
     homeCheckLightboxClose.addEventListener("click", closeHomeCheckLightbox);
     homeCheckLightboxOverlay.addEventListener("click", function(e){
       if(e.target === homeCheckLightboxOverlay) closeHomeCheckLightbox(); // backdrop only
@@ -11610,8 +11771,33 @@
     // leave a reminder-sound preview audibly running with nothing on screen to stop it from.
     document.addEventListener("visibilitychange", function(){
       if(document.hidden && window.AudioManager) window.AudioManager.stopReminderSoundPreview();
-      if(!document.hidden) replayWidgetPendingActions();
     });
+
+    // appStateChange (2026-09-27) — Capacitor's own foreground/background signal, tied directly to
+    // Android's onResume/onPause. window.Capacitor.Plugins.App is already registered by
+    // src/deeplink.js's import of @capacitor/app, reachable globally the same way the backButton
+    // listener above reaches it, so nothing new needs importing here. Only used for
+    // replayWidgetPendingActions() now — testing found it can take a noticeably laggy moment to
+    // actually fire after a resume, which read as the loader "hanging" when it was the only thing
+    // clearing #widgetActionOverlay; the pointerdown listener just below is what actually clears it
+    // promptly now, this is just a secondary path for whenever nothing gets tapped right away.
+    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+      window.Capacitor.Plugins.App.addListener("appStateChange", function(state){
+        if(!state || !state.isActive) return;
+        replayWidgetPendingActions();
+        if(!widgetOverlayBusy) hideWidgetActionOverlay();
+      });
+    }
+
+    // The actual, snappy way #widgetActionOverlay clears on a genuine reopen (2026-09-27) — any
+    // real tap anywhere is the most immediate proof this is an interactive session, not a widget
+    // quick-action still flashing open. widgetOverlayBusy (see showWidgetActionOverlay's own
+    // comment) is what keeps this from clearing a widget action that's still doing its actual work
+    // (camera capture, reset) — capture:true so it sees the tap before the overlay's own
+    // pointer-events:auto would otherwise swallow it while still showing.
+    document.addEventListener("pointerdown", function(){
+      if(!widgetOverlayBusy) hideWidgetActionOverlay();
+    }, { capture: true });
 
     tabButtons.forEach(function(btn){
       btn.addEventListener("click", function(){ switchTab(btn.dataset.tab); });
@@ -11672,9 +11858,14 @@
       closeSidebar();
       openKindnessModal();
     });
-    sidebarAddWidgetBtn.addEventListener("click", function(){
+    sidebarAddWidgetToggleBtn.addEventListener("click", toggleAddWidgetOptions);
+    sidebarAddWidgetTasksBtn.addEventListener("click", function(){
       closeSidebar();
-      if(window.AppWidgetBridge) window.AppWidgetBridge.requestPinWidget();
+      if(window.AppWidgetBridge) window.AppWidgetBridge.requestPinWidget("tasks");
+    });
+    sidebarAddWidgetHomeControlBtn.addEventListener("click", function(){
+      closeSidebar();
+      if(window.AppWidgetBridge) window.AppWidgetBridge.requestPinWidget("home_control");
     });
     langRuBtn.addEventListener("click", function(){ switchLanguage("ru"); });
     langEnBtn.addEventListener("click", function(){ switchLanguage("en"); });
@@ -12081,7 +12272,10 @@
     sidebarAchievementsBtn = document.getElementById("sidebarAchievementsBtn");
     sidebarTrashBtn = document.getElementById("sidebarTrashBtn");
     sidebarKindnessBtn = document.getElementById("sidebarKindnessBtn");
-    sidebarAddWidgetBtn = document.getElementById("sidebarAddWidgetBtn");
+    sidebarAddWidgetToggleBtn = document.getElementById("sidebarAddWidgetToggleBtn");
+    sidebarAddWidgetOptions = document.getElementById("sidebarAddWidgetOptions");
+    sidebarAddWidgetTasksBtn = document.getElementById("sidebarAddWidgetTasksBtn");
+    sidebarAddWidgetHomeControlBtn = document.getElementById("sidebarAddWidgetHomeControlBtn");
     langRuBtn = document.getElementById("langRuBtn");
     langEnBtn = document.getElementById("langEnBtn");
     genderLordBtn = document.getElementById("genderLordBtn");
@@ -12139,7 +12333,6 @@
     homeCheckAddBtn = document.getElementById("homeCheckAddBtn");
     deviceListEl = document.getElementById("deviceList");
     deviceEmptyHint = document.getElementById("deviceEmptyHint");
-    deviceCameraInput = document.getElementById("deviceCameraInput");
     homeCheckLightboxOverlay = document.getElementById("homeCheckLightboxOverlay");
     homeCheckLightboxImage = document.getElementById("homeCheckLightboxImage");
     homeCheckLightboxClose = document.getElementById("homeCheckLightboxClose");

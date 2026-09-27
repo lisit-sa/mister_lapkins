@@ -134,4 +134,9 @@
          OS's own exemption-request dialog (see BatteryOptimizationPlugin.java) — a normal
          permission, granted automatically at install, no runtime prompt. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Runtime-requested by @capacitor/camera itself (src/camera.js) when Camera.getPhoto() is
+         first called — this manifest entry is just what makes that runtime prompt possible at all.
+         Replaces the old <input type="file" capture> approach (2026-09-27), which never needed an
+         explicit CAMERA permission since the OS's own camera app handled that permission itself. -->
+    <uses-permission android:name="android.permission.CAMERA" />
 </manifest>

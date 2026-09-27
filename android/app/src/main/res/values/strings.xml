@@ -29,4 +29,5 @@
     <string name="home_control_reset_btn">Я дома / Сбросить всё</string>
     <string name="home_control_status_checked">Проверено</string>
     <string name="home_control_status_unchecked">Не проверено</string>
+    <string name="home_control_camera_desc">Сделать фото</string>
 </resources>
