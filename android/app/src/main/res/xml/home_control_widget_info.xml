@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Контроль дома" — a separate widget from Дела/Покупки (see MrLapkinsWidgetProvider's own
+     comment for why that one is a single tabbed widget; this one is deliberately its own provider
+     instead of a third tab on it, per Kristina's explicit request 2026-09-27). No configure
+     activity — there's nothing per-instance to pick, unlike the shopping-list picker on the other
+     widget; every instance just shows the one on-device appliance roster. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_home_control"
+    android:previewImage="@mipmap/ic_launcher"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/home_control_description" />

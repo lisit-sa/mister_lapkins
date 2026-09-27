@@ -48,6 +48,23 @@ public class WidgetBridgePlugin extends Plugin {
         call.resolve();
     }
 
+    // "Контроль дома" widget (2026-09-27) — separate from updateSnapshot/MrLapkinsWidgetProvider
+    // above (see HomeControlWidgetProvider's own top comment for why it's a whole separate widget).
+    // devices: [{id, name, checked}] — checked/photos live only in this device's IndexedDB (never
+    // synced), so index.html computes this from the in-memory homeDevices mirror, not state.
+    // Photos themselves are deliberately NOT included — the widget only ever needs to show whether
+    // a device is checked, and base64 photo data would bloat SharedPreferences for no reason.
+    @PluginMethod
+    public void updateHomeControlSnapshot(PluginCall call) {
+        JSArray devices = call.getArray("devices");
+        getContext().getSharedPreferences(HomeControlWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(HomeControlWidgetProvider.PREF_DEVICES_JSON, devices != null ? devices.toString() : "[]")
+            .apply();
+        HomeControlWidgetProvider.pushUpdate(getContext());
+        call.resolve();
+    }
+
     // Phase 2 (tap-to-check-off) — index.html drains this once on launch/resume and replays each
     // entry through the real toggleTask()/toggleShoppingItem(), so a widget-driven completion goes
     // through the exact same recurrence/reward/Firestore-sync path as an in-app tap. Read-and-clear

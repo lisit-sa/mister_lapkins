@@ -7146,6 +7146,16 @@
       if(listId) selectShoppingList(listId);
       editingShoppingItemId = id;
       renderShoppingItems();
+    } else if(action === "device-camera" && id){
+      // "Контроль дома" widget's camera-shutter row (2026-09-27, see HomeControlWidgetProvider.java)
+      // — openCameraForDevice doesn't care which tab is showing, it just opens the hidden file
+      // input directly, so no tab switch is needed here the way edit-shopping needs one.
+      openCameraForDevice(id);
+    } else if(action === "reset-devices"){
+      // "Я дома" footer button — runs resetAllHomeDevices() for real right away rather than
+      // queuing it for next launch (Kristina's own call, 2026-09-27: it deletes stored photos, not
+      // something to leave half-applied).
+      resetAllHomeDevices();
     }
   }
 
@@ -7718,8 +7728,23 @@
     return reconcileHomeDevicesWithRoster();
   }
 
+  // "Контроль дома" widget (2026-09-27, see HomeControlWidgetProvider.java) — recomputes the
+  // native-side snapshot every time renderHomeDevices() runs, the one function every device
+  // mutation (check, photo, add, delete, reset, cloud reconcile) already funnels through, same
+  // "cheap enough to just call it every time" reasoning as updateWidgetSnapshot(). Only
+  // id/name/checked go across — checked/photos live purely in this device's own IndexedDB (see
+  // normalizeDevice's own comment), never synced, so this is already inherently per-device data;
+  // photos themselves are deliberately left out, the widget only needs to know checked or not.
+  function updateHomeControlWidgetSnapshot(){
+    if(!window.AppWidgetBridge || !window.AppWidgetBridge.updateHomeControlSnapshot) return;
+    window.AppWidgetBridge.updateHomeControlSnapshot(homeDevices.map(function(d){
+      return { id: d.id, name: deviceDisplayName(d), checked: d.checked };
+    }));
+  }
+
   function renderHomeDevices(){
     deviceEmptyHint.classList.toggle("hidden", homeDevices.length > 0);
+    updateHomeControlWidgetSnapshot();
     deviceListEl.innerHTML = homeDevices.map(function(d){
       // Only shown once checked AND there's an actual photo to manage — checking a device via
       // the checkbox alone (no photo, trust-based) shouldn't leave a bare "+" sitting there when

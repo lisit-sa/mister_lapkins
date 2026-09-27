@@ -576,6 +576,16 @@
             console.warn("AppWidgetBridge: requestPinWidget failed", e);
             return false;
           });
+        },
+        // "Контроль дома" widget (2026-09-27) — a separate widget from the one above (see
+        // HomeControlWidgetProvider.java). devices: [{id, name, checked}] — see
+        // updateHomeControlWidgetSnapshot() in index.html for why this reads from the in-memory
+        // homeDevices mirror rather than synced state, and why photos aren't included at all.
+        updateHomeControlSnapshot: function(devices) {
+          return WidgetBridge.updateHomeControlSnapshot({ devices: devices || [] }).catch(function(e) {
+            console.warn("AppWidgetBridge: updateHomeControlSnapshot failed", e);
+            return false;
+          });
         }
       };
     }

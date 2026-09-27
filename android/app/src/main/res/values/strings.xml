@@ -18,4 +18,15 @@
     <string name="widget_add_task">+ Дело</string>
     <string name="widget_add_shopping">+ Покупка</string>
     <string name="widget_pinned_toast">Виджет добавлен на рабочий стол 🎉</string>
+
+    <!-- Second, separate widget (2026-09-27) — "Контроль дома" (see homecheck_* strings/
+         renderHomeDevices in index.html), a distinct home-check feature from Дела/Покупки, kept as
+         its own AppWidgetProvider per Kristina's own request rather than a third tab on the
+         existing one. -->
+    <string name="home_control_title">Контроль дома</string>
+    <string name="home_control_description">Проверка приборов перед уходом из дома</string>
+    <string name="home_control_empty">Список пуст</string>
+    <string name="home_control_reset_btn">Я дома / Сбросить всё</string>
+    <string name="home_control_status_checked">Проверено</string>
+    <string name="home_control_status_unchecked">Не проверено</string>
 </resources>

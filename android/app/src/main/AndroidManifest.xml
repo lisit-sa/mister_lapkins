@@ -103,6 +103,25 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+
+        <!-- "Контроль дома" — a second, separate home-screen widget (see
+             HomeControlWidgetProvider's own comment for why it's not a third tab on the widget
+             above; Kristina's explicit request, 2026-09-27). No configure activity — every
+             instance just shows the one on-device appliance roster, nothing per-instance to pick. -->
+        <receiver
+            android:name=".HomeControlWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/home_control_widget_info" />
+        </receiver>
+        <service
+            android:name=".HomeControlListService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
     </application>
 
     <!-- Permissions -->

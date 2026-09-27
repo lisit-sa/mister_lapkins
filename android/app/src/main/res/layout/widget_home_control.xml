@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Контроль дома" widget — see home_control_widget_info.xml's own comment for why it's a
+     separate provider from Дела/Покупки. Same green card look (widget_rounded_bg/widget_accent/
+     widget_text from colors.xml) as the other widget, reusing the app's own palette rather than
+     inventing a second one. HomeControlWidgetProvider wires: setRemoteAdapter on the ListView (via
+     HomeControlListService), setEmptyView pairing it with the empty-state TextView, and the footer
+     reset button's PendingIntent. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_rounded_bg"
+    android:padding="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="8dp"
+            android:src="@mipmap/ic_launcher_round"
+            android:contentDescription="@string/home_control_title" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/home_control_title"
+            android:textColor="@color/widget_text"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/home_control_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@null"
+            android:dividerHeight="0dp" />
+
+        <TextView
+            android:id="@+id/home_control_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:padding="16dp"
+            android:text="@string/home_control_empty"
+            android:textColor="@color/widget_text_muted"
+            android:textSize="13sp" />
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/widget_accent" />
+
+    <!-- "Я дома" — opens the app briefly to actually run resetAllHomeDevices() (clears every
+         checkbox AND purges stored photos from IndexedDB), rather than an optimistic native-only
+         flip like the Дела/Покупки checkboxes use. Deliberately not deferred to next app-open here
+         (Kristina's own call, 2026-09-27): deleting photos is not something to leave half-applied
+         if the app never happens to reopen soon after. -->
+    <Button
+        android:id="@+id/home_control_reset_btn"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginTop="2dp"
+        android:text="@string/home_control_reset_btn"
+        android:textColor="@color/widget_accent"
+        android:textAllCaps="false"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+</LinearLayout>
