@@ -816,9 +816,12 @@
         });
         LocalNotifications.getPending().then(function(result) {
           var pending = result && result.notifications || [];
+          var RECONCILED_PREFIXES = ["task:", "subtask:", "habit:", "pantry:"];
           var toCancel = pending.filter(function(n) {
             var key = n.extra && n.extra.key;
-            return key && (key.indexOf("task:") === 0 || key.indexOf("subtask:") === 0) && !validSet[key];
+            return key && !validSet[key] && RECONCILED_PREFIXES.some(function(p) {
+              return key.indexOf(p) === 0;
+            });
           }).map(function(n) {
             return { id: n.id };
           });

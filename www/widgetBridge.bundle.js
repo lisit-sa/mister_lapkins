@@ -1,5 +1,4 @@
 (() => {
-  var __defProp = Object.defineProperty;
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __esm = (fn, res, err) => function __init() {
     if (err) throw err[0];
@@ -15,10 +14,6 @@
     } catch (e) {
       throw mod = 0, e;
     }
-  };
-  var __export = (target, all) => {
-    for (var name in all)
-      __defProp(target, name, { get: all[name], enumerable: true });
   };
 
   // node_modules/@capacitor/core/dist/index.js
@@ -530,126 +525,62 @@
     }
   });
 
-  // node_modules/@capacitor/app/dist/esm/definitions.js
-  var init_definitions = __esm({
-    "node_modules/@capacitor/app/dist/esm/definitions.js"() {
-    }
-  });
-
-  // node_modules/@capacitor/app/dist/esm/web.js
-  var web_exports = {};
-  __export(web_exports, {
-    AppWeb: () => AppWeb
-  });
-  var AppWeb;
-  var init_web = __esm({
-    "node_modules/@capacitor/app/dist/esm/web.js"() {
+  // src/widgetBridge.js
+  var require_widgetBridge = __commonJS({
+    "src/widgetBridge.js"() {
       init_dist();
-      AppWeb = class extends WebPlugin {
-        constructor() {
-          super();
-          this.handleVisibilityChange = () => {
-            const data = {
-              isActive: document.hidden !== true
-            };
-            this.notifyListeners("appStateChange", data);
-            if (document.hidden) {
-              this.notifyListeners("pause", null);
-            } else {
-              this.notifyListeners("resume", null);
-            }
-          };
-          document.addEventListener("visibilitychange", this.handleVisibilityChange, false);
-        }
-        exitApp() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async getInfo() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async getLaunchUrl() {
-          return { url: "" };
-        }
-        async getState() {
-          return { isActive: document.hidden !== true };
-        }
-        async minimizeApp() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async toggleBackButtonHandler() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async getAppLanguage() {
-          return {
-            value: navigator.language.split("-")[0].toLowerCase()
-          };
+      var WidgetBridge = registerPlugin("WidgetBridge");
+      window.AppWidgetBridge = {
+        // tasks: [{id, title}]; lists: [{id, name, items: [{id, name}]}] — every shopping list, not
+        // just the active one, so the widget's own per-instance list picker (see
+        // WidgetConfigureActivity.java) has something to choose from; activeListId flags which one is
+        // "the" active list in-app right now, used as the fallback for a widget that hasn't been
+        // configured yet. All already filtered/trimmed by the caller (see updateWidgetSnapshot() in
+        // index.html). Resolves false (not reject) on iOS/web where the native plugin doesn't exist,
+        // same no-native-answer-is-fine convention as AppBattery.
+        updateSnapshot: function(tasks, lists, activeListId) {
+          return WidgetBridge.updateSnapshot({ tasks: tasks || [], lists: lists || [], activeListId: activeListId || "" }).catch(function(e) {
+            console.warn("AppWidgetBridge: updateSnapshot failed", e);
+            return false;
+          });
+        },
+        // Phase 2 (tap-to-check-off) — reads and clears, in one native call, whatever checkbox taps
+        // happened in the widget since the last time this was called. Resolves [] (not reject) on
+        // iOS/web or on any native error, same convention as updateSnapshot above — index.html just
+        // replays whatever comes back, so an empty array here is indistinguishable from "nothing to do".
+        takePendingActions: function() {
+          return WidgetBridge.takePendingActions().then(function(r) {
+            return r && r.actions || [];
+          }).catch(function(e) {
+            console.warn("AppWidgetBridge: takePendingActions failed", e);
+            return [];
+          });
+        },
+        // "Добавить виджет" in the sidebar (2026-09-17) — whether AppWidgetManager.requestPinAppWidget()
+        // is even available on this launcher, checked fresh each time the sidebar opens (see
+        // refreshAddWidgetButtonVisibility in index.html) so the button is hidden entirely rather than
+        // sitting there doing nothing on a launcher that doesn't support it. Resolves false on
+        // iOS/web/any error, same convention as the rest of this module.
+        isPinWidgetSupported: function() {
+          return WidgetBridge.isPinWidgetSupported().then(function(r) {
+            return !!(r && r.supported);
+          }).catch(function(e) {
+            console.warn("AppWidgetBridge: isPinWidgetSupported failed", e);
+            return false;
+          });
+        },
+        // Fires the OS's own "add this widget to your home screen?" confirmation directly, instead of
+        // making someone find Mr. Lapkins by hand in the system's general widget picker.
+        requestPinWidget: function() {
+          return WidgetBridge.requestPinWidget().catch(function(e) {
+            console.warn("AppWidgetBridge: requestPinWidget failed", e);
+            return false;
+          });
         }
       };
     }
   });
-
-  // node_modules/@capacitor/app/dist/esm/index.js
-  var App;
-  var init_esm = __esm({
-    "node_modules/@capacitor/app/dist/esm/index.js"() {
-      init_dist();
-      init_definitions();
-      App = registerPlugin("App", {
-        web: () => Promise.resolve().then(() => (init_web(), web_exports)).then((m) => new m.AppWeb())
-      });
-    }
-  });
-
-  // src/deeplink.js
-  var require_deeplink = __commonJS({
-    "src/deeplink.js"() {
-      init_esm();
-      var onJoinCodeFn = null;
-      var onWidgetActionFn = null;
-      function extractJoinCode(url) {
-        try {
-          var parsed = new URL(url);
-          var isCustomScheme = parsed.protocol === "misterlapkins:" && parsed.hostname === "join";
-          var isAppLink = parsed.protocol === "https:" && parsed.pathname === "/join";
-          if (!isCustomScheme && !isAppLink) return null;
-          return parsed.searchParams.get("code");
-        } catch (e) {
-          return null;
-        }
-      }
-      function extractWidgetAction(url) {
-        try {
-          var parsed = new URL(url);
-          if (parsed.protocol !== "misterlapkins:" || parsed.hostname !== "open") return null;
-          return {
-            action: parsed.searchParams.get("action"),
-            id: parsed.searchParams.get("id"),
-            listId: parsed.searchParams.get("listId")
-          };
-        } catch (e) {
-          return null;
-        }
-      }
-      App.addListener("appUrlOpen", function(data) {
-        var url = data && data.url;
-        if (!url) return;
-        var code = extractJoinCode(url);
-        if (code && onJoinCodeFn) {
-          onJoinCodeFn(code);
-          return;
-        }
-        var widget = extractWidgetAction(url);
-        if (widget && widget.action && onWidgetActionFn) onWidgetActionFn(widget.action, widget.id, widget.listId);
-      });
-      window.AppDeepLink = {
-        init: function(onJoinCode, onWidgetAction) {
-          onJoinCodeFn = onJoinCode;
-          onWidgetActionFn = onWidgetAction;
-        }
-      };
-    }
-  });
-  require_deeplink();
+  require_widgetBridge();
 })();
 /*! Bundled license information:
 

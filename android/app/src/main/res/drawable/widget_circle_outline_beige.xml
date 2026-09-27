@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Beige counterpart to widget_circle_outline.xml (its cream stroke would be invisible against
+     the beige Покупки background, see colors.xml's widget_bg_shopping comment) — used by
+     widget_shopping_row.xml only, since that layout's rows only ever show while Покупки is active. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <stroke android:width="2dp" android:color="@color/widget_text_on_beige" />
+    <solid android:color="@android:color/transparent" />
+</shape>

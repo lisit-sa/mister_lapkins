@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Покупки tab's background, shown ONLY while it's the inactive tab (Дела active) — see
+     widget_tab_inactive_tasks.xml's own comment, same reasoning (rounded on all four corners now). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_bg_shopping" />
+    <corners android:radius="12dp" />
+</shape>

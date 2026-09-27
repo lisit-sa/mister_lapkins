@@ -3601,6 +3601,18 @@
     <span data-i18n="sidebar_nav_trash">Корзина</span>
   </button>
 
+  <!-- Requests the OS's own "add widget to home screen" flow directly, via
+       AppWidgetManager.requestPinAppWidget() (WidgetBridgePlugin.java) — Kristina wanted an
+       easier way to find/add the widget than making people dig through the system's own widget
+       picker themselves (2026-09-17). Hidden entirely (not just disabled) when the launcher
+       doesn't support the pin-request API at all (checked once when the sidebar opens, see
+       refreshAddWidgetButtonVisibility) — a dead button that silently does nothing on tap would
+       be worse than no button. -->
+  <button type="button" class="sidebar-nav-btn hidden" id="sidebarAddWidgetBtn">
+    <span class="sidebar-nav-icon">▦</span>
+    <span data-i18n="sidebar_nav_add_widget">Добавить виджет</span>
+  </button>
+
   <button type="button" class="sidebar-nav-btn" id="sidebarKindnessBtn">
     <svg class="sidebar-nav-icon icon-glyph-dark"><use href="#icon-paw-dark"></use></svg>
     <svg class="sidebar-nav-icon icon-glyph-light"><use href="#icon-paw-light"></use></svg>
@@ -3816,6 +3828,16 @@
      Run `npm run build:billing` again after editing the source, then `npx cap sync android`,
      before this takes effect on device. -->
 <script src="billing.bundle.js"></script>
+<!-- Home-screen widget bridge (local plugin, no npm package — see
+     android/.../WidgetBridgePlugin.java) — see src/widgetBridge.js. Talks to the rest of the
+     (unbundled) app only through window.AppWidgetBridge (called from saveState()/
+     applyRemoteState() further down). Run `npm run build:widgetbridge` again after editing the
+     source, then `npx cap sync android` + a native rebuild — not just an OTA web update — before
+     this takes effect on device. -->
+<script src="widgetBridge.bundle.js"></script>
+<!-- Google Play In-App Updates prompt (src/appUpdate.js) — native plugin, so like widgetBridge it
+     only takes effect after a native rebuild, not an OTA web update alone. -->
+<script src="appUpdate.bundle.js"></script>
 <script>
 (function(){
   "use strict";
@@ -3888,6 +3910,8 @@
       aria_restore: "Восстановить",
       aria_delete_forever: "Удалить навсегда",
       sidebar_nav_trash: "Корзина",
+      sidebar_nav_add_widget: "Добавить виджет",
+      app_update_downloaded: "Новая версия приложения загружена. Перезапустить сейчас, чтобы обновиться?",
       trash_screen_title: "Корзина",
       trash_clear_all: "Очистить всё",
       trash_empty_deleted: "Корзина пуста.",
@@ -4242,6 +4266,8 @@
       aria_restore: "Restore",
       aria_delete_forever: "Delete forever",
       sidebar_nav_trash: "Trash",
+      sidebar_nav_add_widget: "Add widget",
+      app_update_downloaded: "A new version of the app has been downloaded. Restart now to update?",
       trash_screen_title: "Trash",
       trash_clear_all: "Clear all",
       trash_empty_deleted: "Trash is empty.",
@@ -4849,6 +4875,7 @@
   var batteryHintModalOverlay, batteryHintOkBtn, batteryHintSkipBtn, batteryStatusBanner, batteryStatusFixBtn;
   var notifPermissionBtn, notifPermissionStatus, notifBatteryBtn, notifBatteryStatus;
   var sidebarSettingsBtn, sidebarKindnessBtn, settingsBackBtn, kindnessModalOverlay, kindnessModalCloseX;
+  var sidebarAddWidgetBtn;
   var collectionInfoBtn, collectionInfoModalOverlay, collectionInfoModalCloseX;
   var progressWrapEl;
   var habitList, addHabitTrigger;
@@ -5516,6 +5543,60 @@
     return fresh;
   }
 
+  // Home-screen widget (see the widget plan doc / src/widgetBridge.js) — the widget runs as
+  // native RemoteViews outside the WebView, so it can't read `state` itself; this recomputes a
+  // small snapshot and hands it to the native side every time state actually changes. Cheap
+  // (a filter + slice over what's already in memory), so no need to throttle/debounce it — called
+  // from both saveState() (every local mutation) and applyRemoteState() (a sync landing from
+  // another device), so the widget never shows data staler than whatever's on screen right now.
+  function updateWidgetSnapshot(){
+    if(!window.AppWidgetBridge) return;
+    var tasks = state.tasks
+      .filter(function(t){ return t.type === "task" && !t.completed && !t.deleted && !t.archived; })
+      .sort(function(a, b){ return (a.order || 0) - (b.order || 0); })
+      .slice(0, 5)
+      .map(function(t){ return { id: t.id, title: t.title }; });
+    // Every list, not just the active one — the widget can now show a different list per
+    // instance (its own configure screen, see WidgetConfigureActivity.java), so it needs its own
+    // copy of each list's items to pick from rather than only ever seeing whichever one happens to
+    // be active in-app right now. householdItemsCache only ever holds the CURRENTLY-subscribed
+    // household's items (see ensureHouseholdSubscription) — a household list that isn't the active
+    // one shows as present (so it's selectable) but with no items until it's actually opened once
+    // in-app; that's an accepted narrower scope for now, not a bug.
+    var activeListId = state.activeShoppingListId;
+    var lists = state.shoppingLists.map(function(l){
+      var source = l.householdId ? (l.id === activeListId ? householdItemsCache : []) : l.items;
+      return {
+        id: l.id,
+        name: shoppingListDisplayName(l),
+        items: source.filter(function(it){ return !it.checked; }).slice(0, 5).map(function(it){ return { id: it.id, name: it.name }; })
+      };
+    });
+    window.AppWidgetBridge.updateSnapshot(tasks, lists, activeListId);
+  }
+
+  // Phase 2 (tap-to-check-off, 2026-09-17) — drains whatever checkbox taps happened in the widget
+  // since the last drain and replays each one through the real toggleTask()/toggleShoppingItem(),
+  // so a widget-driven completion gets the exact same recurrence/reward/Firestore-sync behavior as
+  // an in-app tap rather than a second, divergent code path (see the widget plan doc). Called once
+  // on launch (init()) and again on every resume (visibilitychange going visible) — a widget tap
+  // only ever queues locally, so this is the one place it actually takes effect.
+  function replayWidgetPendingActions(){
+    if(!window.AppWidgetBridge || !window.AppWidgetBridge.takePendingActions) return;
+    window.AppWidgetBridge.takePendingActions().then(function(actions){
+      if(!actions || !actions.length) return;
+      actions.forEach(function(action){
+        if(!action || !action.id) return;
+        if(action.type === "shopping") toggleShoppingItem(action.id, action.listId);
+        else toggleTask(action.id);
+      });
+      // Every replayed action already ran saveState() itself (toggleTask/toggleShoppingItem both
+      // do) — this just makes sure the widget's own snapshot reflects the outcome immediately
+      // rather than waiting for some unrelated later save.
+      updateWidgetSnapshot();
+    });
+  }
+
   function saveState(){
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -5526,6 +5607,7 @@
     // covers the offline/not-signed-in case exactly as before.
     if(window.CloudSync) window.CloudSync.queuePush();
     maybeSuggestSignIn();
+    updateWidgetSnapshot();
   }
 
   // Lifts the #appLoadingOverlay cover (see its markup/CSS for why it exists). Called from three
@@ -5556,6 +5638,7 @@
     updateCategoryFilterLabel();
     renderCategoryFilterList();
     renderAll();
+    updateWidgetSnapshot();
     hideAppLoadingOverlay();
     // The device roster can also have changed (added/removed on another device) — line the local
     // IndexedDB records back up with it (see the long comment on reconcileHomeDevicesWithRoster).
@@ -5566,20 +5649,29 @@
     // schedules from before the sync in place.
     rescheduleAllHabitReminders();
     rescheduleAllPantryReminders();
-    // See reconcileTaskReminders' own comment (src/notifications.js) — a task/subtask reminder
-    // deleted on a DIFFERENT device never gets its OS-level alarm cancelled on this one just by
-    // this state swap; this diffs what's actually scheduled here against what the just-applied
-    // state says should exist, and cancels the rest.
-    if(window.AppNotifications){
-      var validReminderKeys = [];
-      state.tasks.forEach(function(t){
-        if(!t.deleted && t.reminderDateTime) validReminderKeys.push("task:" + t.id);
-        t.subtasks.forEach(function(s){
-          if(!s.deleted && s.reminderDateTime) validReminderKeys.push("subtask:" + s.id);
-        });
+    reconcileScheduledReminders();
+  }
+
+  // See reconcileTaskReminders' own comment (src/notifications.js) — a reminder for something
+  // deleted on a DIFFERENT device (or dropped by a state swap like applyRemoteState) never gets its
+  // OS-level alarm cancelled on this one, since deletePantryItem/deleteTask/etc. only cancel on the
+  // device the delete actually happened on. This diffs what's actually scheduled here against what
+  // the current state says should exist, and cancels the rest. Covers pantry and habits too now
+  // (2026-09-20 — a deleted "cat food" pantry item kept sending reminders: only task/subtask keys
+  // were being reconciled before), and also runs on every launch, not just after a sync, so
+  // orphaned alarms already sitting on a device from before this fix get cleaned up too.
+  function reconcileScheduledReminders(){
+    if(!window.AppNotifications) return;
+    var validReminderKeys = [];
+    state.tasks.forEach(function(t){
+      if(!t.deleted && t.reminderDateTime) validReminderKeys.push("task:" + t.id);
+      t.subtasks.forEach(function(s){
+        if(!s.deleted && s.reminderDateTime) validReminderKeys.push("subtask:" + s.id);
       });
-      window.AppNotifications.reconcileTaskReminders(validReminderKeys);
-    }
+    });
+    state.habits.forEach(function(h){ validReminderKeys.push("habit:" + h.id); });
+    state.pantry.forEach(function(p){ validReminderKeys.push("pantry:" + p.id); });
+    window.AppNotifications.reconcileTaskReminders(validReminderKeys);
   }
 
   function updateAccountUI(user){
@@ -7031,6 +7123,32 @@
     joinHouseholdByCode(code);
   }
 
+  // misterlapkins://open?action=...[&id=...][&listId=...] — the home-screen widget's add buttons
+  // and, since 2026-09-17, its per-row pencil (see src/deeplink.js/MrLapkinsWidgetProvider.java).
+  // "add-shopping" jumps straight to the Покупки subtab and focuses the add-item field so typing
+  // can start immediately, same reasoning as the 260ms-delayed focus already used when the
+  // add-task modal itself opens (openAddTaskModal) — the tab switch's own fade-in animation needs
+  // a beat to finish first. "edit-task"/"edit-shopping" open that specific item straight into
+  // editing rather than just opening the app generically, reusing the exact same in-app edit
+  // entry points a real tap would (openTaskDetailModal / the shopping list's inline edit input).
+  function handleWidgetAction(action, id, listId){
+    if(action === "add-task"){
+      openAddTaskModal();
+    } else if(action === "add-shopping"){
+      switchTab("pantry");
+      switchProductsSubtab("shopping");
+      setTimeout(function(){ shoppingItemAddInput.focus(); }, 260);
+    } else if(action === "edit-task" && id){
+      openTaskDetailModal(id);
+    } else if(action === "edit-shopping" && id){
+      switchTab("pantry");
+      switchProductsSubtab("shopping");
+      if(listId) selectShoppingList(listId);
+      editingShoppingItemId = id;
+      renderShoppingItems();
+    }
+  }
+
   function renderShoppingItemCard(it, showDragHandle){
     var isEditing = editingShoppingItemId === it.id;
     var nameHtml = isEditing
@@ -7088,6 +7206,14 @@
         // first keystroke wiped the whole thing instead of landing where you'd expect (reported
         // 2026-09-14, right after the focus-timing fix above shipped).
         requestAnimationFrame(function(){
+          // Scrolled into view BEFORE focus() opens the keyboard — the item can be anywhere in a
+          // long list (especially when editing starts from the widget's pencil, not a tap on an
+          // already-visible row), and the list is its own scroll container, so the WebView's usual
+          // "scroll a focused input into view" doesn't reach it on its own (reported by Kristina,
+          // 2026-09-17: opening edit from the widget either didn't scroll to the item at all, or
+          // the keyboard covered it right after). "center", not "nearest", so there's still room
+          // left once the keyboard eats the bottom half of the screen.
+          input.scrollIntoView({ block: "center", behavior: "instant" });
           input.focus();
           var len = input.value.length;
           input.setSelectionRange(len, len);
@@ -7266,8 +7392,12 @@
     showToast(t("pantry_auto_replenished_toast_template").replace("{item}", pantryDisplayName(pantryItem)));
   }
 
-  function toggleShoppingItem(id){
-    var active = getActiveShoppingList();
+  // listId is optional — omitted, this toggles within whichever list is active in-app right now
+  // (every existing in-app call site), same as before. Passed explicitly by
+  // replayWidgetPendingActions() below, since a widget instance can be pinned to a list that
+  // isn't the one currently active in-app (see WidgetConfigureActivity.java).
+  function toggleShoppingItem(id, listId){
+    var active = listId ? state.shoppingLists.find(function(l){ return l.id === listId; }) : getActiveShoppingList();
     if(!active) return;
     if(active.householdId){
       var sharedItem = householdItemsCache.find(function(it){ return it.id === id; });
@@ -9657,6 +9787,20 @@
     sidebarOverlay.classList.add("open");
     settingsSidebar.setAttribute("aria-hidden", "false");
     refreshBatteryStatusBanner();
+    refreshAddWidgetButtonVisibility();
+  }
+
+  // Hidden (not just left visible-but-broken) on any launcher that doesn't support
+  // AppWidgetManager.requestPinAppWidget() at all — checked fresh every time the menu opens
+  // rather than once at startup, same reasoning as refreshBatteryStatusBanner just above it.
+  function refreshAddWidgetButtonVisibility(){
+    if(!window.AppWidgetBridge || !window.AppWidgetBridge.isPinWidgetSupported){
+      sidebarAddWidgetBtn.classList.add("hidden");
+      return;
+    }
+    window.AppWidgetBridge.isPinWidgetSupported().then(function(supported){
+      sidebarAddWidgetBtn.classList.toggle("hidden", !supported);
+    });
   }
 
   function closeSidebar(){
@@ -11441,6 +11585,7 @@
     // leave a reminder-sound preview audibly running with nothing on screen to stop it from.
     document.addEventListener("visibilitychange", function(){
       if(document.hidden && window.AudioManager) window.AudioManager.stopReminderSoundPreview();
+      if(!document.hidden) replayWidgetPendingActions();
     });
 
     tabButtons.forEach(function(btn){
@@ -11501,6 +11646,10 @@
     sidebarKindnessBtn.addEventListener("click", function(){
       closeSidebar();
       openKindnessModal();
+    });
+    sidebarAddWidgetBtn.addEventListener("click", function(){
+      closeSidebar();
+      if(window.AppWidgetBridge) window.AppWidgetBridge.requestPinWidget();
     });
     langRuBtn.addEventListener("click", function(){ switchLanguage("ru"); });
     langEnBtn.addEventListener("click", function(){ switchLanguage("en"); });
@@ -11907,6 +12056,7 @@
     sidebarAchievementsBtn = document.getElementById("sidebarAchievementsBtn");
     sidebarTrashBtn = document.getElementById("sidebarTrashBtn");
     sidebarKindnessBtn = document.getElementById("sidebarKindnessBtn");
+    sidebarAddWidgetBtn = document.getElementById("sidebarAddWidgetBtn");
     langRuBtn = document.getElementById("langRuBtn");
     langEnBtn = document.getElementById("langEnBtn");
     genderLordBtn = document.getElementById("genderLordBtn");
@@ -12007,6 +12157,7 @@
     // "Готово" notification button) waits here — the first real moment someone's actually in the
     // app — rather than trying (and failing) to show a modal from a backgrounded notification tap.
     if(state.settings.gamificationEnabled && state.pendingBoxReveal) showBoxModal();
+    replayWidgetPendingActions();
     checkReminders();
     setInterval(checkReminders, 20000);
     habitTick();
@@ -12071,9 +12222,20 @@
       // and re-arms everything each launch as a safety net.
       rescheduleAllHabitReminders();
       rescheduleAllPantryReminders();
+      reconcileScheduledReminders();
     }
 
-    if(window.AppDeepLink) window.AppDeepLink.init(handleJoinDeepLink);
+    // Offers the Play Store update (see src/appUpdate.js) — deferred a few seconds so it never
+    // competes with startup work, and only asks to restart once the download has actually finished.
+    if(window.AppUpdate){
+      setTimeout(function(){
+        window.AppUpdate.init(function(restart){
+          if(window.confirm(t("app_update_downloaded"))) restart();
+        });
+      }, 8000);
+    }
+
+    if(window.AppDeepLink) window.AppDeepLink.init(handleJoinDeepLink, handleWidgetAction);
 
     // --kb-modal-max-h (see .add-task-card's own comment) — visualViewport.height already
     // excludes the on-screen keyboard on Android Chrome/WebView, unlike window.innerHeight (which
@@ -12083,6 +12245,17 @@
     if(window.visualViewport){
       var applyKeyboardAwareModalHeight = function(){
         document.documentElement.style.setProperty("--kb-modal-max-h", (window.visualViewport.height * 0.85) + "px");
+        // A shopping item being edited (see renderShoppingItems) can end up covered by the
+        // keyboard once it finishes sliding up, even after the scrollIntoView already done right
+        // before focus() — that first scroll ran against the pre-keyboard viewport height, so it
+        // has no way to know how much room the keyboard is about to eat. This resize event is the
+        // actual signal the keyboard's animation is done, so re-scrolling here is what actually
+        // keeps the input on screen (reported by Kristina, 2026-09-17, after the first fix alone
+        // wasn't enough for items opened via the widget's pencil).
+        var active = document.activeElement;
+        if(active && active.classList && active.classList.contains("shopping-item-edit-input")){
+          active.scrollIntoView({ block: "center", behavior: "instant" });
+        }
       };
       window.visualViewport.addEventListener("resize", applyKeyboardAwareModalHeight);
       applyKeyboardAwareModalHeight();

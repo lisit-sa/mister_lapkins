@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static "unchecked" glyph for widget rows — Phase 1 is read-only (see the widget plan doc),
+     so this is decorative only, matching .task-check/.shopping-item-checkbox's look in the app
+     rather than an actually-tappable control. Phase 2 (tap-to-check-off) swaps this for a real
+     click target. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <stroke android:width="2dp" android:color="@color/widget_text" />
+    <solid android:color="@android:color/transparent" />
+</shape>

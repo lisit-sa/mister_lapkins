@@ -27,12 +27,18 @@
                  using it. See src/deeplink.js (@capacitor/app's appUrlOpen) for where this
                  actually gets picked up on the web side. singleTask above means an
                  already-running app gets this via onNewIntent, not a fresh launch —
-                 BridgeActivity handles that itself. -->
+                 BridgeActivity handles that itself.
+                 host="open" (2026-09-16) is a second, unrelated use of the same custom-scheme
+                 mechanism — the widget's "+" button (see MrLapkinsWidgetProvider) launches
+                 misterlapkins://open?action=add-task|add-shopping to jump straight to the
+                 relevant add flow instead of just opening the app to whatever screen it last
+                 had open. Same src/deeplink.js listener handles both hosts. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="misterlapkins" android:host="join" />
+                <data android:scheme="misterlapkins" android:host="open" />
             </intent-filter>
             <!-- Verified https App Link (https://mister-lapkins.web.app/join?code=XXXX) — this is
                  what actually shows up as a tappable link in WhatsApp/Telegram/etc, unlike the
@@ -54,6 +60,49 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Home-screen widget (Дела + Покупки) — see the widget plan doc / MrLapkinsWidgetProvider's
+             own comment for the full design. exported="true" on the receiver is required for
+             APPWIDGET_UPDATE to actually reach it (the launcher process delivers that broadcast). -->
+        <receiver
+            android:name=".MrLapkinsWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/mr_lapkins_widget_info" />
+        </receiver>
+        <service
+            android:name=".WidgetListService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+        <!-- Picks which shopping list this widget instance shows — see WidgetConfigureActivity's
+             own class comment for the two ways it's reached (initial placement vs re-picking
+             later from the widget's own list-name button). exported="true" + the CONFIGURE
+             intent-filter is required for the system's own widget-placement flow to find it.
+             AppTheme.NoActionBar, NOT ...NoActionBarLaunch — that one's windowBackground is the
+             Capacitor splash graphic (@drawable/splash, swapped out by the Bridge once
+             MainActivity's WebView loads); this activity never does that swap, so with the Launch
+             theme the splash logo showed through behind our own content everywhere our layout
+             didn't opaquely paint over it (reported by Kristina as a "странное окно", 2026-09-17).
+             taskAffinity="" is required too — without it this activity defaults to sharing a task
+             with MainActivity (singleTask, same default affinity), so finishing it revealed the
+             app's own main screen underneath instead of the home screen/widget (reported by
+             Kristina 2026-09-17: "выбрасывает... на главный экран приложения"). excludeFromRecents
+             keeps this one-shot picker out of the recent-apps list too, since it's not a screen
+             worth switching back to. -->
+        <activity
+            android:name=".WidgetConfigureActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
 
     <!-- Permissions -->

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One row inside the Покупки tab's ListView — see widget_task_row.xml's own comment, same
+     row-checks-off / pencil-edits reasoning applies here (2026-09-17, revised). Dark-on-beige
+     colors throughout (not widget_text/widget_text_muted, the light-on-green ones
+     widget_task_row.xml uses) — these rows only ever show while Покупки is the active tab, which
+     is beige now (see colors.xml's widget_bg_shopping comment). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_row_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingLeft="12dp"
+    android:paddingRight="4dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <ImageView
+        android:id="@+id/widget_row_check"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:padding="4dp"
+        android:layout_marginEnd="6dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_circle_outline_beige" />
+
+    <TextView
+        android:id="@+id/widget_row_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="@color/widget_text_on_beige"
+        android:textSize="14sp"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/widget_row_edit"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:gravity="center"
+        android:text="✎"
+        android:textColor="@color/widget_text_muted_on_beige"
+        android:textSize="16sp" />
+</LinearLayout>

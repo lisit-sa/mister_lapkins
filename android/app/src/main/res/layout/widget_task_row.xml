@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One row inside the Дела tab's ListView (see WidgetListService's tasks RemoteViewsFactory).
+     Two tap targets (2026-09-17, revised): the whole row (circle + title) checks the task off —
+     WidgetRemoteViewsFactory.getViewAt sets that fillInIntent on widget_row_root itself now, not
+     just the circle, since Kristina expected tapping the text to cross it out too, not open the
+     app. The pencil is its own smaller nested target (a child view's fillInIntent wins over its
+     ancestor's wherever they overlap) that opens that specific item for editing instead. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_row_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingLeft="12dp"
+    android:paddingRight="4dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <ImageView
+        android:id="@+id/widget_row_check"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:padding="4dp"
+        android:layout_marginEnd="6dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_circle_outline" />
+
+    <TextView
+        android:id="@+id/widget_row_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="@color/widget_text"
+        android:textSize="14sp"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/widget_row_edit"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:gravity="center"
+        android:text="✎"
+        android:textColor="@color/widget_text_muted"
+        android:textSize="16sp" />
+</LinearLayout>

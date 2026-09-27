@@ -7,9 +7,10 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Local (not npm-published) plugin — must be registered before super.onCreate() per
+        // Local (not npm-published) plugins — must be registered before super.onCreate() per
         // Capacitor's own convention for custom plugins living directly in the app module.
         registerPlugin(BatteryOptimizationPlugin.class);
+        registerPlugin(WidgetBridgePlugin.class);
         super.onCreate(savedInstanceState);
         // Capacitor only enables chrome://inspect debugging by default for debug builds — this
         // forces it on for release builds too, so the cloud-sync data-loss bug can actually be

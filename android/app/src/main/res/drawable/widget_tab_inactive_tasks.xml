@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Дела tab's background, shown ONLY while it's the inactive tab (Покупки active) — flat green,
+     rounded on all four corners now (2026-09-17, revised again: was just the outer corner, but
+     Kristina wants it reading as its own distinct floating chip rather than a block flush against
+     the card's edge — see the marginTop/marginStart/marginEnd around the button in widget_main.xml
+     that gives the root's own background room to show around it on every side). The active tab
+     still has NO box of its own at all, just text directly on the root's matching-color background
+     — see MrLapkinsWidgetProvider, which sets this only on the INACTIVE button and clears the
+     other one's background entirely. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_bg" />
+    <corners android:radius="12dp" />
+</shape>

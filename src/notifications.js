@@ -125,17 +125,20 @@ function cancel(id){
 // scheduled locally never hears about it — applyRemoteState() just swaps state.tasks wholesale,
 // it doesn't diff against what's actually still scheduled here. Without this, that other
 // device's stale alarm fires anyway, for a task that's long gone. Reported 2026-08-23 — a
-// notification arrived for an already-deleted recurring task. Scoped to task:/subtask: keys only
-// (checked via the prefix) so this never touches Pomodoro's reserved ids, which carry no
+// notification arrived for an already-deleted recurring task. Scoped to keys with a known prefix
+// (see RECONCILED_PREFIXES below) so this never touches Pomodoro's reserved ids, which carry no
 // extra.key at all.
 function reconcileTaskReminders(validKeys){
   var validSet = {};
   validKeys.forEach(function(k){ validSet[k] = true; });
   LocalNotifications.getPending().then(function(result){
     var pending = (result && result.notifications) || [];
+    // habit:/pantry: added 2026-09-20 — a deleted pantry item's alarm survived (state swapped by
+    // a cloud sync, or deleted on another device) and kept firing "running out" reminders for it.
+    var RECONCILED_PREFIXES = ["task:", "subtask:", "habit:", "pantry:"];
     var toCancel = pending.filter(function(n){
       var key = n.extra && n.extra.key;
-      return key && (key.indexOf("task:") === 0 || key.indexOf("subtask:") === 0) && !validSet[key];
+      return key && !validSet[key] && RECONCILED_PREFIXES.some(function(p){ return key.indexOf(p) === 0; });
     }).map(function(n){ return { id: n.id }; });
     if(toCancel.length){
       console.log("AppNotifications: reconcile cancelling orphaned reminders", toCancel.length);

@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Single widget, two tabs (Дела/Покупки) via ViewFlipper — see the widget plan doc for why one
+     widget instead of two. MrLapkinsWidgetProvider wires: tab button PendingIntents (broadcast
+     back to itself, custom ACTION_SHOW_* extras), each ListView's setRemoteAdapter (via
+     WidgetListService, listType "tasks"/"shopping"), and setEmptyView pairing each ListView with
+     its sibling empty-state TextView. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_rounded_bg"
+    android:padding="4dp">
+
+    <!-- Active tab has NO background of its own — just text sitting directly on widget_root's own
+         background, which matches its color too (green for Дела, beige for Покупки), so it reads
+         as merged into the page below rather than a separate floating box. The INACTIVE tab gets
+         its own flat, fixed-color, fully-rounded-corner chip (widget_tab_inactive_tasks.xml/
+         _shopping.xml) with margin on every side so the root's own background shows all the way
+         around it — MrLapkinsWidgetProvider is what actually swaps which button has which
+         treatment. Redesigned 2026-09-17 per Kristina's own sketches of the look she wanted ("like
+         browser tabs" — earlier passes gave both tabs one shared pill style regardless of active
+         state, then only the outer corner rounded on the inactive one; this is the third revision).
+         Text colors are static here and never change: Дела's button text is always cream (it's on
+         a green surface either way — the root or its own inactive chip), Покупки's is always dark
+         brown (beige surface either way), so there's no per-tab dynamic color logic in Java either. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <Button
+            android:id="@+id/widget_tab_tasks_btn"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginTop="3dp"
+            android:layout_marginBottom="3dp"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="14dp"
+            android:minHeight="0dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="@string/widget_tab_tasks"
+            android:textColor="@color/widget_text"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/widget_app_icon"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@mipmap/ic_launcher_round"
+            android:contentDescription="@string/app_name" />
+
+        <!-- android:background here is just the DEFAULT before any real data/state exists — Java
+             always overrides it via setInt() on every real update (see MrLapkinsWidgetProvider),
+             so this has no effect on the actual running widget. It exists purely so the widget
+             picker's "live" preview (previewLayout in mr_lapkins_widget_info.xml, which literally
+             inflates this file with no code running) shows the two-tone tab look instead of two
+             identical plain-text buttons (2026-09-17 — the picker card was just showing the bare
+             app icon before, since previewImage had never been set to anything more specific). -->
+        <Button
+            android:id="@+id/widget_tab_shopping_btn"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginTop="3dp"
+            android:layout_marginBottom="3dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="3dp"
+            android:minHeight="0dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:background="@drawable/widget_tab_inactive_shopping"
+            android:text="@string/widget_tab_shopping"
+            android:textColor="@color/widget_accent"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Current shopping list name (tap → WidgetConfigureActivity to pick a different one) — only
+         relevant/visible while the Покупки tab is showing (MrLapkinsWidgetProvider toggles this
+         row's visibility with the active tab; showing a shopping-list name under the Дела tab
+         read as a bug to Kristina on the first pass, 2026-09-17). -->
+    <LinearLayout
+        android:id="@+id/widget_list_name_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="6dp"
+        android:paddingRight="6dp"
+        android:paddingBottom="2dp">
+
+        <TextView
+            android:id="@+id/widget_list_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:text="@string/widget_tab_shopping"
+            android:textColor="@color/widget_text_muted_on_beige"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="4dp"
+            android:text="▾"
+            android:textColor="@color/widget_text_muted_on_beige"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- No divider line here anymore (2026-09-17, removed) — Kristina wants the header reading as
+         one continuous surface with the content below it, not visually cut off from it. The
+         footer still has its own divider (see below); that one's a real functional boundary since
+         the footer's add button isn't part of the scrollable list content the way the header
+         visually blends into it. -->
+
+    <ViewFlipper
+        android:id="@+id/widget_flipper"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ListView
+                android:id="@+id/widget_tasks_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@null"
+                android:dividerHeight="0dp" />
+
+            <TextView
+                android:id="@+id/widget_tasks_empty"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:padding="16dp"
+                android:text="@string/widget_empty_tasks"
+                android:textColor="@color/widget_text_muted"
+                android:textSize="13sp" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ListView
+                android:id="@+id/widget_shopping_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@null"
+                android:dividerHeight="0dp" />
+
+            <TextView
+                android:id="@+id/widget_shopping_empty"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:padding="16dp"
+                android:text="@string/widget_empty_shopping"
+                android:textColor="@color/widget_text_muted_on_beige"
+                android:textSize="13sp" />
+        </FrameLayout>
+    </ViewFlipper>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/widget_accent" />
+
+    <!-- Footer: a single add button matching whichever tab is showing — "+ Дело" on Дела, "+
+         Покупка" on Покупки (MrLapkinsWidgetProvider toggles which one is VISIBLE/GONE with the
+         active tab). Was two buttons side by side at first, which read as confusing/redundant to
+         Kristina in testing (2026-09-17) — she wants the button itself to say what tab you're on. -->
+    <Button
+        android:id="@+id/widget_add_task_btn"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginTop="2dp"
+        android:text="@string/widget_add_task"
+        android:textColor="@color/widget_accent"
+        android:textAllCaps="false"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/widget_add_shopping_btn"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginTop="2dp"
+        android:text="@string/widget_add_shopping"
+        android:textColor="@color/widget_accent"
+        android:textAllCaps="false"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+</LinearLayout>

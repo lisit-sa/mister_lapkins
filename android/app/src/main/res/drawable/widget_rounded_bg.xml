@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget root background (widget_main.xml) — rounded corners drawn here instead of relying on
+     Android 12+'s automatic system-widget-corner-radius, since that's an OS-version-dependent
+     behavior and this way it looks the same (and correct) on any Android version the app already
+     supports. Border matches the app's own card look (a thin brownish stroke, same family as the
+     text color) rather than a flat fill with no edge, so it actually reads as a distinct card
+     sitting on the home screen. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_bg" />
+    <stroke android:width="1.5dp" android:color="@color/widget_accent" />
+    <corners android:radius="18dp" />
+</shape>

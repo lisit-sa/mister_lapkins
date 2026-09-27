@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- updatePeriodMillis is only a fallback floor (Android silently clamps anything under ~30min
+     anyway) — the real refresh path is MrLapkinsWidgetProvider.pushUpdate(), called instantly
+     from WidgetBridgePlugin.updateSnapshot() whenever the app itself saves state. See the widget
+     plan doc.
+
+     previewImage is what the widget picker card actually shows (Kristina's own drawn mockup,
+     widget_preview.png, added 2026-09-17) — before this it pointed at the bare app icon, which is
+     why the picker card just showed that blown up huge. Also tried android:previewLayout (API 31+,
+     inflates widget_main.xml live with no code running behind it) first, but MIUI's launcher
+     turned out not to honor it at all — its own widget-picker cards are clearly static artwork for
+     every app (see the "Sunset Glow"/weather examples in the picker), not live-rendered layouts —
+     so previewImage stayed the only thing that actually worked; previewLayout is harmless to leave
+     in for launchers that DO support it. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_main"
+    android:configure="com.lisitsa.misterlapkins.WidgetConfigureActivity"
+    android:previewImage="@drawable/widget_preview"
+    android:previewLayout="@layout/widget_main"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description" />

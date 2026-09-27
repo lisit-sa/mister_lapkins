@@ -4,4 +4,18 @@
     <string name="title_activity_main">Mr. Lapkins</string>
     <string name="package_name">com.lisitsa.misterlapkins</string>
     <string name="custom_url_scheme">com.lisitsa.misterlapkins</string>
+
+    <!-- Home-screen widget (MrLapkinsWidgetProvider) — no in-widget i18n system yet, matches the
+         rest of this file (native side has never had one; all translation lives in the WebView's
+         own t()). Russian only for now, same as app_name/title_activity_main above. -->
+    <string name="widget_tab_tasks">Дела</string>
+    <string name="widget_tab_shopping">Покупки</string>
+    <string name="widget_empty_tasks">Дел нет — можно отдохнуть</string>
+    <string name="widget_empty_shopping">Список пуст</string>
+    <string name="widget_description">Ближайшие дела и покупки</string>
+    <string name="widget_configure_title">Какой список показывать?</string>
+    <string name="widget_configure_empty">Списков пока нет — открой приложение и создай хотя бы один.</string>
+    <string name="widget_add_task">+ Дело</string>
+    <string name="widget_add_shopping">+ Покупка</string>
+    <string name="widget_pinned_toast">Виджет добавлен на рабочий стол 🎉</string>
 </resources>

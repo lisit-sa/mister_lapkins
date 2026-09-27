@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- Widget-only palette (MrLapkinsWidgetProvider) — lifted from the app's own light-theme CSS
+         custom properties (bg/card/accent/text in www/index.html's :root) so the widget reads as
+         part of the same app instead of a bare-Android grey box. Light-theme values only for now;
+         the widget doesn't follow the in-app dark-theme toggle yet (would need night resource
+         variants, out of scope for the first pass). -->
+    <!-- Green card look (2026-09-17, was the cream/beige app-light-theme palette) — widget_bg is
+         now the app's own accent green custom property (already used for buttons/highlights
+         throughout the app) rather than a pale tint of it, so the widget actually reads as green
+         on the home screen rather than "cream with a green border". Text/icons flip to
+         cream-on-green accordingly. -->
+    <color name="widget_bg">#8FA888</color>
+    <color name="widget_card">#FFFCF6</color>
+    <color name="widget_accent">#5B3A29</color>
+    <color name="widget_text">#FFFCF6</color>
+    <color name="widget_text_muted">#EDE7DA</color>
+    <!-- Inactive tab button color — dimmer cream instead of the full-brightness widget_text, since
+         RemoteViews' reflection-based API doesn't cleanly support View.setAlpha() on older Android
+         versions the way a real CSS opacity would. -->
+    <color name="widget_text_dim">#C9DAC3</color>
+
+    <!-- Покупки tab now carries the app's own light-theme beige (the bg custom property in
+         index.html's :root) instead of matching Дела's green — Kristina wanted the two tabs
+         visually distinct "like
+         browser tabs" (2026-09-17), the whole widget (header included, see
+         MrLapkinsWidgetProvider's setBackgroundResource) swaps to this whenever Покупки is active.
+         Text/icon colors need dark-on-light counterparts to stay readable against it — every view
+         that uses these only ever shows while Покупки is the active tab (the list-name row, the
+         shopping ListView's own rows/empty state), so these are set statically in their own
+         layout files rather than switched at runtime like the header/root background is. -->
+    <color name="widget_bg_shopping">#FDF7ED</color>
+    <color name="widget_text_on_beige">#5B3A29</color>
+    <color name="widget_text_muted_on_beige">#9C8570</color>
+</resources>

@@ -530,126 +530,116 @@
     }
   });
 
-  // node_modules/@capacitor/app/dist/esm/definitions.js
+  // node_modules/@capawesome/capacitor-app-update/dist/esm/definitions.js
+  var AppUpdateAvailability, FlexibleUpdateInstallStatus, AppUpdateResultCode;
   var init_definitions = __esm({
-    "node_modules/@capacitor/app/dist/esm/definitions.js"() {
+    "node_modules/@capawesome/capacitor-app-update/dist/esm/definitions.js"() {
+      (function(AppUpdateAvailability2) {
+        AppUpdateAvailability2[AppUpdateAvailability2["UNKNOWN"] = 0] = "UNKNOWN";
+        AppUpdateAvailability2[AppUpdateAvailability2["UPDATE_NOT_AVAILABLE"] = 1] = "UPDATE_NOT_AVAILABLE";
+        AppUpdateAvailability2[AppUpdateAvailability2["UPDATE_AVAILABLE"] = 2] = "UPDATE_AVAILABLE";
+        AppUpdateAvailability2[AppUpdateAvailability2["UPDATE_IN_PROGRESS"] = 3] = "UPDATE_IN_PROGRESS";
+      })(AppUpdateAvailability || (AppUpdateAvailability = {}));
+      (function(FlexibleUpdateInstallStatus2) {
+        FlexibleUpdateInstallStatus2[FlexibleUpdateInstallStatus2["UNKNOWN"] = 0] = "UNKNOWN";
+        FlexibleUpdateInstallStatus2[FlexibleUpdateInstallStatus2["PENDING"] = 1] = "PENDING";
+        FlexibleUpdateInstallStatus2[FlexibleUpdateInstallStatus2["DOWNLOADING"] = 2] = "DOWNLOADING";
+        FlexibleUpdateInstallStatus2[FlexibleUpdateInstallStatus2["INSTALLING"] = 3] = "INSTALLING";
+        FlexibleUpdateInstallStatus2[FlexibleUpdateInstallStatus2["INSTALLED"] = 4] = "INSTALLED";
+        FlexibleUpdateInstallStatus2[FlexibleUpdateInstallStatus2["FAILED"] = 5] = "FAILED";
+        FlexibleUpdateInstallStatus2[FlexibleUpdateInstallStatus2["CANCELED"] = 6] = "CANCELED";
+        FlexibleUpdateInstallStatus2[FlexibleUpdateInstallStatus2["DOWNLOADED"] = 11] = "DOWNLOADED";
+      })(FlexibleUpdateInstallStatus || (FlexibleUpdateInstallStatus = {}));
+      (function(AppUpdateResultCode2) {
+        AppUpdateResultCode2[AppUpdateResultCode2["OK"] = 0] = "OK";
+        AppUpdateResultCode2[AppUpdateResultCode2["CANCELED"] = 1] = "CANCELED";
+        AppUpdateResultCode2[AppUpdateResultCode2["FAILED"] = 2] = "FAILED";
+        AppUpdateResultCode2[AppUpdateResultCode2["NOT_AVAILABLE"] = 3] = "NOT_AVAILABLE";
+        AppUpdateResultCode2[AppUpdateResultCode2["NOT_ALLOWED"] = 4] = "NOT_ALLOWED";
+        AppUpdateResultCode2[AppUpdateResultCode2["INFO_MISSING"] = 5] = "INFO_MISSING";
+      })(AppUpdateResultCode || (AppUpdateResultCode = {}));
     }
   });
 
-  // node_modules/@capacitor/app/dist/esm/web.js
+  // node_modules/@capawesome/capacitor-app-update/dist/esm/web.js
   var web_exports = {};
   __export(web_exports, {
-    AppWeb: () => AppWeb
+    AppUpdateWeb: () => AppUpdateWeb
   });
-  var AppWeb;
+  var AppUpdateWeb;
   var init_web = __esm({
-    "node_modules/@capacitor/app/dist/esm/web.js"() {
+    "node_modules/@capawesome/capacitor-app-update/dist/esm/web.js"() {
       init_dist();
-      AppWeb = class extends WebPlugin {
-        constructor() {
-          super();
-          this.handleVisibilityChange = () => {
-            const data = {
-              isActive: document.hidden !== true
-            };
-            this.notifyListeners("appStateChange", data);
-            if (document.hidden) {
-              this.notifyListeners("pause", null);
-            } else {
-              this.notifyListeners("resume", null);
-            }
-          };
-          document.addEventListener("visibilitychange", this.handleVisibilityChange, false);
+      AppUpdateWeb = class extends WebPlugin {
+        async getAppUpdateInfo() {
+          throw new Error("Web platform is not supported.");
         }
-        exitApp() {
-          throw this.unimplemented("Not implemented on web.");
+        async openAppStore() {
+          throw new Error("Web platform is not supported.");
         }
-        async getInfo() {
-          throw this.unimplemented("Not implemented on web.");
+        async performImmediateUpdate() {
+          throw new Error("Web platform is not supported.");
         }
-        async getLaunchUrl() {
-          return { url: "" };
+        async startFlexibleUpdate() {
+          throw new Error("Web platform is not supported.");
         }
-        async getState() {
-          return { isActive: document.hidden !== true };
-        }
-        async minimizeApp() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async toggleBackButtonHandler() {
-          throw this.unimplemented("Not implemented on web.");
-        }
-        async getAppLanguage() {
-          return {
-            value: navigator.language.split("-")[0].toLowerCase()
-          };
+        async completeFlexibleUpdate() {
+          throw new Error("Web platform is not supported.");
         }
       };
     }
   });
 
-  // node_modules/@capacitor/app/dist/esm/index.js
-  var App;
+  // node_modules/@capawesome/capacitor-app-update/dist/esm/index.js
+  var AppUpdate;
   var init_esm = __esm({
-    "node_modules/@capacitor/app/dist/esm/index.js"() {
+    "node_modules/@capawesome/capacitor-app-update/dist/esm/index.js"() {
       init_dist();
       init_definitions();
-      App = registerPlugin("App", {
-        web: () => Promise.resolve().then(() => (init_web(), web_exports)).then((m) => new m.AppWeb())
+      AppUpdate = registerPlugin("AppUpdate", {
+        web: () => Promise.resolve().then(() => (init_web(), web_exports)).then((m) => new m.AppUpdateWeb())
       });
     }
   });
 
-  // src/deeplink.js
-  var require_deeplink = __commonJS({
-    "src/deeplink.js"() {
+  // src/appUpdate.js
+  var require_appUpdate = __commonJS({
+    "src/appUpdate.js"() {
       init_esm();
-      var onJoinCodeFn = null;
-      var onWidgetActionFn = null;
-      function extractJoinCode(url) {
-        try {
-          var parsed = new URL(url);
-          var isCustomScheme = parsed.protocol === "misterlapkins:" && parsed.hostname === "join";
-          var isAppLink = parsed.protocol === "https:" && parsed.pathname === "/join";
-          if (!isCustomScheme && !isAppLink) return null;
-          return parsed.searchParams.get("code");
-        } catch (e) {
-          return null;
-        }
-      }
-      function extractWidgetAction(url) {
-        try {
-          var parsed = new URL(url);
-          if (parsed.protocol !== "misterlapkins:" || parsed.hostname !== "open") return null;
-          return {
-            action: parsed.searchParams.get("action"),
-            id: parsed.searchParams.get("id"),
-            listId: parsed.searchParams.get("listId")
-          };
-        } catch (e) {
-          return null;
-        }
-      }
-      App.addListener("appUrlOpen", function(data) {
-        var url = data && data.url;
-        if (!url) return;
-        var code = extractJoinCode(url);
-        if (code && onJoinCodeFn) {
-          onJoinCodeFn(code);
-          return;
-        }
-        var widget = extractWidgetAction(url);
-        if (widget && widget.action && onWidgetActionFn) onWidgetActionFn(widget.action, widget.id, widget.listId);
-      });
-      window.AppDeepLink = {
-        init: function(onJoinCode, onWidgetAction) {
-          onJoinCodeFn = onJoinCode;
-          onWidgetActionFn = onWidgetAction;
+      var LAST_CHECK_KEY = "appUpdateLastCheck";
+      var CHECK_INTERVAL_MS = 24 * 60 * 60 * 1e3;
+      window.AppUpdate = {
+        // onDownloaded: called once the background download finished and a restart is all that's left.
+        init: function(onDownloaded) {
+          try {
+            var last = parseInt(localStorage.getItem(LAST_CHECK_KEY) || "0", 10);
+            if (Date.now() - last < CHECK_INTERVAL_MS) return;
+          } catch (e) {
+          }
+          AppUpdate.getAppUpdateInfo().then(function(info) {
+            try {
+              localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
+            } catch (e) {
+            }
+            if (!info || info.updateAvailability !== AppUpdateAvailability.UPDATE_AVAILABLE) return;
+            if (!info.flexibleUpdateAllowed) return;
+            AppUpdate.addListener("onFlexibleUpdateStateChange", function(state) {
+              if (state && state.installStatus === FlexibleUpdateInstallStatus.DOWNLOADED && onDownloaded) {
+                onDownloaded(function() {
+                  AppUpdate.completeFlexibleUpdate().catch(function() {
+                  });
+                });
+              }
+            });
+            return AppUpdate.startFlexibleUpdate();
+          }).catch(function(e) {
+            console.warn("AppUpdate: check skipped", e && e.message);
+          });
         }
       };
     }
   });
-  require_deeplink();
+  require_appUpdate();
 })();
 /*! Bundled license information:
 

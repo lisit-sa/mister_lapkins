@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Beige counterpart to widget_rounded_bg.xml — see colors.xml's widget_bg_shopping comment.
+     Swapped in via setBackgroundResource whenever the Покупки tab is active, same border/radius
+     as the green one so only the fill actually changes. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_bg_shopping" />
+    <stroke android:width="1.5dp" android:color="@color/widget_accent" />
+    <corners android:radius="18dp" />
+</shape>
