@@ -2900,6 +2900,7 @@
         <button type="button" class="collection-tab" data-collection="food" data-i18n="collection_tab_food">Еда</button>
         <button type="button" class="collection-tab" data-collection="summer" data-i18n="collection_tab_summer">Лето</button>
         <button type="button" class="collection-tab" data-collection="autumn" data-i18n="collection_tab_autumn">Осень</button>
+        <button type="button" class="collection-tab" data-collection="halloween" data-i18n="collection_tab_halloween">Хэллоуин</button>
       </div>
       <p class="collection-progress" id="collectionProgress">
         <span id="collectionProgressText">Собрано предметов: 0 / 27</span>
@@ -3986,6 +3987,7 @@
       collection_tab_food: "Еда",
       collection_tab_summer: "Лето",
       collection_tab_autumn: "Осень",
+      collection_tab_halloween: "Хэллоуин",
       collection_progress_template: "Собрано предметов: {count} / {total}",
       aria_collection_info: "Как это работает?",
       collection_info_title: "Откуда берутся сокровища?",
@@ -4344,6 +4346,7 @@
       collection_tab_food: "Food",
       collection_tab_summer: "Summer",
       collection_tab_autumn: "Autumn",
+      collection_tab_halloween: "Halloween",
       collection_progress_template: "Collected: {count} / {total}",
       aria_collection_info: "How does this work?",
       collection_info_title: "Where do treasures come from?",
@@ -4659,7 +4662,7 @@
   // collections/rewards-data.js file loaded above. This just turns each entry's bare
   // filename into a real image path — the data file itself doesn't need to know how
   // (or where) its images get served from.
-  var COLLECTION_KEYS = ["items", "food", "summer", "autumn"];
+  var COLLECTION_KEYS = ["items", "food", "summer", "autumn", "halloween"];
   var ITEMS_DATABASE = {};
   COLLECTION_KEYS.forEach(function(key){
     ITEMS_DATABASE[key] = REWARDS_DATA[key].map(function(entry){
@@ -5203,11 +5206,51 @@
 
   var MAX_LEVEL = 5;
 
-  // "Кот облажался" outcomes — shown instead of a real treasure on the 3-task box, 40% of the
-  // time (see BOX_FAIL_CHANCE/addProgress). Title/text come from translations (fail_N_title /
+  // Seasonal drop boost for the treasure box (see openGift) — requested 2026-09-30: Halloween
+  // items drop much more often in October, so an active user can finish Halloween within the
+  // month. Autumn gets only a small nudge all autumn — it's meant to stay a slow, long-running
+  // collection, not a one-season set, just a little more generous while it's in season.
+  // months are 0-based (Date#getMonth, device-local), weight is relative to 1 for every other
+  // collection. The boost only holds while the collection still has locked items — once
+  // everything's found it drops back to a normal weight-1 pool for level-ups.
+  // completeInSeason: true additionally makes the set finishable within the season — pulls
+  // from it hand out only not-yet-found items, paced to the calendar (2026-09-30 follow-up —
+  // some users close 10+ tasks a day and would otherwise finish Halloween by ~Oct 20): the
+  // boost only applies while the number of unlocked items is below the season's elapsed share
+  // of the set (see seasonalPaceAllows), so heavy users finish right at the season's end
+  // instead of weeks early. Ahead of pace the collection just competes as a normal weight-1
+  // pool until the calendar catches up. Without it the boost is weight only — same random
+  // new-or-level-up pull as any other collection.
+  // months must be contiguous within one year.
+  var SEASONAL_BOOSTS = {
+    autumn:    { months: [8, 9, 10], weight: 1.5, completeInSeason: false },
+    halloween: { months: [9],        weight: 8,   completeInSeason: true }
+  };
+
+  // true while unlockedCount is still under the share of the set the season "allows" by today
+  // — counting today as already elapsed, so day 1 allows the first item and the season's last
+  // day allows the whole set.
+  function seasonalPaceAllows(boost, unlockedCount, totalCount, now){
+    var dayMs = 24 * 60 * 60 * 1000;
+    var year = now.getFullYear();
+    var start = new Date(year, boost.months[0], 1);
+    var end = new Date(year, boost.months[boost.months.length - 1] + 1, 1);
+    var today = new Date(year, now.getMonth(), now.getDate());
+    // Math.round, not floor — a DST switch inside the season makes these off by an hour.
+    var totalDays = Math.round((end - start) / dayMs);
+    var elapsedDays = Math.round((today - start) / dayMs) + 1;
+    var allowed = Math.ceil(totalCount * Math.min(1, elapsedDays / totalDays));
+    return unlockedCount < allowed;
+  }
+
+  // "Кот облажался" outcomes — shown instead of a real treasure on the 3-task box (see
+  // BOX_FAIL_CHANCE/addProgress). Title/text come from translations (fail_N_title /
   // fail_N_text) so both languages stay in sync; only the image path is fixed data here since
   // it doesn't need translating.
-  var BOX_FAIL_CHANCE = 0.4;
+  // BOX_FAIL_CHANCE is the per-roll chance, but a fail can never follow another fail, so the
+  // share of boxes that actually come up empty is p / (1 + p) — 0.32 → ~24% (lowered from
+  // 0.4 → ~29% on 2026-09-30: empties felt too frequent).
+  var BOX_FAIL_CHANCE = 0.32;
   var BOX_FAIL_IMAGES = {
     1: "collections/fails/1.png",
     2: "collections/fails/2.png",
@@ -9234,14 +9277,25 @@
       return;
     }
 
-    // Pulls from BOTH collections, not just whichever tab happens to be open — picking a
+    // Pulls from ALL collections, not just whichever tab happens to be open — picking a
     // random non-empty collection first, then a random eligible item within it, means a
     // maxed-out collection naturally stops competing for pulls without needing special-casing,
-    // while two collections that both still have room get an even (not size-weighted) shot.
+    // while collections that still have room get an even (not size-weighted) shot — except
+    // for an in-season SEASONAL_BOOSTS collection, which gets its extra weight (and, with
+    // completeInSeason, only hands out not-yet-found items, paced to the calendar — see
+    // seasonalPaceAllows).
+    var now = new Date();
     var pools = COLLECTION_KEYS.map(function(key){
+      var all = state.collections[key];
+      var eligible = all.filter(function(i){ return !(i.unlocked && i.level >= MAX_LEVEL); });
+      var locked = eligible.filter(function(i){ return !i.unlocked; });
+      var boost = SEASONAL_BOOSTS[key];
+      var boosted = !!(boost && locked.length > 0 && boost.months.indexOf(now.getMonth()) !== -1 &&
+        (!boost.completeInSeason || seasonalPaceAllows(boost, all.length - locked.length, all.length, now)));
       return {
         key: key,
-        eligible: state.collections[key].filter(function(i){ return !(i.unlocked && i.level >= MAX_LEVEL); })
+        eligible: boosted && boost.completeInSeason ? locked : eligible,
+        weight: boosted ? boost.weight : 1
       };
     }).filter(function(p){ return p.eligible.length > 0; });
 
@@ -9253,7 +9307,13 @@
       rewardDescriptionEl.textContent = t("reward_description_maxed");
       return;
     }
-    var chosenPool = pools[Math.floor(Math.random() * pools.length)];
+    var totalWeight = pools.reduce(function(sum, p){ return sum + p.weight; }, 0);
+    var roll = Math.random() * totalWeight;
+    var chosenPool = pools[pools.length - 1];
+    for(var pi = 0; pi < pools.length; pi++){
+      roll -= pools[pi].weight;
+      if(roll < 0){ chosenPool = pools[pi]; break; }
+    }
     var pick = chosenPool.eligible[Math.floor(Math.random() * chosenPool.eligible.length)];
     lastUnlockedId = pick.id;
     lastUnlockedCollection = chosenPool.key;
