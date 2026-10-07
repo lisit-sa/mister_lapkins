@@ -3892,6 +3892,9 @@
 <!-- Native camera (src/camera.js) — replaces the old WebView file-chooser mechanism, see that
      module's own comment for why (a "Контроль дома" widget tap couldn't reliably trigger it). -->
 <script src="camera.bundle.js"></script>
+<!-- Firebase Analytics (src/analytics.js) — native plugin, so like appUpdate it only reports after
+     a native rebuild; no-op on the hosted PWA. Only event names/enums, never user-typed text. -->
+<script src="analytics.bundle.js"></script>
 <script>
 (function(){
   "use strict";
@@ -8673,6 +8676,7 @@
     };
     state.tasks.push(task);
     scheduleTaskReminderNotification(task);
+    if(window.AppAnalytics) window.AppAnalytics.logEvent("task_created", { type: type, has_reminder: reminderDateTime ? 1 : 0 });
     saveState();
     renderTasks();
   }
@@ -8930,6 +8934,7 @@
     // want to add another step first (see toggleSubtask).
     task.completed = !task.completed;
     if(task.completed){
+      if(window.AppAnalytics) window.AppAnalytics.logEvent("task_completed", { recurring: task.recurrence ? 1 : 0 });
       cancelTaskReminderNotification(task.id);
       // A recurring task (see the Повтор picker) never archives — advance its reminder to the
       // next occurrence right away and record which day it was completed on (recurrenceCompletedOn),
@@ -10257,6 +10262,7 @@
       window.AudioManager.stopReminderSoundPreview();
     }
     activeTab = tab;
+    if(window.AppAnalytics) window.AppAnalytics.screen(tab);
     tabButtons.forEach(function(b){ b.classList.toggle("active", b.dataset.tab === tab); });
     tabPanels.forEach(function(p){ p.classList.toggle("active", p.id === "tab-" + tab); });
     document.body.classList.toggle("settings-open", tab === "settings");

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- false so Android's auto-backup can't restore CapacitorUpdater's persisted "current
          bundle" state across an uninstall — with it true, a fresh reinstall could silently come
          back with a stale OTA-downloaded web bundle active instead of the one just built. -->
@@ -10,6 +11,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <!-- Firebase Analytics (src/analytics.js): no Advertising ID — the app has no ads, and
+             the privacy policy / Play Data safety form say analytics only. -->
+        <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
@@ -139,6 +143,12 @@
          Replaces the old <input type="file" capture> approach (2026-09-27), which never needed an
          explicit CAMERA permission since the OS's own camera app handled that permission itself. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- firebase-analytics (src/analytics.js) merges these in on its own — stripped so the app
+         truly has no advertising ID access, matching the "no" Play Console Advertising ID
+         declaration and the privacy policy. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
     <!-- Declaring android.permission.CAMERA above makes the Android build tools IMPLICITLY add
          <uses-feature android:name="android.hardware.camera" required="true"> unless told
          otherwise — that implicit requirement is what made Play Console report ~433 devices

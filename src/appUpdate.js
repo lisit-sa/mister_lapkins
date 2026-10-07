@@ -11,24 +11,45 @@
 // a nicety, never something that should surface an error or block launch.
 import { AppUpdate, AppUpdateAvailability, FlexibleUpdateInstallStatus } from "@capawesome/capacitor-app-update";
 
-var LAST_CHECK_KEY = "appUpdateLastCheck";
-var CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// Throttles only the Google dialog itself (per offered versionCode), not the check — throttling
+// the check (as the first version did, 2026-09-20) meant a launch that found nothing still blocked
+// the next 24h, so a fresh release could go unnoticed for over a day (reported 2026-10-05).
+var LAST_PROMPT_KEY = "appUpdateLastPrompt";
+var PROMPT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function promptedRecently(versionCode){
+  try{
+    var last = JSON.parse(localStorage.getItem(LAST_PROMPT_KEY) || "null");
+    return !!last && last.versionCode === versionCode && Date.now() - last.at < PROMPT_INTERVAL_MS;
+  }catch(e){
+    return false;
+  }
+}
+
+function rememberPrompt(versionCode){
+  try{ localStorage.setItem(LAST_PROMPT_KEY, JSON.stringify({ versionCode: versionCode, at: Date.now() })); }catch(e){}
+}
 
 window.AppUpdate = {
   // onDownloaded: called once the background download finished and a restart is all that's left.
   init: function(onDownloaded){
-    try{
-      var last = parseInt(localStorage.getItem(LAST_CHECK_KEY) || "0", 10);
-      if(Date.now() - last < CHECK_INTERVAL_MS) return;
-    }catch(e){}
+    var restart = function(){ AppUpdate.completeFlexibleUpdate().catch(function(){}); };
 
     AppUpdate.getAppUpdateInfo().then(function(info){
-      try{ localStorage.setItem(LAST_CHECK_KEY, String(Date.now())); }catch(e){}
-      if(!info || info.updateAvailability !== AppUpdateAvailability.UPDATE_AVAILABLE) return;
+      if(!info) return;
+      // Downloaded on an earlier launch but the app was closed before the restart offer — the
+      // listener below died with that process, so offer the restart again now.
+      if(info.installStatus === FlexibleUpdateInstallStatus.DOWNLOADED){
+        if(onDownloaded) onDownloaded(restart);
+        return;
+      }
+      if(info.updateAvailability !== AppUpdateAvailability.UPDATE_AVAILABLE) return;
       if(!info.flexibleUpdateAllowed) return;
+      if(promptedRecently(info.availableVersionCode)) return;
+      rememberPrompt(info.availableVersionCode);
       AppUpdate.addListener("onFlexibleUpdateStateChange", function(state){
         if(state && state.installStatus === FlexibleUpdateInstallStatus.DOWNLOADED && onDownloaded){
-          onDownloaded(function(){ AppUpdate.completeFlexibleUpdate().catch(function(){}); });
+          onDownloaded(restart);
         }
       });
       return AppUpdate.startFlexibleUpdate();
