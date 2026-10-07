@@ -24,8 +24,11 @@
     "build:analytics": "esbuild src/analytics.js --bundle --format=iife --outfile=www/analytics.bundle.js",
     "icons:prep": "node scripts/prep-icon.js",
     "icons": "npm run icons:prep && capacitor-assets generate --android",
-    "release": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && npm run build:voice && npm run build:billing && npm run build:widgetbridge && npm run build:appupdate && npm run build:camera && npm run build:analytics && node scripts/release.js",
-    "deploy": "npm run release && firebase deploy --only hosting"
+    "build:bundles": "npm run build:cloudsync && npm run build:audio && npm run build:updater && npm run build:haptics && npm run build:notifications && npm run build:battery && npm run build:deeplink && npm run build:share && npm run build:voice && npm run build:billing && npm run build:widgetbridge && npm run build:appupdate && npm run build:camera && npm run build:analytics",
+    "release": "npm run build:bundles && node scripts/release.js",
+    "release:beta": "npm run build:bundles && node scripts/release.js --beta",
+    "deploy": "npm run release && firebase deploy --only hosting",
+    "deploy:beta": "npm run release:beta && firebase deploy --only hosting"
   },
   "repository": {
     "type": "git",

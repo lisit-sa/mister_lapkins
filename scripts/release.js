@@ -41,10 +41,23 @@ function zipWwwDir(destPath){
   });
 }
 
+// Zip names the live manifests still point at — never pruned, whichever channel just released.
+function referencedBundles(){
+  return ["version.json", "beta.json"].map((name) => {
+    try{
+      const m = JSON.parse(fs.readFileSync(path.join(HOSTING_UPDATES_DIR, name), "utf8"));
+      return path.basename(m.url);
+    }catch(e){
+      return null;
+    }
+  }).filter(Boolean);
+}
+
 function pruneOldBundles(keepFile){
+  const keep = referencedBundles().concat([keepFile]);
   const files = fs
     .readdirSync(HOSTING_UPDATES_DIR)
-    .filter((f) => f.startsWith("bundle-") && f.endsWith(".zip") && f !== keepFile)
+    .filter((f) => f.startsWith("bundle-") && f.endsWith(".zip") && keep.indexOf(f) === -1)
     .sort()
     .reverse();
   files.slice(KEEP_PREVIOUS_BUNDLES).forEach((f) => {
@@ -65,9 +78,12 @@ async function main(){
   const sizeKb = (fs.statSync(zipPath).size / 1024).toFixed(1);
   console.log(`release: wrote ${zipName} (${sizeKb} KB)`);
 
+  // --beta (npm run deploy:beta) writes beta.json instead — only BETA_DEVICE_IDS in
+  // src/updater.js read it, everyone else stays on version.json.
+  const manifestName = process.argv.includes("--beta") ? "beta.json" : "version.json";
   const manifest = { version: version, url: `${HOSTING_BASE_URL}/${zipName}` };
-  fs.writeFileSync(path.join(HOSTING_UPDATES_DIR, "version.json"), JSON.stringify(manifest, null, 2));
-  console.log("release: wrote version.json ->", manifest);
+  fs.writeFileSync(path.join(HOSTING_UPDATES_DIR, manifestName), JSON.stringify(manifest, null, 2));
+  console.log(`release: wrote ${manifestName} ->`, manifest);
 
   pruneOldBundles(zipName);
 }

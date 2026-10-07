@@ -1964,6 +1964,18 @@
      updateQuietHoursRange) rather than a required step, but "does this actually save?" was
      unclear without some explicit confirm affordance (design feedback, 2026-08-12). */
   .quiet-hours-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  /* Вечерний привет time field (2026-10-07) — a single full-width time input, where the browser's
+     own clock/arrow glyph came out tiny and jammed against the right border. Hidden and replaced
+     by the sidebar's own ▾ chevron in var(--text) (so it follows the dark theme too); the tap-anywhere
+     showPicker() handler below still opens the picker. */
+  .nudge-time-wrap{ position:relative; }
+  .nudge-time-input{ padding-right:44px; -webkit-appearance:none; appearance:none; }
+  .nudge-time-input::-webkit-calendar-picker-indicator{ display:none; }
+  /* Same ▾ glyph/opacity as the "Добавить виджет" row's .sidebar-nav-chevron. */
+  .nudge-time-wrap::after{
+    content:"▾"; position:absolute; right:22px; top:50%; transform: translateY(-50%);
+    opacity:.7; color: var(--text); pointer-events:none;
+  }
   .quiet-hours-dash{ opacity:.5; flex-shrink:0; }
   .quiet-hours-confirm, .quiet-hours-delete{
     border:2px solid var(--text); background: var(--card); border-radius: var(--radius-md);
@@ -2003,6 +2015,30 @@
     80%{ transform: translateX(6px) rotate(6deg); }
   }
   .gift-box.shake{ animation: boxShake .5s ease; }
+  /* Onboarding (2026-10-07, see startOnboarding) — the welcome/features cards reuse .modal-card;
+     the in-list hint reuses the card look so it reads as part of the Дела screen, not a popup. */
+  .onboarding-card{ max-width:340px; }
+  .onboarding-text{ font-size: calc(14px * var(--font-scale)); line-height:1.45; margin:0 0 18px; }
+  .onboarding-paw{ font-size:34px; line-height:1; margin-bottom:10px; }
+  .onboarding-skip{
+    display:block; margin:14px auto 0; background:none; border:none; color: var(--text);
+    font-family:inherit; font-size: calc(12px * var(--font-scale)); opacity:.55; text-decoration:underline; cursor:pointer;
+  }
+  .onboarding-features{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; text-align:left; }
+  .onboarding-feature{
+    display:flex; align-items:center; gap:12px; width:100%;
+    border:2px solid var(--text); border-radius: var(--radius-md); background: var(--bg);
+    color: var(--text); font-family:inherit; text-align:left; padding:10px 12px; cursor:pointer;
+  }
+  .onboarding-feature:active{ transform: translateY(1px); }
+  .onboarding-feature img{ width:28px; height:28px; object-fit:contain; flex-shrink:0; }
+  .onboarding-feature-title{ display:block; font-weight:700; font-size: calc(13.5px * var(--font-scale)); }
+  .onboarding-feature-text{ display:block; font-size: calc(12px * var(--font-scale)); opacity:.7; margin-top:2px; }
+  .onboarding-hint{
+    border:2px solid var(--text); border-radius: var(--radius-md); background: var(--card);
+    padding:12px 14px; margin-bottom:12px; font-size: calc(13px * var(--font-scale)); line-height:1.4;
+  }
+  .onboarding-hint .onboarding-skip{ margin:6px 0 0; }
   .modal-hint{ font-size: calc(12px * var(--font-scale)); opacity:.65; margin-top:10px; }
   .reward-icon{
     width:120px; height:100px; margin:6px auto 12px; font-size:60px;
@@ -2762,6 +2798,11 @@
   <main class="content">
 
     <section class="tab-panel active" id="tab-tasks">
+      <!-- Onboarding step 2 hint (see startOnboarding) — only shown while state.onboardingStage is "tasks". -->
+      <div class="onboarding-hint hidden" id="onboardingHint">
+        <span id="onboardingHintText"></span>
+        <button type="button" class="onboarding-skip" id="onboardingHintSkipBtn" data-i18n="onboarding_skip">Пропустить знакомство</button>
+      </div>
       <button type="button" class="add-task-trigger" id="addTaskTrigger">
         <img class="trigger-icon" src="icons/icon_thoughts.png" alt="">
         <span data-i18n="add_task_trigger">Записать мысль или задачу...</span>
@@ -3157,6 +3198,18 @@
             <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
           </span>
         </label>
+        <!-- Вечерний привет (2026-10-07) — gentle "come back" nudge, see scheduleDailyNudges. -->
+        <label class="toggle-row" for="dailyNudgeToggle">
+          <span class="toggle-row-text" data-i18n="toggle_daily_nudge">Вечерний привет от Лапкинса</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="dailyNudgeToggle" checked>
+            <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+          </span>
+        </label>
+        <div class="quiet-hours-row nudge-time-wrap" id="dailyNudgeTimeRow">
+          <input type="time" class="reminder-input nudge-time-input" id="dailyNudgeTimeInput" value="19:00">
+        </div>
+        <p class="toggle-hint" data-i18n="daily_nudge_hint">Тёплое сообщение раз в день — только в те дни, когда мы ещё не виделись. Если долго не встречаемся, Лапкинс замолкает, чтобы не надоедать.</p>
         <!-- Тихие часы — still grouped with the rest of this section (see its own original
              comment), just riding along with the section's whole move to the end now. -->
         <p class="settings-subheading" data-i18n="settings_quiet_hours_title">Тихие часы</p>
@@ -3692,6 +3745,47 @@
   </div>
 </div>
 
+<!-- Onboarding (2026-10-07) — see startOnboarding. Welcome card, then (after the first box, or
+     straight away with gamification off) the "what else is here" card whose rows jump to each
+     section. -->
+<div class="modal-overlay" id="onboardingWelcomeOverlay">
+  <div class="modal-card onboarding-card">
+    <div class="onboarding-paw">🐾</div>
+    <p class="modal-title" data-i18n="onboarding_welcome_title">Привет! Я Мистер Лапкинс</p>
+    <p class="onboarding-text" id="onboardingWelcomeText"></p>
+    <button type="button" class="add-btn" id="onboardingStartBtn"></button>
+    <button type="button" class="onboarding-skip" id="onboardingWelcomeSkipBtn" data-i18n="onboarding_skip">Пропустить знакомство</button>
+  </div>
+</div>
+<div class="modal-overlay" id="onboardingFeaturesOverlay">
+  <div class="modal-card onboarding-card">
+    <p class="modal-title" data-i18n="onboarding_features_title">Что ещё умеет Лапкинс</p>
+    <div class="onboarding-features">
+      <button type="button" class="onboarding-feature" data-feature="collection">
+        <img src="icons/icon_treasures.png" alt="">
+        <span><span class="onboarding-feature-title" data-i18n="onboarding_f_collection_title">Сокровища</span><span class="onboarding-feature-text" data-i18n="onboarding_f_collection_text">Здесь находятся все призы, полученные за выполнение дел</span></span>
+      </button>
+      <button type="button" class="onboarding-feature" data-feature="pantry">
+        <img src="icons/icon_supplies.png" alt="">
+        <span><span class="onboarding-feature-title" data-i18n="onboarding_f_pantry_title">Покупки</span><span class="onboarding-feature-text" data-i18n="onboarding_f_pantry_text">Делись списком, чтобы отмечать покупки вместе. А ещё напомню, когда дома что-то заканчивается</span></span>
+      </button>
+      <button type="button" class="onboarding-feature" data-feature="homecheck">
+        <img src="icons/home_check.png" alt="">
+        <span><span class="onboarding-feature-title" data-i18n="onboarding_f_homecheck_title">Контроль дома</span><span class="onboarding-feature-text" data-i18n="onboarding_f_homecheck_text">Сфотографируй утюг перед выходом — и не переживай в дороге</span></span>
+      </button>
+      <button type="button" class="onboarding-feature" data-feature="habits">
+        <img src="icons/icon_habit.png" alt="">
+        <span><span class="onboarding-feature-title" data-i18n="onboarding_f_habits_title">Забота о себе</span><span class="onboarding-feature-text" data-i18n="onboarding_f_habits_text">Мягкие напоминания о воде, отдыхе и привычках</span></span>
+      </button>
+      <button type="button" class="onboarding-feature" data-feature="focus">
+        <img src="icons/icon_hourglass.png" alt="">
+        <span><span class="onboarding-feature-title" data-i18n="onboarding_f_focus_title">Фокус</span><span class="onboarding-feature-text" data-i18n="onboarding_f_focus_text">Таймер, чтобы спокойно сосредоточиться на одном деле</span></span>
+      </button>
+    </div>
+    <button type="button" class="add-btn" id="onboardingFeaturesDoneBtn" data-i18n="onboarding_features_done">К моему списку</button>
+  </div>
+</div>
+
 <!-- Nudge to sign in, shown once per device after SIGNIN_SUGGEST_TASK_THRESHOLD completed tasks
      (see maybeSuggestSignIn) — so it only interrupts once the user has something worth not
      losing, not on first launch. -->
@@ -4176,6 +4270,42 @@
       settings_quiet_hours_title: "Тихие часы",
       settings_quiet_hours_hint: "В это время напоминания «Забота о себе» не будут звучать — можно добавить несколько промежутков, например на ночь и на дневной сон.",
       settings_quiet_hours_add: "+ Добавить промежуток",
+      onboarding_welcome_title: "Привет! Я Мистер Лапкинс",
+      onboarding_welcome_text: "Записывай свои дела, а за каждые три сделанных я принесу тебе находку со своих прогулок. Давай попробуем прямо сейчас — на трёх маленьких делах?",
+      onboarding_welcome_text_plain: "Записывай дела, покупки и всё, что важно, — я помогу ничего не забыть. Давай покажу, что тут есть.",
+      onboarding_start: "Давай попробуем",
+      onboarding_start_plain: "Покажи",
+      onboarding_skip: "Пропустить знакомство",
+      onboarding_task_water: "Выпить стакан воды",
+      onboarding_task_pleasant: "Подумать о приятном",
+      onboarding_task_write: "Внести своё новое дело",
+      onboarding_hint_tasks: "Отмечай дела, когда сделаешь. За три — Лапкинс принесёт находку 🎁",
+      onboarding_hint_write: "Осталось последнее: нажми на «Внести своё новое дело» и запиши что-то своё 🎁",
+      onboarding_features_title: "Что ещё умеет Лапкинс",
+      onboarding_f_collection_title: "Сокровища",
+      onboarding_f_collection_text: "Здесь находятся все призы, полученные за выполнение дел",
+      onboarding_f_pantry_title: "Покупки",
+      onboarding_f_pantry_text: "Делись списком, чтобы отмечать покупки вместе. А ещё напомню, когда дома что-то заканчивается",
+      onboarding_f_homecheck_title: "Контроль дома",
+      onboarding_f_homecheck_text: "Сфотографируй утюг перед выходом — и не переживай в дороге",
+      onboarding_f_habits_title: "Забота о себе",
+      onboarding_f_habits_text: "Мягкие напоминания о воде, отдыхе и привычках",
+      onboarding_f_focus_title: "Фокус",
+      onboarding_f_focus_text: "Таймер, чтобы спокойно сосредоточиться на одном деле",
+      onboarding_features_done: "К моему списку",
+      toggle_daily_nudge: "Вечерний привет от Лапкинса",
+      daily_nudge_hint: "Тёплое сообщение раз в день — только в те дни, когда мы ещё не виделись. Если долго не встречаемся, Лапкинс замолкает, чтобы не надоедать.",
+      nudge_title: "Мистер Лапкинс 🐾",
+      nudge_daily_1: "Мур. Как прошёл день? Если захочется — загляни, я рядом.",
+      nudge_daily_2: "Вечер — хорошее время просто выдохнуть. Я тут, если что.",
+      nudge_daily_3: "Неважно, сколько дел сделано сегодня. Я всё равно тебе рад.",
+      nudge_daily_4: "Я свернулся клубочком возле твоего списка. Заглянешь на минутку?",
+      nudge_daily_5: "Если что-то крутится в голове — запиши, и можно отпускать. Я присмотрю.",
+      nudge_daily_6: "Тёплого вечера! Если что-то хочется записать на завтра — я сохраню.",
+      nudge_miss_1: "Я немного соскучился. Без спешки — заходи, когда будет настроение.",
+      nudge_miss_2: "Если накопились мысли и дела — давай спокойно разложим их по полочкам.",
+      nudge_miss_3: "Мур-мур. Просто напоминаю, что я здесь.",
+      nudge_last: "Я подожду сколько нужно и больше не буду беспокоить. Загляни, когда захочешь 🐾",
       settings_quiet_hours_empty: "Пока не добавлено ни одного промежутка.",
       settings_quiet_hours_saved_toast: "Сохранено",
       aria_preview_sound: "Прослушать",
@@ -4529,6 +4659,42 @@
       settings_quiet_hours_title: "Quiet hours",
       settings_quiet_hours_hint: "\"Self-care\" reminders won't make sound during these windows — add as many as you need, e.g. overnight and a daytime nap.",
       settings_quiet_hours_add: "+ Add a window",
+      onboarding_welcome_title: "Hi! I'm Mr. Lapkins",
+      onboarding_welcome_text: "Write down your tasks, and for every three you finish I'll bring you a find from my walks. Shall we try it right now, with three tiny tasks?",
+      onboarding_welcome_text_plain: "Write down tasks, shopping and everything that matters, and I'll help you not forget a thing. Let me show you around.",
+      onboarding_start: "Let's try",
+      onboarding_start_plain: "Show me",
+      onboarding_skip: "Skip the intro",
+      onboarding_task_water: "Drink a glass of water",
+      onboarding_task_pleasant: "Think of something pleasant",
+      onboarding_task_write: "Add a task of your own",
+      onboarding_hint_tasks: "Check tasks off once they're done. For three, Mr. Lapkins brings a find 🎁",
+      onboarding_hint_write: "Last one: tap the task \"Add a task of your own\" and write something that matters to you 🎁",
+      onboarding_features_title: "What else Mr. Lapkins can do",
+      onboarding_f_collection_title: "Treasures",
+      onboarding_f_collection_text: "All the prizes you've earned for finishing tasks are here",
+      onboarding_f_pantry_title: "Shopping",
+      onboarding_f_pantry_text: "Share a list to check things off together. Plus a heads-up when something at home is running low",
+      onboarding_f_homecheck_title: "Home check",
+      onboarding_f_homecheck_text: "Take a photo of the iron before you leave, and stop worrying on the way",
+      onboarding_f_habits_title: "Self-care",
+      onboarding_f_habits_text: "Gentle reminders about water, rest and habits",
+      onboarding_f_focus_title: "Focus",
+      onboarding_f_focus_text: "A timer to calmly focus on one thing",
+      onboarding_features_done: "To my list",
+      toggle_daily_nudge: "Evening hello from Mr. Lapkins",
+      daily_nudge_hint: "A warm message once a day — only on days we haven't seen each other yet. If it's been a while, Mr. Lapkins goes quiet so he never becomes a bother.",
+      nudge_title: "Mr. Lapkins 🐾",
+      nudge_daily_1: "Purr. How was your day? Drop by if you feel like it — I'm right here.",
+      nudge_daily_2: "Evenings are for breathing out. I'm here if you need me.",
+      nudge_daily_3: "It doesn't matter how much got done today. I'm happy to see you anyway.",
+      nudge_daily_4: "I've curled up next to your list. Stop by for a minute?",
+      nudge_daily_5: "If something's on your mind, jot it down and let it go. I'll keep an eye on it.",
+      nudge_daily_6: "Have a cozy evening! If something comes to mind for tomorrow, I'll keep it safe.",
+      nudge_miss_1: "I've missed you a little. No rush — come by whenever you feel like it.",
+      nudge_miss_2: "If thoughts and to-dos have piled up, let's gently sort them out together.",
+      nudge_miss_3: "Purr-purr. Just a reminder that I'm here.",
+      nudge_last: "I'll wait as long as it takes and won't bother you again. Drop by whenever you like 🐾",
       settings_quiet_hours_empty: "No quiet windows added yet.",
       settings_quiet_hours_saved_toast: "Saved",
       aria_preview_sound: "Play preview",
@@ -4921,7 +5087,8 @@
   var boxModalOverlay, boxModalCloseX, giftBox, boxStageBefore, boxStageAfter, boxDeferredCaption, rewardTitleEl, rewardIconEl, rewardLevelEl, rewardNameEl, rewardDescriptionEl, closeModalBtn;
   var paywallOverlay, paywallCloseX, paywallTitle, paywallSubtitle, paywallPlans, paywallAnnualBtn, paywallMonthlyBtn, paywallAnnualPrice, paywallMonthlyPrice, paywallAnnualBadge, paywallAnnualSub, paywallCtaBtn, paywallRestoreBtn;
   var paywallWarningSheetOverlay, paywallWarningSheetCloseX, paywallWarningSheetTitle, paywallWarningSheetText, paywallWarningSheetCtaBtn;
-  var headerLogoBtn, settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, weekStartMondayBtn, weekStartSundayBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle, quietHoursListEl, quietHoursAddBtn;
+  var headerLogoBtn, settingsBtn, settingsSidebar, sidebarOverlay, sidebarCloseX, sidebarTrashBtn, sidebarAchievementsBtn, langRuBtn, langEnBtn, genderLordBtn, genderLadyBtn, weekStartMondayBtn, weekStartSundayBtn, darkThemeToggle, minimalThemeToggle, fontSizeSlider, fontSizeValueEl, settingsReminderSoundBtn, reminderSoundCurrentLabel, reminderSoundBackBtn, reminderSoundListEl, reminderSoundDoneBtn, catThoughtsToggle, showAllTasksToggle, gamificationToggle, soundToggle, hapticsToggle, quietHoursListEl, quietHoursAddBtn, dailyNudgeToggle, dailyNudgeTimeRow, dailyNudgeTimeInput;
+  var onboardingWelcomeOverlay, onboardingWelcomeText, onboardingStartBtn, onboardingWelcomeSkipBtn, onboardingFeaturesOverlay, onboardingFeaturesDoneBtn, onboardingHint, onboardingHintText, onboardingHintSkipBtn;
   var accountSignInBtn, accountSignedIn, accountAvatar, accountAvatarFallback, accountName, accountSignOutBtn;
   var accountDangerSection, deleteAccountBtn, deleteAccountModalOverlay, deleteAccountCancelBtn, deleteAccountConfirmBtn, deleteAccountStatus;
   var isSignedIn = false;
@@ -5366,6 +5533,10 @@
       // a restart instead of re-showing every session between when it first fires and the cutoff.
       paywallWeekWarningShown: false,
       paywallFinalWarningShown: false,
+      // See startOnboarding — "new" only on a genuinely fresh install; normalizeState treats a save
+      // without this field (everyone who installed before onboarding existed) as "done".
+      onboardingStage: "new",
+      onboardingWriteTaskId: null,
       habits: createDefaultHabits(),
       categories: DEFAULT_CATEGORIES.slice(),
       noteCategories: DEFAULT_CATEGORIES.slice(),
@@ -5383,7 +5554,7 @@
       // exist), NOT checked/photos, which stay IndexedDB-only on this device (see
       // HOMECHECK_DB_NAME/reconcileHomeDevicesWithRoster further down).
       homeDevices: createDefaultHomeDevices(),
-      settings: { lang: "ru", gender: "lord", darkTheme: false, minimalTheme: false, showCatThoughts: true, showAllTasksImmediately: false, gamificationEnabled: true, focusWorkMinutes: 30, focusBreakMinutes: 5, fontScale: FONT_SCALE_MIN, taskReminderSound: TASK_REMINDER_SOUND_KEYS[0], quietHours: [], weekStartsOn: "monday" }
+      settings: { lang: "ru", gender: "lord", darkTheme: false, minimalTheme: false, showCatThoughts: true, showAllTasksImmediately: false, gamificationEnabled: true, focusWorkMinutes: 30, focusBreakMinutes: 5, fontScale: FONT_SCALE_MIN, taskReminderSound: TASK_REMINDER_SOUND_KEYS[0], quietHours: [], weekStartsOn: "monday", dailyNudgeEnabled: true, dailyNudgeTime: "19:00" }
     };
   }
 
@@ -5541,6 +5712,8 @@
     // eat into their free window.
     var firstLaunchAt = typeof parsed.firstLaunchAt === "number" ? parsed.firstLaunchAt : Date.now();
     var paywallWeekWarningShown = !!parsed.paywallWeekWarningShown;
+    var onboardingStage = ["new", "tasks", "done"].indexOf(parsed.onboardingStage) !== -1 ? parsed.onboardingStage : "done";
+    var onboardingWriteTaskId = typeof parsed.onboardingWriteTaskId === "string" ? parsed.onboardingWriteTaskId : null;
     var paywallFinalWarningShown = !!parsed.paywallFinalWarningShown;
     var habits = normalizeHabits(parsed);
     var categories = Array.isArray(parsed.categories)
@@ -5613,10 +5786,12 @@
       fontScale: typeof parsedSettings.fontScale === "number" ? clamp(parsedSettings.fontScale, FONT_SCALE_MIN, FONT_SCALE_MAX) : FONT_SCALE_MIN,
       taskReminderSound: TASK_REMINDER_SOUND_KEYS.indexOf(parsedSettings.taskReminderSound) !== -1 ? parsedSettings.taskReminderSound : TASK_REMINDER_SOUND_KEYS[0],
       quietHours: normalizeQuietHours(parsedSettings.quietHours),
-      weekStartsOn: parsedSettings.weekStartsOn === "sunday" ? "sunday" : "monday"
+      weekStartsOn: parsedSettings.weekStartsOn === "sunday" ? "sunday" : "monday",
+      dailyNudgeEnabled: typeof parsedSettings.dailyNudgeEnabled === "boolean" ? parsedSettings.dailyNudgeEnabled : true,
+      dailyNudgeTime: /^\d{2}:\d{2}$/.test(parsedSettings.dailyNudgeTime || "") ? parsedSettings.dailyNudgeTime : "19:00"
     };
     var homeDeviceRoster = normalizeHomeDevices(parsed);
-    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, pendingBoxReveal: pendingBoxReveal, firstLaunchAt: firstLaunchAt, paywallWeekWarningShown: paywallWeekWarningShown, paywallFinalWarningShown: paywallFinalWarningShown, habits: habits, categories: categories, noteCategories: noteCategories, categoryColors: categoryColors, noteCategoryColors: noteCategoryColors, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
+    return { tasks: tasks, pantry: pantry, collections: collections, activeCollection: activeCollection, points: points, firstBoxAwarded: firstBoxAwarded, lastBoxWasFail: lastBoxWasFail, pendingBoxReveal: pendingBoxReveal, firstLaunchAt: firstLaunchAt, paywallWeekWarningShown: paywallWeekWarningShown, paywallFinalWarningShown: paywallFinalWarningShown, onboardingStage: onboardingStage, onboardingWriteTaskId: onboardingWriteTaskId, habits: habits, categories: categories, noteCategories: noteCategories, categoryColors: categoryColors, noteCategoryColors: noteCategoryColors, shoppingLists: shoppingLists, activeShoppingListId: activeShoppingListId, idlePhrases: idlePhrases, homeDevices: homeDeviceRoster, settings: settings };
   }
 
   // Local-only write (not saveState()/queuePush()) — firstLaunchAt is internal bookkeeping for
@@ -5763,6 +5938,10 @@
   // wins: whichever state the cloud has replaces this device's in full, no field-by-field merge.
   function applyRemoteState(remoteState){
     state = normalizeState(remoteState);
+    if(state.onboardingStage === "done"){
+      onboardingAwaitingWrite = false;
+      onboardingWelcomeOverlay.classList.remove("show");
+    }
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
     applySettingsToSidebar();
     applyDarkTheme();
@@ -6055,6 +6234,7 @@
   }
 
   function renderTasks(){
+    if(onboardingHint) renderOnboardingHint();
     // Calendar mode only ever applies to Задачки (see taskViewToggleBtn's own comment — Заметки
     // has no date concept to show one for). Branching here rather than in every mutation call
     // site that already calls renderTasks() (there are dozens) means the calendar just stays in
@@ -7975,26 +8155,46 @@
     // right here rather than once at startup or on every foreground.
     if(window.AppUpdater) window.AppUpdater.deferForCameraCapture();
     if(!window.AppCamera) return;
-    window.AppCamera.takePhoto().then(function(webPath){
-      if(!webPath) return null;
-      return fetch(webPath).then(function(r){ return r.blob(); }).then(function(blob){
-        return compressImageToBase64(blob, 800, 0.7);
-      });
-    }).then(function(base64){
-      if(!base64) return;
-      var device = homeDevices.find(function(d){ return d.id === id; });
-      if(!device) return;
-      var now = new Date();
-      device.checked = true;
-      device.photos.push({
-        photo: base64,
-        timestamp: String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0")
-      });
-      return dbPutDevice(device).then(renderHomeDevices);
-    }).catch(function(e){
-      console.warn("mister Lapkins: failed to process device photo", e);
+    window.AppCamera.takePhoto({ deviceId: id, minimizeAfter: !!opts.minimizeAfter }).then(function(webPath){
+      return saveDevicePhoto(id, webPath);
     }).then(function(){
       if(opts.minimizeAfter) minimizeAppAfterNotificationAction();
+    });
+  }
+
+  // Never rejects. Loads the device list first if it isn't yet — a widget tap can cold-start the
+  // app straight into the camera before anything opened the Контроль дома tab, and the photo used
+  // to be silently dropped then because homeDevices was still empty.
+  function saveDevicePhoto(id, webPath){
+    if(!webPath) return Promise.resolve();
+    return fetch(webPath).then(function(r){ return r.blob(); }).then(function(blob){
+      return compressImageToBase64(blob, 800, 0.7);
+    }).then(function(base64){
+      if(!base64) return;
+      return (homeCheckLoaded ? Promise.resolve() : loadHomeDevices()).then(function(){
+        var device = homeDevices.find(function(d){ return d.id === id; });
+        if(!device) return;
+        var now = new Date();
+        device.checked = true;
+        device.photos.push({
+          photo: base64,
+          timestamp: String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0")
+        });
+        return dbPutDevice(device).then(renderHomeDevices);
+      });
+    }).catch(function(e){
+      console.warn("mister Lapkins: failed to process device photo", e);
+    });
+  }
+
+  // The photo from a capture whose process HyperOS killed while the camera was open (see
+  // src/camera.js's PENDING_KEY) — finishes what openCameraForDevice would have: save it, then
+  // go back to the home screen if it started from the widget.
+  function handleRestoredCameraPhoto(webPath, context){
+    if(!context || !context.deviceId) return;
+    if(context.minimizeAfter) showWidgetActionOverlay();
+    saveDevicePhoto(context.deviceId, webPath).then(function(){
+      if(context.minimizeAfter) minimizeAppAfterNotificationAction();
     });
   }
 
@@ -8317,6 +8517,157 @@
     renderCollection();
     renderHabits();
     renderProgress();
+  }
+
+  // ---------- onboarding (2026-10-07) ----------
+  // First-launch intro aimed at the app's actual hook — the cat's gift box every 3 tasks. A brand
+  // new account's first box is always a real gift (see addProgress's forcedGift), so walking
+  // someone through three tiny tasks right away guarantees a treasure within the first minute:
+  //   "new"   — welcome card (startOnboarding).
+  //   "tasks" — three starter tasks in the list + a hint above them. The third ("write down one
+  //             thing") doesn't just check off: tapping it opens the add-task modal, and saving
+  //             their own task completes it — so the box also comes with their first real task.
+  //   then    — the box reveal; closing it shows the "what else is here" card and marks "done".
+  // Gamification off: welcome → features card directly, no starter tasks (no box to earn).
+  // Skippable at every step; existing users never see any of it (see normalizeState).
+  var onboardingAwaitingWrite = false;
+
+  function logOnboarding(name, params){
+    if(window.AppAnalytics) window.AppAnalytics.logEvent(name, params);
+  }
+
+  function startOnboarding(force){
+    if(state.onboardingStage === "tasks"){ renderOnboardingHint(); return; }
+    if(state.onboardingStage !== "new") return;
+    if(!force && state.tasks.length > 0){ state.onboardingStage = "done"; saveState(); return; }
+    var game = state.settings.gamificationEnabled;
+    onboardingWelcomeText.textContent = t(game ? "onboarding_welcome_text" : "onboarding_welcome_text_plain");
+    onboardingStartBtn.textContent = t(game ? "onboarding_start" : "onboarding_start_plain");
+    onboardingWelcomeOverlay.classList.add("show");
+    logOnboarding("onboarding_start");
+  }
+
+  function beginOnboardingTasks(){
+    onboardingWelcomeOverlay.classList.remove("show");
+    if(!state.settings.gamificationEnabled){
+      state.onboardingStage = "done";
+      saveState();
+      onboardingFeaturesOverlay.classList.add("show");
+      return;
+    }
+    switchTab("tasks");
+    var keys = ["onboarding_task_water", "onboarding_task_pleasant", "onboarding_task_write"];
+    var base = Date.now();
+    keys.forEach(function(key, i){
+      addTask("", t(key), "task", null, null, null);
+      state.tasks[state.tasks.length - 1].order = base + i;
+    });
+    state.onboardingWriteTaskId = state.tasks[state.tasks.length - 1].id;
+    state.onboardingStage = "tasks";
+    saveState();
+    renderTasks();
+    renderOnboardingHint();
+  }
+
+  function renderOnboardingHint(){
+    var active = state.onboardingStage === "tasks";
+    onboardingHint.classList.toggle("hidden", !active);
+    if(!active) return;
+    var others = state.tasks.filter(function(task){
+      return task.id !== state.onboardingWriteTaskId &&
+        (task.text === t("onboarding_task_water") || task.text === t("onboarding_task_pleasant"));
+    });
+    var othersDone = others.length === 0 || others.every(function(task){ return task.completed || task.archived; });
+    onboardingHintText.textContent = t(othersDone ? "onboarding_hint_write" : "onboarding_hint_tasks");
+  }
+
+  // toggleTask's hook for the "write down one thing" starter task — true means "handled here,
+  // don't complete it yet".
+  function interceptOnboardingWriteTask(id){
+    if(state.onboardingStage !== "tasks" || id !== state.onboardingWriteTaskId) return false;
+    onboardingAwaitingWrite = true;
+    openAddTaskModal();
+    return true;
+  }
+
+  // addTask's hook — the person just saved their own first task from the modal opened above.
+  function onboardingTaskAdded(type){
+    if(!onboardingAwaitingWrite || type !== "task") return;
+    onboardingAwaitingWrite = false;
+    var writeId = state.onboardingWriteTaskId;
+    state.onboardingWriteTaskId = null;
+    saveState();
+    // After the modal's own close animation, so the check-off (and the box) are actually seen.
+    setTimeout(function(){ toggleTask(writeId); }, 350);
+  }
+
+  // closeBoxModal's hook — the first box of the onboarding run was just seen.
+  function onboardingBoxClosed(){
+    if(state.onboardingStage !== "tasks") return;
+    state.onboardingStage = "done";
+    state.onboardingWriteTaskId = null;
+    saveState();
+    renderOnboardingHint();
+    logOnboarding("onboarding_box");
+    setTimeout(function(){ onboardingFeaturesOverlay.classList.add("show"); }, 400);
+  }
+
+  function skipOnboarding(step){
+    onboardingWelcomeOverlay.classList.remove("show");
+    onboardingAwaitingWrite = false;
+    state.onboardingStage = "done";
+    state.onboardingWriteTaskId = null;
+    saveState();
+    renderOnboardingHint();
+    logOnboarding("onboarding_skip", { step: step });
+  }
+
+  function closeOnboardingFeatures(feature){
+    onboardingFeaturesOverlay.classList.remove("show");
+    logOnboarding("onboarding_complete", { feature: feature || "list" });
+    if(feature === "focus"){ openFocusMode(); return; }
+    switchTab(feature || "tasks");
+  }
+
+  // ---------- evening nudge (2026-10-07) ----------
+  // A gentle "come back" notification for people who installed the app and then simply forgot
+  // about it — nothing else ever reaches them if they never set a reminder of their own. The app
+  // is deliberately non-pushy, so: never on a day the app was already opened (the series always
+  // starts tomorrow and is rebuilt on every launch/resume), a softer "I missed you" after a few
+  // days, and one last goodbye-for-now at day 7 — then silence until the next visit restarts it.
+  // Skipped outright (not pushed later) if it lands in quiet hours.
+  var DAILY_NUDGE_SCHEDULE = [
+    { day: 1, pool: "daily" }, { day: 2, pool: "daily" }, { day: 3, pool: "miss" },
+    { day: 5, pool: "miss" }, { day: 7, pool: "last" }
+  ];
+  var NUDGE_POOLS = {
+    daily: ["nudge_daily_1", "nudge_daily_2", "nudge_daily_3", "nudge_daily_4", "nudge_daily_5", "nudge_daily_6"],
+    miss: ["nudge_miss_1", "nudge_miss_2", "nudge_miss_3"],
+    last: ["nudge_last"]
+  };
+
+  function pickNudgeKey(pool){
+    var keys = NUDGE_POOLS[pool];
+    return keys[Math.floor(Math.random() * keys.length)];
+  }
+
+  function scheduleDailyNudges(){
+    if(!window.AppNotifications) return;
+    DAILY_NUDGE_SCHEDULE.forEach(function(s){ window.AppNotifications.cancelReminder("nudge:" + s.day); });
+    if(!state.settings.dailyNudgeEnabled) return;
+    var parts = state.settings.dailyNudgeTime.split(":");
+    var usedKeys = {};
+    DAILY_NUDGE_SCHEDULE.forEach(function(s){
+      var when = new Date();
+      when.setDate(when.getDate() + s.day);
+      when.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+      if(quietHoursPushedTime(new Date(when.getTime())).getTime() !== when.getTime()) return;
+      var key = pickNudgeKey(s.pool);
+      // Two "daily" days in a row shouldn't say the exact same thing.
+      for(var tries = 0; usedKeys[key] && tries < 5; tries++) key = pickNudgeKey(s.pool);
+      usedKeys[key] = true;
+      window.AppNotifications.scheduleReminder("nudge:" + s.day, t("nudge_title"), t(key), when);
+    });
   }
 
   // ---------- reminder notifications ----------
@@ -8676,6 +9027,7 @@
     };
     state.tasks.push(task);
     scheduleTaskReminderNotification(task);
+    onboardingTaskAdded(type);
     if(window.AppAnalytics) window.AppAnalytics.logEvent("task_created", { type: type, has_reminder: reminderDateTime ? 1 : 0 });
     saveState();
     renderTasks();
@@ -8928,6 +9280,7 @@
   function toggleTask(id, opts){
     var task = state.tasks.find(function(t){ return t.id === id; });
     if(!task) return;
+    if(!task.completed && interceptOnboardingWriteTask(id)) return;
     // A task with subtasks can be checked off directly too, independent of how many of its
     // subtasks are done — this is the ONLY thing that completes (or reopens) it either way, on
     // purpose: finishing every subtask doesn't auto-complete the task, since the user might still
@@ -9338,6 +9691,7 @@
 
   function closeBoxModal(){
     boxModalOverlay.classList.remove("show");
+    onboardingBoxClosed();
     // The reward may have come from whichever collection the user *wasn't* looking at —
     // switch to it so the pop animation below has something to find, and so the new/leveled-up
     // item is actually visible instead of silently landing in a tab that isn't on screen.
@@ -10093,6 +10447,9 @@
     reminderSoundCurrentLabel.textContent = t("task_reminder_sound_" + state.settings.taskReminderSound);
     renderReminderSoundList();
     renderQuietHoursList();
+    dailyNudgeToggle.checked = state.settings.dailyNudgeEnabled;
+    dailyNudgeTimeInput.value = state.settings.dailyNudgeTime;
+    dailyNudgeTimeRow.classList.toggle("hidden", !state.settings.dailyNudgeEnabled);
     catThoughtsToggle.checked = state.settings.showCatThoughts;
     showAllTasksToggle.checked = state.settings.showAllTasksImmediately;
     gamificationToggle.checked = state.settings.gamificationEnabled;
@@ -11850,6 +12207,7 @@
     if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
       window.Capacitor.Plugins.App.addListener("appStateChange", function(state){
         if(!state || !state.isActive) return;
+        scheduleDailyNudges();
         replayWidgetPendingActions();
         if(!widgetOverlayBusy) hideWidgetActionOverlay();
       });
@@ -11991,6 +12349,26 @@
     });
 
     quietHoursAddBtn.addEventListener("click", addQuietHoursRange);
+    dailyNudgeToggle.addEventListener("change", function(){
+      state.settings.dailyNudgeEnabled = dailyNudgeToggle.checked;
+      dailyNudgeTimeRow.classList.toggle("hidden", !dailyNudgeToggle.checked);
+      saveState();
+      scheduleDailyNudges();
+    });
+    dailyNudgeTimeInput.addEventListener("change", function(){
+      if(!/^\d{2}:\d{2}$/.test(dailyNudgeTimeInput.value)) return;
+      state.settings.dailyNudgeTime = dailyNudgeTimeInput.value;
+      saveState();
+      scheduleDailyNudges();
+    });
+    onboardingStartBtn.addEventListener("click", beginOnboardingTasks);
+    onboardingWelcomeSkipBtn.addEventListener("click", function(){ skipOnboarding("welcome"); });
+    onboardingHintSkipBtn.addEventListener("click", function(){ skipOnboarding("tasks"); });
+    onboardingFeaturesDoneBtn.addEventListener("click", function(){ closeOnboardingFeatures(null); });
+    onboardingFeaturesOverlay.addEventListener("click", function(e){
+      var row = e.target.closest(".onboarding-feature");
+      if(row) closeOnboardingFeatures(row.dataset.feature);
+    });
     quietHoursListEl.addEventListener("change", function(e){
       var input = e.target.closest(".quiet-hours-input");
       if(input) updateQuietHoursRange(Number(input.dataset.index), input.dataset.field, input.value);
@@ -12365,6 +12743,18 @@
     hapticsToggle = document.getElementById("hapticsToggle");
     quietHoursListEl = document.getElementById("quietHoursList");
     quietHoursAddBtn = document.getElementById("quietHoursAddBtn");
+    dailyNudgeToggle = document.getElementById("dailyNudgeToggle");
+    dailyNudgeTimeRow = document.getElementById("dailyNudgeTimeRow");
+    dailyNudgeTimeInput = document.getElementById("dailyNudgeTimeInput");
+    onboardingWelcomeOverlay = document.getElementById("onboardingWelcomeOverlay");
+    onboardingWelcomeText = document.getElementById("onboardingWelcomeText");
+    onboardingStartBtn = document.getElementById("onboardingStartBtn");
+    onboardingWelcomeSkipBtn = document.getElementById("onboardingWelcomeSkipBtn");
+    onboardingFeaturesOverlay = document.getElementById("onboardingFeaturesOverlay");
+    onboardingFeaturesDoneBtn = document.getElementById("onboardingFeaturesDoneBtn");
+    onboardingHint = document.getElementById("onboardingHint");
+    onboardingHintText = document.getElementById("onboardingHintText");
+    onboardingHintSkipBtn = document.getElementById("onboardingHintSkipBtn");
     kindnessModalOverlay = document.getElementById("kindnessModalOverlay");
     kindnessModalCloseX = document.getElementById("kindnessModalCloseX");
     collectionInfoBtn = document.getElementById("collectionInfoBtn");
@@ -12441,6 +12831,7 @@
     // "Готово" notification button) waits here — the first real moment someone's actually in the
     // app — rather than trying (and failing) to show a modal from a backgrounded notification tap.
     if(state.settings.gamificationEnabled && state.pendingBoxReveal) showBoxModal();
+    else startOnboarding();
     replayWidgetPendingActions();
     checkReminders();
     setInterval(checkReminders, 20000);
@@ -12507,6 +12898,7 @@
       rescheduleAllHabitReminders();
       rescheduleAllPantryReminders();
       reconcileScheduledReminders();
+      scheduleDailyNudges();
     }
 
     // Offers the Play Store update (see src/appUpdate.js) — deferred a few seconds so it never
@@ -12520,6 +12912,7 @@
     }
 
     if(window.AppDeepLink) window.AppDeepLink.init(handleJoinDeepLink, handleWidgetAction);
+    if(window.AppCamera) window.AppCamera.onRestoredPhoto(handleRestoredCameraPhoto);
 
     // --kb-modal-max-h (see .add-task-card's own comment) — visualViewport.height already
     // excludes the on-screen keyboard on Android Chrome/WebView, unlike window.innerHeight (which

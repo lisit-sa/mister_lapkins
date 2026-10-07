@@ -1,4 +1,5 @@
 (() => {
+  var __defProp = Object.defineProperty;
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __esm = (fn, res, err) => function __init() {
     if (err) throw err[0];
@@ -14,6 +15,10 @@
     } catch (e) {
       throw mod = 0, e;
     }
+  };
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
   };
 
   // node_modules/@capacitor/core/dist/index.js
@@ -1075,17 +1080,120 @@
     }
   });
 
+  // node_modules/@capacitor/app/dist/esm/definitions.js
+  var init_definitions2 = __esm({
+    "node_modules/@capacitor/app/dist/esm/definitions.js"() {
+    }
+  });
+
+  // node_modules/@capacitor/app/dist/esm/web.js
+  var web_exports = {};
+  __export(web_exports, {
+    AppWeb: () => AppWeb
+  });
+  var AppWeb;
+  var init_web2 = __esm({
+    "node_modules/@capacitor/app/dist/esm/web.js"() {
+      init_dist();
+      AppWeb = class extends WebPlugin {
+        constructor() {
+          super();
+          this.handleVisibilityChange = () => {
+            const data = {
+              isActive: document.hidden !== true
+            };
+            this.notifyListeners("appStateChange", data);
+            if (document.hidden) {
+              this.notifyListeners("pause", null);
+            } else {
+              this.notifyListeners("resume", null);
+            }
+          };
+          document.addEventListener("visibilitychange", this.handleVisibilityChange, false);
+        }
+        exitApp() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getInfo() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getLaunchUrl() {
+          return { url: "" };
+        }
+        async getState() {
+          return { isActive: document.hidden !== true };
+        }
+        async minimizeApp() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async toggleBackButtonHandler() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getAppLanguage() {
+          return {
+            value: navigator.language.split("-")[0].toLowerCase()
+          };
+        }
+      };
+    }
+  });
+
+  // node_modules/@capacitor/app/dist/esm/index.js
+  var App;
+  var init_esm2 = __esm({
+    "node_modules/@capacitor/app/dist/esm/index.js"() {
+      init_dist();
+      init_definitions2();
+      App = registerPlugin("App", {
+        web: () => Promise.resolve().then(() => (init_web2(), web_exports)).then((m) => new m.AppWeb())
+      });
+    }
+  });
+
   // src/camera.js
   var require_camera = __commonJS({
     "src/camera.js"() {
       init_esm();
+      init_esm2();
+      var PENDING_KEY = "appCameraPendingCapture";
+      var PENDING_MAX_AGE_MS = 10 * 60 * 1e3;
+      function savePending(context) {
+        try {
+          localStorage.setItem(PENDING_KEY, JSON.stringify({ context: context || null, at: Date.now() }));
+        } catch (e) {
+        }
+      }
+      function takePending() {
+        try {
+          var raw = localStorage.getItem(PENDING_KEY);
+          localStorage.removeItem(PENDING_KEY);
+          var pending = raw ? JSON.parse(raw) : null;
+          if (!pending || Date.now() - pending.at > PENDING_MAX_AGE_MS) return null;
+          return pending;
+        } catch (e) {
+          return null;
+        }
+      }
+      var restoredHandler = null;
+      var restoredQueue = [];
+      App.addListener("appRestoredResult", function(event) {
+        if (!event || event.pluginId !== "Camera") return;
+        var pending = takePending();
+        var webPath = event.success && event.data && event.data.webPath ? event.data.webPath : null;
+        var item = { webPath, context: pending ? pending.context : null };
+        if (restoredHandler) restoredHandler(item.webPath, item.context);
+        else restoredQueue.push(item);
+      });
       window.AppCamera = {
         // Resolves the captured photo's webPath (a blob: URL the caller can fetch()+compress itself,
         // same shape index.html's existing compressImageToBase64 already expects from a File/Blob) —
         // or null if the user cancelled or the native call failed for any reason (permission denial,
         // no camera app, etc.). Never rejects, so callers don't need their own .catch just to handle
         // "nothing happened".
-        takePhoto: function() {
+        // context: whatever the caller needs to finish handling the photo if the app gets killed while
+        // the camera is open — handed back to onRestoredPhoto's handler in that case (see PENDING_KEY).
+        takePhoto: function(context) {
+          savePending(context);
           return Camera2.getPhoto({
             quality: 90,
             allowEditing: false,
@@ -1097,6 +1205,19 @@
           }).catch(function(e) {
             console.warn("AppCamera: takePhoto failed/cancelled", e && e.message);
             return null;
+          }).then(function(webPath) {
+            takePending();
+            return webPath;
+          });
+        },
+        // handler(webPath|null, context) — called for a photo taken by a previous, killed process (see
+        // PENDING_KEY). Results that arrived before this was registered are replayed right away.
+        onRestoredPhoto: function(handler) {
+          restoredHandler = handler;
+          var queued = restoredQueue;
+          restoredQueue = [];
+          queued.forEach(function(item) {
+            handler(item.webPath, item.context);
           });
         }
       };

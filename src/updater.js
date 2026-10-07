@@ -13,6 +13,15 @@ import { CapacitorUpdater } from "@capgo/capacitor-updater";
 
 var MANIFEST_URL = "https://mister-lapkins.web.app/updates/version.json";
 
+// Beta channel (2026-10-07) — `npm run deploy:beta` publishes beta.json instead of version.json,
+// and only the devices listed here look at it, so a change can be tried on Kristina's own
+// phone (real Play build, real data) before `npm run deploy` ships it to everyone. A beta device
+// takes whichever of the two manifests is newer, so a later normal deploy still reaches it.
+// Device ids are Capgo's own (CapacitorUpdater.getDeviceId(), also logged by the plugin at
+// launch as "init for device ..."); a reinstall can change it.
+var BETA_MANIFEST_URL = "https://mister-lapkins.web.app/updates/beta.json";
+var BETA_DEVICE_IDS = ["5611a8c4-1687-42cf-9dc7-8d724e123f11"];
+
 // The plugin's own default is to apply a queued (next()) bundle the moment the app so much as
 // backgrounds — CapacitorUpdaterPlugin's appMovedToBackground() -> installNext() -> _reload(),
 // which swaps the WebView's page and reloads it, with no config on our side ever asked for that.
@@ -84,13 +93,33 @@ function reloadWhenSafe(){
   setTimeout(reloadWhenSafe, RELOAD_RETRY_MS);
 }
 
+async function fetchManifest(url){
+  var res = await fetch(url, { cache: "no-store" });
+  if(!res.ok){ console.error("AppUpdater: manifest fetch failed", url, res.status); return null; }
+  var manifest = await res.json();
+  if(!manifest || !manifest.version || !manifest.url){ console.error("AppUpdater: malformed manifest", manifest); return null; }
+  return manifest;
+}
+
+async function isBetaDevice(){
+  try{
+    var res = await CapacitorUpdater.getDeviceId();
+    return BETA_DEVICE_IDS.indexOf(res && res.deviceId) !== -1;
+  }catch(e){
+    return false;
+  }
+}
+
 async function checkForUpdate(){
   await deferUpdatesUntilKill();
   try{
-    var res = await fetch(MANIFEST_URL, { cache: "no-store" });
-    if(!res.ok){ console.error("AppUpdater: manifest fetch failed", res.status); return; }
-    var manifest = await res.json();
-    if(!manifest || !manifest.version || !manifest.url){ console.error("AppUpdater: malformed manifest", manifest); return; }
+    var manifest = await fetchManifest(MANIFEST_URL);
+    if(await isBetaDevice()){
+      // Versions are UTC timestamps (see scripts/release.js), so string order is time order.
+      var beta = await fetchManifest(BETA_MANIFEST_URL).catch(function(){ return null; });
+      if(beta && (!manifest || beta.version > manifest.version)) manifest = beta;
+    }
+    if(!manifest) return;
 
     var current = await CapacitorUpdater.current();
     var currentVersion = current && current.bundle ? current.bundle.version : "";

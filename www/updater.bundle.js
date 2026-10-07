@@ -1093,6 +1093,8 @@
     "src/updater.js"() {
       init_esm();
       var MANIFEST_URL = "https://mister-lapkins.web.app/updates/version.json";
+      var BETA_MANIFEST_URL = "https://mister-lapkins.web.app/updates/beta.json";
+      var BETA_DEVICE_IDS = ["5611a8c4-1687-42cf-9dc7-8d724e123f11"];
       async function deferUpdatesUntilKill() {
         try {
           await CapacitorUpdater.setMultiDelay({ delayConditions: [{ kind: "background", value: "120000" }] });
@@ -1115,19 +1117,38 @@
         }
         setTimeout(reloadWhenSafe, RELOAD_RETRY_MS);
       }
+      async function fetchManifest(url) {
+        var res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          console.error("AppUpdater: manifest fetch failed", url, res.status);
+          return null;
+        }
+        var manifest = await res.json();
+        if (!manifest || !manifest.version || !manifest.url) {
+          console.error("AppUpdater: malformed manifest", manifest);
+          return null;
+        }
+        return manifest;
+      }
+      async function isBetaDevice() {
+        try {
+          var res = await CapacitorUpdater.getDeviceId();
+          return BETA_DEVICE_IDS.indexOf(res && res.deviceId) !== -1;
+        } catch (e) {
+          return false;
+        }
+      }
       async function checkForUpdate() {
         await deferUpdatesUntilKill();
         try {
-          var res = await fetch(MANIFEST_URL, { cache: "no-store" });
-          if (!res.ok) {
-            console.error("AppUpdater: manifest fetch failed", res.status);
-            return;
+          var manifest = await fetchManifest(MANIFEST_URL);
+          if (await isBetaDevice()) {
+            var beta = await fetchManifest(BETA_MANIFEST_URL).catch(function() {
+              return null;
+            });
+            if (beta && (!manifest || beta.version > manifest.version)) manifest = beta;
           }
-          var manifest = await res.json();
-          if (!manifest || !manifest.version || !manifest.url) {
-            console.error("AppUpdater: malformed manifest", manifest);
-            return;
-          }
+          if (!manifest) return;
           var current = await CapacitorUpdater.current();
           var currentVersion = current && current.bundle ? current.bundle.version : "";
           if (manifest.version === currentVersion) return;
